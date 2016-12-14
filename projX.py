@@ -11,10 +11,11 @@ from bmutils import cluster_to_target as _cluster_to_target, \
     re_warp as _re_warp, \
     get_good_starting_point as _get_good_starting_point, \
     visual_path as _visual_path, \
-    link_ax_w_pos_2_nglwidget as _link_ax_w_pos_2_nglwidget
+    link_ax_w_pos_2_nglwidget as _link_ax_w_pos_2_nglwidget, \
+    src_n_data as _src_n_data
+
 from collections import defaultdict as _defdict
 import nglview as _nglview
-from matplotlib import pylab as _plt
 
 def generate_paths(MDtrajectory_files, topology, projected_data,
                    n_projs=1, proj_dim=2, proj_idxs=None,
@@ -34,18 +35,7 @@ def generate_paths(MDtrajectory_files, topology, projected_data,
         behaviour is that proj_idxs = range(n_projs).
         However, if proj_idxs != None, then n_projs is ignored and proj_dim is set automatically
     """
-    src = _source(MDtrajectory_files, top=topology)#, projected_file)
-
-    # Load data  up to :proj_dim column
-    if isinstance(projected_data, str) or isinstance(projected_data, _np.ndarray):
-        projected_data = [projected_data]
-    elif not isinstance(projected_data, list):
-        raise ValueError("Data type not understood %"%type(projected_data))
-    if isinstance(projected_data[0],str):
-        idata = [_np.load(f) for f in projected_data]
-    else:
-        idata = projected_data
-
+    src, idata = _src_n_data(MDtrajectory_files, topology, projected_data)
 
     # What's the hightest dimensionlatiy that the input data allows?
     input_dim = idata[0].shape[1]
@@ -57,6 +47,7 @@ def generate_paths(MDtrajectory_files, topology, projected_data,
 
     proj_dim = _np.max((proj_dim, _np.max(proj_idxs)+1))
     proj_dim = _np.min((proj_dim,input_dim))
+    # Load data  up to :proj_dim column
     idata = [dd[:,:proj_dim] for dd in idata]
 
     # Iterate over wanted coords
@@ -182,3 +173,24 @@ def visualize_paths(path, geom,
                                )
     return iwd
 
+def visualize_2D(MDtrajectory_files, topology, projected_data,
+                 idxs=[0,1], n_points=100, n_geom_samples=100,
+                 verbose=False):
+
+    src, idata = _src_n_data(MDtrajectory_files, topology, projected_data)
+    idata = [dd[:,idxs] for dd in idata]
+
+
+    cl = _cluster_to_target(idata, n_points, n_try_max=3, verbose=verbose)
+
+    #axes[0] = _np.linspace(0, num=_np.round(_np.sqrt(n_geom_samples)))
+
+    #mesh = _np.meshgrid(axes[0], axes[1], axes[2],indexing='ij')
+    #pos = _np.vstack(mesh).reshape(3,-1).T
+
+
+    return cl
+
+
+
+    pass

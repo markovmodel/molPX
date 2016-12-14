@@ -1,5 +1,4 @@
 import numpy as _np
-from hTutils import re_warp
 import mdtraj as _md
 from matplotlib import pyplot as _plt
 from matplotlib.widgets import AxesWidget as _AxesWidget
@@ -11,6 +10,31 @@ from pyemma.coordinates import source as _source, cluster_regspace as _cluster_r
 from pyemma.util.discrete_trajectories import index_states as _index_states
 from scipy.spatial import cKDTree as _cKDTree
 
+def re_warp(array_in, lengths):
+    """Return iterable ::py:obj:array_in as a list of arrays, each
+     one with the length specified in lengths
+
+    Parameters
+    ----------
+
+    array_in: any iterable
+        Iterable to be re_warped
+
+    lenghts : iterable of integers
+        Lenghts of the individual elements of the returned array
+
+
+    Returns
+    -------
+    warped: list
+    """
+
+    warped = []
+    idxi = 0
+    for ii, ll in enumerate(lengths):
+        warped.append(array_in[idxi:idxi+ll])
+        idxi += ll
+    return warped
 
 def dictionarize_list(list, input_dict, output_dict = None):
     if output_dict is None:
@@ -39,8 +63,10 @@ def correlations2CA_pairs(icorr,  geom_sample, corr_cutoff_after_max=.95, feat_t
 
 def cluster_to_target(data, n_clusters_target, n_try_max=5, verbose=False):
     r"""
-    Naive heuristic to try to get to the right n_clusters using regspace cl in n_try_max tries"
+    Naive heuristic to try to get to the right n_clusters using 1D regspace cl in n_try_max tries"
     """
+
+    # Works badly with 2D clusters
     cmax = _np.hstack(data).max()
     cmin = _np.hstack(data).min()
     dmin = (cmax-cmin)/(n_clusters_target+1)
@@ -446,6 +472,21 @@ def targets_in_candidates(candidates, targets, verbose=True ):
                 print('Kept:\n', '\n'.join(out_list))
 
     return out_list
+
+def src_n_data(MDtrajectory_files, topology, projected_data):
+    src = _source(MDtrajectory_files, top=topology)
+
+
+    if isinstance(projected_data, str) or isinstance(projected_data, _np.ndarray):
+        projected_data = [projected_data]
+    elif not isinstance(projected_data, list):
+        raise ValueError("Data type not understood %"%type(projected_data))
+    if isinstance(projected_data[0],str):
+        idata = [_np.load(f) for f in projected_data]
+    else:
+        idata = projected_data
+
+    return src, idata
 
 def src_in_this_proj(proj, mdtraj_dir,
                       dirstartswith='DESRES-Trajectory_',

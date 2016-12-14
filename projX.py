@@ -12,7 +12,7 @@ from bmutils import cluster_to_target as _cluster_to_target, \
     get_good_starting_point as _get_good_starting_point, \
     visual_path as _visual_path, \
     link_ax_w_pos_2_nglwidget as _link_ax_w_pos_2_nglwidget, \
-    src_n_data as _src_n_data
+    data_from_input as _data_from_input
 
 from collections import defaultdict as _defdict
 import nglview as _nglview
@@ -35,8 +35,9 @@ def generate_paths(MDtrajectory_files, topology, projected_data,
         behaviour is that proj_idxs = range(n_projs).
         However, if proj_idxs != None, then n_projs is ignored and proj_dim is set automatically
     """
-    src, idata = _src_n_data(MDtrajectory_files, topology, projected_data)
 
+    src = _source(MDtrajectory_files, top=topology)
+    idata = _data_from_input(projected_data)
     # What's the hightest dimensionlatiy that the input data allows?
     input_dim = idata[0].shape[1]
     if proj_idxs is None:
@@ -146,7 +147,7 @@ def generate_paths(MDtrajectory_files, topology, projected_data,
         #TODO : consider storing the data in each dict. It's redundant but makes each dict kinda standalone
     return out_dict, idata
 
-def visualize_paths(path, geom,
+def visualize_sample(path, geom,
                     ax,
                     plot_path=False,
                     clear_lines=True
@@ -158,12 +159,10 @@ def visualize_paths(path, geom,
     # Create ngl_viewer widget
     iwd = _nglview.show_mdtraj(geom)
 
+    if clear_lines == True:
+        [ax.lines.pop() for ii in range(len(ax.lines))]
+    # Plot the path on top of it
     if plot_path:
-        if clear_lines == True:
-            [ax.lines.pop() for ii in range(len(ax.lines))]
-
-
-        # Plot the path on top of it
         ax.plot(path[:,0], path[:,1], '-g', lw=3)
 
     # Link the axes widget with the ngl widget
@@ -173,24 +172,34 @@ def visualize_paths(path, geom,
                                )
     return iwd
 
-def visualize_2D(MDtrajectory_files, topology, projected_data,
-                 idxs=[0,1], n_points=100, n_geom_samples=100,
-                 verbose=False):
+def generate_sample(MDtrajectory_files, topology, projected_data,
+                 idxs=[0,1], n_points=100, n_geom_samples=1,
+                 proj_stride=1,
+                 verbose=False
+                 ):
+    r"""
+    projected data: nd.array or list of nd.arrays OR pyemma.clustering object
+        Although 2D is the most usual case, the dimensionality of the clustering and the one of the visualization (2D)
+        do not necessarily have to be the same
+    """
+    #TODO
+    assert n_geom_samples == 1, "More samples will be implemented shortly"
 
-    src, idata = _src_n_data(MDtrajectory_files, topology, projected_data)
-    idata = [dd[:,idxs] for dd in idata]
+    src = _source(MDtrajectory_files, top=topology)
 
+    # Find out if we already have a clustering object
+    try:
+        projected_data.dtrajs
+        cl = projected_data
+    except:
+        idata = _data_from_input(projected_data)
+        cl = _cluster_to_target([dd[:,idxs] for dd in idata], n_points, n_try_max=3, verbose=verbose)
 
-    cl = _cluster_to_target(idata, n_points, n_try_max=3, verbose=verbose)
+    pos = cl.clustercenters
+    cat_smpl = cl.sample_indexes_by_cluster(_np.arange(cl.n_clusters), n_geom_samples)
+    geom_smpl = _save_traj(src, _np.vstack(cat_smpl), None, stride=proj_stride)
+    # TODO implement candidate selection on the structures
 
-    #axes[0] = _np.linspace(0, num=_np.round(_np.sqrt(n_geom_samples)))
-
-    #mesh = _np.meshgrid(axes[0], axes[1], axes[2],indexing='ij')
-    #pos = _np.vstack(mesh).reshape(3,-1).T
-
-
-    return cl
-
-
+    return pos, geom_smpl
 
     pass

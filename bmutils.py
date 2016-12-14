@@ -4,7 +4,9 @@ from matplotlib import pyplot as _plt
 from matplotlib.widgets import AxesWidget as _AxesWidget
 from glob import glob
 from os import path as ospath
-from sklearn.mixture import GMM as _GMM
+#from sklearn.mixture import GMM as _GMM
+from sklearn.mixture import GaussianMixture as _GMM
+
 from pyemma.util.linalg import eig_corr
 from pyemma.coordinates import source as _source, cluster_regspace as _cluster_regspace
 from pyemma.util.discrete_trajectories import index_states as _index_states
@@ -473,20 +475,19 @@ def targets_in_candidates(candidates, targets, verbose=True ):
 
     return out_list
 
-def src_n_data(MDtrajectory_files, topology, projected_data):
-    src = _source(MDtrajectory_files, top=topology)
-
+def data_from_input(projected_data):
 
     if isinstance(projected_data, str) or isinstance(projected_data, _np.ndarray):
         projected_data = [projected_data]
     elif not isinstance(projected_data, list):
         raise ValueError("Data type not understood %"%type(projected_data))
+
     if isinstance(projected_data[0],str):
         idata = [_np.load(f) for f in projected_data]
     else:
         idata = projected_data
 
-    return src, idata
+    return idata
 
 def src_in_this_proj(proj, mdtraj_dir,
                       dirstartswith='DESRES-Trajectory_',

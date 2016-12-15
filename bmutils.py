@@ -3,7 +3,8 @@ import mdtraj as _md
 from matplotlib import pyplot as _plt
 from matplotlib.widgets import AxesWidget as _AxesWidget
 from glob import glob
-from os import path as ospath
+import os
+import tempfile
 #from sklearn.mixture import GMM as _GMM
 from sklearn.mixture import GaussianMixture as _GMM
 
@@ -11,6 +12,7 @@ from pyemma.util.linalg import eig_corr
 from pyemma.coordinates import source as _source, cluster_regspace as _cluster_regspace
 from pyemma.util.discrete_trajectories import index_states as _index_states
 from scipy.spatial import cKDTree as _cKDTree
+from myMDvisuals import customvmd
 
 def re_warp(array_in, lengths):
     """Return iterable ::py:obj:array_in as a list of arrays, each
@@ -359,7 +361,7 @@ def sequential_rmsd_fit(geomin, start_frame=0):
 def opentica_npz(ticanpzfile):
     r"""Open a simon-type of ticafile.npz and return some variables
     """
-    lag_str = ospath.basename(ticanpzfile).replace('tica_','').replace('.npz','')
+    lag_str = os.path.basename(ticanpzfile).replace('tica_','').replace('.npz','')
     trajdata = _np.load(ticanpzfile, encoding='latin1')
     icov, icovtau = trajdata['tica_cov'], trajdata['tica_cov_tau']
     l, U = eig_corr(icov, icovtau)
@@ -518,13 +520,13 @@ def src_in_this_proj(proj, mdtraj_dir,
     xtcs = []
     ii = 0
     struct = None
-    for __, idir in enumerate(sorted(glob(ospath.join(mdtraj_dir, dirstartswith+proj+'*')))):
+    for __, idir in enumerate(sorted(glob(os.path.join(mdtraj_dir, dirstartswith+proj+'*')))):
         if not idir.endswith('tar.gz'):
-            subdir = ospath.join(idir,strfile_fmt%(proj, ii))
-            these_trajs = sorted(glob(ospath.join(subdir,'*'+ext)))
+            subdir = os.path.join(idir,strfile_fmt%(proj, ii))
+            these_trajs = sorted(glob(os.path.join(subdir,'*'+ext)))
             xtcs.append(these_trajs)
             if struct is None:
-                struct = ospath.join(subdir,'%s-%u-protein.pdb'%(proj,ii))
+                struct = os.path.join(subdir,'%s-%u-protein.pdb'%(proj,ii))
             ii += 1
 
     src = _source(xtcs, top=struct)
@@ -695,3 +697,51 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget):
 
     # Connect widget to axes
     nglwidget.observe(my_observer, "frame", "change")
+
+def myflush(pipe, istr='#', size=1e3):
+    pipe.write(''.join([istr+'\n' for ii in range(int(size))]))
+
+def link_ax_w_pos_2_vmd(ax, pos, geoms, **customVMD_kwargs):
+    import subprocess
+    r"""
+    Initial idea for this function comes from @fabian-paul
+    #TODO: CLEAN THE TEMPFILE
+    """
+
+    # Prepare tempdir
+    tmpdir = tempfile.mkdtemp('vmd_interface')
+
+    # Prepare files
+    topfile = os.path.join(tmpdir,'top.pdb')
+    trjfile = os.path.join(tmpdir,'trj.xtc')
+    geoms[0].save(topfile)
+    geoms[1:].superpose(geoms[0]).save(trjfile)
+
+    # Creat pipe
+    pipefile = os.path.join(tmpdir,'vmd_cmds.tmp.vmd')
+    os.mkfifo(pipefile)
+    os.system("vmd < %s & "%pipefile)
+
+    mypipe = open(pipefile,'w')
+    [mypipe.write(l) for l in customvmd(topfile, trajfile=trjfile, vmdout=None,
+                                        **customVMD_kwargs)]
+    #myflush(mypipe)
+    kdtree = _cKDTree(pos)
+    x, y = pos.T
+
+    lineh = ax.axhline(ax.get_ybound()[0], c="black", ls='--')
+    linev = ax.axvline(ax.get_xbound()[0], c="black", ls='--')
+    dot, = ax.plot(pos[0,0],pos[0,1], 'o', c='red', ms=7)
+
+    def onclick(event):
+        linev.set_xdata((event.xdata, event.xdata))
+        lineh.set_ydata((event.ydata, event.ydata))
+        data = [event.xdata, event.ydata]
+        _, index = kdtree.query(x=data, k=1)
+        dot.set_xdata((x[index]))
+        dot.set_ydata((y[index]))
+        #mypipe.write()
+
+    # Connect axes to widget
+    axes_widget = _AxesWidget(ax)
+    axes_widget.connect_event('button_release_event', onclick)

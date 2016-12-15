@@ -28,5 +28,8 @@ class MyTestCase(unittest.TestCase):
     def test_generate_paths(self):
         projX.generate_paths(self.MD_trajectory, self.topology, self.projected_file)
 
+    def test_generate_paths(self):
+        projX.generate_paths(self.MD_trajectory, self.topology, self.projected_file)
+
 if __name__ == '__main__':
     unittest.main()

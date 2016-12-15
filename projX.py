@@ -212,7 +212,7 @@ def generate_sample(MDtrajectory_files, topology, projected_data,
         cl = projected_data
     except:
         idata = _data_from_input(projected_data)
-        cl = _cluster_to_target([dd[:,idxs] for dd in idata], n_points, n_try_max=3, verbose=verbose)
+        cl = _cluster_to_target([dd[:,idxs] for dd in idata], n_points, n_try_max=10, verbose=verbose)
 
     pos = cl.clustercenters
     cat_smpl = cl.sample_indexes_by_cluster(_np.arange(cl.n_clusters), n_geom_samples)

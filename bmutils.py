@@ -63,25 +63,34 @@ def correlations2CA_pairs(icorr,  geom_sample, corr_cutoff_after_max=.95, feat_t
 
     return CA_pairs, max_corr
 
-def cluster_to_target(data, n_clusters_target, n_try_max=5, verbose=False):
+def cluster_to_target(data, n_clusters_target, n_try_max=5,
+                      verbose=False):
     r"""
     Naive heuristic to try to get to the right n_clusters using 1D regspace cl in n_try_max tries"
     """
 
-    # Works badly with 2D clusters
+    # Works well for connected, 1D-clustering,
+    # otherwise bad starting guess for dmin
     cmax = _np.hstack(data).max()
     cmin = _np.hstack(data).min()
     dmin = (cmax-cmin)/(n_clusters_target+1)
+
+    err = _np.ceil(n_clusters_target*.05)
     cl = _cluster_regspace(data, dmin=dmin)
     for cc in range(n_try_max):
-        old = cl.n_clusters
-        if cl.n_clusters < n_clusters_target:
+        n_cl_now = cl.n_clusters
+        delta_cl_now = _np.abs(n_cl_now - n_clusters_target)
+        if not n_clusters_target-err <= cl.n_clusters <= n_clusters_target+err:
+            # Cheap (and sometimes bad) heuristic to get relatively close relatively quick
             dmin = cl.dmin*cl.n_clusters/n_clusters_target
             cl = _cluster_regspace(data, dmin=dmin)
         else:
             break
         if verbose:
-            print('cl iter %u %u -> %u'%(cc, old, cl.n_clusters))
+            print('cl iter %u %u -> %u (Delta to target (%u +- %u): %u'%(cc, n_cl_now, cl.n_clusters,
+                                                                         n_clusters_target, err, delta_cl_now))
+
+
     return cl
 
 def fake_md_iterator(traj, chunk=None, stride=1):

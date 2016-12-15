@@ -12,10 +12,12 @@ from bmutils import cluster_to_target as _cluster_to_target, \
     get_good_starting_point as _get_good_starting_point, \
     visual_path as _visual_path, \
     link_ax_w_pos_2_nglwidget as _link_ax_w_pos_2_nglwidget, \
-    data_from_input as _data_from_input
+    data_from_input as _data_from_input, \
+    minimize_rmsd2ref_in_sample as _minimize_rmsd2ref_in_sample
 
 from collections import defaultdict as _defdict
 import nglview as _nglview
+import mdtraj as _md
 
 def generate_paths(MDtrajectory_files, topology, projected_data,
                    n_projs=1, proj_dim=2, proj_idxs=None,
@@ -174,16 +176,33 @@ def visualize_sample(path, geom,
 
 def generate_sample(MDtrajectory_files, topology, projected_data,
                  idxs=[0,1], n_points=100, n_geom_samples=1,
+                 keep_all_samples = False,
                  proj_stride=1,
                  verbose=False
                  ):
     r"""
+    n_geoms_samples : int, default is 1
+        The number of sampled geometries per clustercenter. If you increase this number to n, generate_sample
+         will look for 1) the most populated clustercenter
+                       2) the most compact geometry, among the "n" available in that center. That's the reference
+                       3) for all other clustercenters, each with "n" candidates, the geometry that's closest
+                       in rmsd to the refrence
+        This is a trade-off parameter between how smooth the transitons between geometries can be and how long it takes
+         to generate the sample
+
+    keep_all_samples = boolean, default is False
+        In principle, once the closest-to-ref geometry has been kept, the other geometries are discarded, and the
+        output sample contains only n_point geometries. HOWEVER, there are special cases where the user might
+        want to keep all sampled geometries. Typical use-case is when the n_points is low and many representatives
+        per clustercenters will be much more informative than the other way around
+        (i know, this is confusing TODO: write this better)
+
+
     projected data: nd.array or list of nd.arrays OR pyemma.clustering object
         Although 2D is the most usual case, the dimensionality of the clustering and the one of the visualization (2D)
         do not necessarily have to be the same
     """
-    #TODO
-    assert n_geom_samples == 1, "More samples will be implemented shortly"
+
 
     src = _source(MDtrajectory_files, top=topology)
 
@@ -198,7 +217,16 @@ def generate_sample(MDtrajectory_files, topology, projected_data,
     pos = cl.clustercenters
     cat_smpl = cl.sample_indexes_by_cluster(_np.arange(cl.n_clusters), n_geom_samples)
     geom_smpl = _save_traj(src, _np.vstack(cat_smpl), None, stride=proj_stride)
-    # TODO implement candidate selection on the structures
+    if n_geom_samples>1:
+        if not keep_all_samples:
+            geom_smpl = _re_warp(geom_smpl, [n_geom_samples] * cl.n_clusters)
+            # Of the most populated geom, get the most compact
+            most_pop = _np.bincount(_np.hstack(cl.dtrajs)).argmax()
+            geom_most_pop = geom_smpl[most_pop][_md.compute_rg(geom_smpl[most_pop]).argmin()]
+            geom_smpl = _minimize_rmsd2ref_in_sample(geom_smpl, geom_most_pop)
+        else:
+            # Need to repeat the pos-vector
+            pos = _np.tile(pos,n_geom_samples).reshape(-1,2)
 
     return pos, geom_smpl
 

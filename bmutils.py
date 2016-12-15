@@ -489,6 +489,19 @@ def data_from_input(projected_data):
 
     return idata
 
+def minimize_rmsd2ref_in_sample(sample, ref):
+    # Candidate selection
+
+    out_geoms = None
+    for cand_geoms in sample:
+        igeom = cand_geoms[(_np.argmin(_md.rmsd(cand_geoms, ref)))]
+        if out_geoms is None:
+            out_geoms = igeom
+        else:
+            out_geoms = out_geoms.join(igeom)
+
+    return out_geoms.superpose(ref)
+
 def src_in_this_proj(proj, mdtraj_dir,
                       dirstartswith='DESRES-Trajectory_',
                       strfile_fmt = '%s-%u-protein',
@@ -629,7 +642,8 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget):
     """
 
     kdtree = _cKDTree(pos)
-    assert nglwidget.trajectory_0.n_frames == pos.shape[0], ("%u vs %u"%( nglwidget.trajectory_0.n_frames, pos.shape[0]))
+    assert nglwidget.trajectory_0.n_frames == pos.shape[0], \
+        ("Mismatching frame numbers %u vs %u"%( nglwidget.trajectory_0.n_frames, pos.shape[0]))
     x, y = pos.T
 
     lineh = ax.axhline(ax.get_ybound()[0], c="black", ls='--')

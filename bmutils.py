@@ -12,7 +12,7 @@ from pyemma.util.linalg import eig_corr
 from pyemma.coordinates import source as _source, cluster_regspace as _cluster_regspace
 from pyemma.util.discrete_trajectories import index_states as _index_states
 from scipy.spatial import cKDTree as _cKDTree
-from myMDvisuals import customvmd
+#from myMDvisuals import customvmd
 
 def re_warp(array_in, lengths):
     """Return iterable ::py:obj:array_in as a list of arrays, each
@@ -750,3 +750,141 @@ def link_ax_w_pos_2_vmd(ax, pos, geoms, **customVMD_kwargs):
     axes_widget.connect_event('button_release_event', onclick)
 
     return vmdpipe
+
+def vmd_stage(background='white',
+              axes=False,
+              ):
+
+    mystr = 'color Display Background %s\n'%background
+    if not axes:
+        mystr += 'axes location off\n'
+
+    mystr += '\n'
+
+    return mystr
+
+def customvmd(structure,
+              vmdout='custom.vmd',
+              rep = 'lines',
+              frames = None,
+              smooth = None,
+              distcolor = 'red',
+              molcolor = 'name',
+              atoms = None,
+              atomrep = 'VDW 1. 12.',
+              atompairs=None,
+              residues = None,
+              rescolor = 'name',
+              trajfile=None,
+              strfilextra = None,
+              trajfilextra = None,
+              atompairsextra = None,
+              white_stage = True,
+              freetext = None,
+              **mdtraj_save_kwargs):
+
+    lines = []
+    lappend = lines.append
+
+    if white_stage:
+       [lappend(l+'\n') for l in vmd_stage().split('\n')] #bad! code
+    if isinstance(structure, _md.Trajectory):
+        raise NotImplementedError
+        """
+        strfile = 'temp'+_path.splitext(vmdout)[0]+'.%u.pdb'%_np.random.randint(1e8)
+        lappend('set outfile [open "%s" w]\n'%strfile)
+        for line in str.splitlines(structure.save_pdb(_StringIO(), **mdtraj_save_kwargs)):
+            lappend('puts $outfile "%s"\n'%line)
+        lappend("close $outfile\n")
+        lappend('mol new %s waitfor all\n'%strfile)
+        lappend('rm %s\n'%strfile)
+        """
+    elif isinstance(structure, str):
+        strfile = structure
+        lappend('mol new %s waitfor all\n'%strfile)
+    else:
+        raise Exception
+
+    lappend('mol delrep 0 top\n')
+    lappend('mol representation %s \n'%rep)
+    lappend('mol color %s\n'%molcolor)
+    lappend('mol addrep top\n')
+    if smooth is not None:
+       lappend('mol smoothrep top 0 %s\n'%smooth)
+    if frames is not None:
+       frames = '{%s}'%', '.join(['%u'%ii for ii in frames])
+       lappend('mol drawframes top 0 %s\n'%frames)
+    lappend('label textsize 0.000001\n')
+    lappend('color Labels {Bonds} %s\n'%distcolor)
+
+    #Cycle through the atoms
+    if atoms is not None:
+        atoms = _np.unique(atoms)
+        if _np.size(atoms)==1:
+           atoms = [atoms]
+        atomsel='%u '*len(atoms)%(tuple(atoms))
+        myline='mol representation %s\n'%atomrep
+        lappend(myline)
+        myline='mol selection {index %s}\n'%atomsel
+        lappend(myline)
+        myline='mol addrep top\n'
+        lappend(myline)
+
+    #Cycle through residues
+    if residues is not None:
+        assert _is_iterable_of_int(residues)
+        residsel=' '.join([str(rr) for rr in residues])
+        myline='mol representation Licorice .3 10. 10.\n'
+        lappend(myline)
+        myline='mol color %s\n'%rescolor
+        lappend(myline)
+        myline='mol selection {residue %s}\n'%residsel
+        lappend(myline)
+        myline='mol addrep top\n'
+        lappend(myline)
+
+
+    # Cycle through the pairs
+    if atompairs is not None:
+        atompairs = atompairs.flatten().reshape(-1,2)
+        atompairs = _unique_redundant_pairlist(atompairs)
+        for jj in atompairs:
+            myline='label add Bonds 0/%u 0/%u \n'%(jj[0],jj[1])
+            lappend(myline)
+
+    # Add a trajectory
+    if trajfile is not None:
+        myline='mol addfile %s waitfor all\n'%trajfile
+        lappend(myline)
+
+    # Add second structre
+    if strfilextra is not None:
+        myline='mol new %s waitfor all\n'%strfilextra
+        lappend(myline)
+        lappend('mol delrep 0 top\n')
+        lappend('mol representation %s \n'%rep)
+        lappend('mol color %s\n'%molcolor)
+        lappend('mol addrep top\n')
+
+    # Add second trajectory
+    if trajfilextra is not None:
+        myline='mol addfile %s waitfor all\n'%trajfilextra
+        lappend(myline)
+
+    # Add second labels
+    if atompairsextra is not None:
+        for jj in atompairsextra:
+            myline='label add Bonds 1/%u 1/%u \n'%(jj[0],jj[1])
+            lappend(myline)
+
+    # Add free text at the end if wanted
+    if freetext is not None:
+        lappend(freetext)
+
+    if vmdout is None:
+        return lines
+    else:
+        f = open(vmdout,'w')
+        for line in lines:
+            f.write(line)
+        f.close()

@@ -15,6 +15,7 @@ from bmutils import cluster_to_target as _cluster_to_target, \
     data_from_input as _data_from_input, \
     minimize_rmsd2ref_in_sample as _minimize_rmsd2ref_in_sample
 
+from matplotlib import pylab as _plt
 from collections import defaultdict as _defdict
 import nglview as _nglview
 import mdtraj as _md
@@ -40,6 +41,7 @@ def generate_paths(MDtrajectory_files, topology, projected_data,
 
     src = _source(MDtrajectory_files, top=topology)
     idata = _data_from_input(projected_data)
+    #TODO: assert total_n_frames (strided) coincies with the n_frames in data
     # What's the hightest dimensionlatiy that the input data allows?
     input_dim = idata[0].shape[1]
     if proj_idxs is None:
@@ -149,7 +151,30 @@ def generate_paths(MDtrajectory_files, topology, projected_data,
         #TODO : consider storing the data in each dict. It's redundant but makes each dict kinda standalone
     return out_dict, idata
 
-def visualize_sample(path, geom,
+def visualize_traj(MD_trajfile, MD_top, projected_trajectory):
+    r"""
+    TODO: document everything, parse options to generate_sample
+
+    returns: ax, iwd, sample, geoms
+        ax : matplotlib axis object
+        iwd : nglwidget
+        sample: the position of the red dots in the plot
+        geoms: the geometries incorporated into the nglwidget
+    """
+    sample, geoms, data= generate_sample(MD_trajfile, MD_top,projected_trajectory,
+                                        return_data=True
+                                         )
+    h, (x, y) = _np.histogramdd(_np.vstack(data), bins=50)
+
+    irange = _np.hstack((x[[0,-1]], y[[0,-1]]))
+    _plt.contourf(-_np.log(h).T, extent=irange)
+    ax = _plt.gca()
+
+    iwd = visualize_sample(sample, geoms.superpose(geoms[0]), ax)
+
+    return _plt.gca(), iwd, sample, geoms
+
+def visualize_sample(sample, geom,
                     ax,
                     plot_path=False,
                     clear_lines=True
@@ -165,11 +190,11 @@ def visualize_sample(path, geom,
         [ax.lines.pop() for ii in range(len(ax.lines))]
     # Plot the path on top of it
     if plot_path:
-        ax.plot(path[:,0], path[:,1], '-g', lw=3)
+        ax.plot(sample[:,0], sample[:,1], '-g', lw=3)
 
     # Link the axes widget with the ngl widget
     _link_ax_w_pos_2_nglwidget(ax,
-                               path,
+                               sample,
                                iwd
                                )
     return iwd
@@ -178,7 +203,8 @@ def generate_sample(MDtrajectory_files, topology, projected_data,
                  idxs=[0,1], n_points=100, n_geom_samples=1,
                  keep_all_samples = False,
                  proj_stride=1,
-                 verbose=False
+                 verbose=False,
+                    return_data=False
                  ):
     r"""
     n_geoms_samples : int, default is 1
@@ -228,6 +254,9 @@ def generate_sample(MDtrajectory_files, topology, projected_data,
             # Need to repeat the pos-vector
             pos = _np.tile(pos,n_geom_samples).reshape(-1,2)
 
-    return pos, geom_smpl
+    if not return_data:
+        return pos, geom_smpl
+    else:
+        return pos, geom_smpl, idata
 
     pass

@@ -494,7 +494,10 @@ def data_from_input(projected_data):
         raise ValueError("Data type not understood %"%type(projected_data))
 
     if isinstance(projected_data[0],str):
-        idata = [_np.load(f) for f in projected_data]
+        if projected_data[0].endswith('npy'):
+            idata = [_np.load(f) for f in projected_data]
+        else:
+            idata = [_np.loadtxt(f) for f in projected_data]
     else:
         idata = projected_data
 
@@ -740,10 +743,10 @@ def link_ax_w_pos_2_vmd(ax, pos, geoms, **customVMD_kwargs):
         _, index = kdtree.query(x=data, k=1)
         dot.set_xdata((x[index]))
         dot.set_ydata((y[index]))
-        vmdpipe.write(" animate goto %u\nlist\n\n"%index)
-        myflush(vmdpipe,
+        vmdpipe.write(" animate goto %u;\nlist;\n\n"%index)
+        #myflush(vmdpipe,
                 #size=1e4
-                )
+        #        )
 
     # Connect axes to widget
     axes_widget = _AxesWidget(ax)

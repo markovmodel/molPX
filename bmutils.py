@@ -698,18 +698,18 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget):
     # Connect widget to axes
     nglwidget.observe(my_observer, "frame", "change")
 
-def myflush(pipe, istr='#', size=1e3):
-    pipe.write(''.join([istr+'\n' for ii in range(int(size))]))
+def myflush(pipe, istr='#', size=1e4):
+    pipe.write(''.join([istr+'\n\n' for ii in range(int(size))]))
 
 def link_ax_w_pos_2_vmd(ax, pos, geoms, **customVMD_kwargs):
-    import subprocess
     r"""
-    Initial idea for this function comes from @fabian-paul
+    Initial idea and key VMD-interface for this function comes from @fabian-paul
     #TODO: CLEAN THE TEMPFILE
     """
 
     # Prepare tempdir
     tmpdir = tempfile.mkdtemp('vmd_interface')
+    print("please remember to: rm -r %s"%tmpdir)
 
     # Prepare files
     topfile = os.path.join(tmpdir,'top.pdb')
@@ -717,15 +717,15 @@ def link_ax_w_pos_2_vmd(ax, pos, geoms, **customVMD_kwargs):
     geoms[0].save(topfile)
     geoms[1:].superpose(geoms[0]).save(trjfile)
 
-    # Creat pipe
+    # Create pipe
     pipefile = os.path.join(tmpdir,'vmd_cmds.tmp.vmd')
     os.mkfifo(pipefile)
     os.system("vmd < %s & "%pipefile)
 
-    mypipe = open(pipefile,'w')
-    [mypipe.write(l) for l in customvmd(topfile, trajfile=trjfile, vmdout=None,
+    vmdpipe = open(pipefile,'w')
+    [vmdpipe.write(l) for l in customvmd(topfile, trajfile=trjfile, vmdout=None,
                                         **customVMD_kwargs)]
-    #myflush(mypipe)
+    myflush(vmdpipe)
     kdtree = _cKDTree(pos)
     x, y = pos.T
 
@@ -740,8 +740,13 @@ def link_ax_w_pos_2_vmd(ax, pos, geoms, **customVMD_kwargs):
         _, index = kdtree.query(x=data, k=1)
         dot.set_xdata((x[index]))
         dot.set_ydata((y[index]))
-        #mypipe.write()
+        vmdpipe.write(" animate goto %u\nlist\n\n"%index)
+        myflush(vmdpipe,
+                #size=1e4
+                )
 
     # Connect axes to widget
     axes_widget = _AxesWidget(ax)
     axes_widget.connect_event('button_release_event', onclick)
+
+    return vmdpipe

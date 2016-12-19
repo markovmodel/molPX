@@ -650,7 +650,7 @@ def extract_visual_fnamez(fnamez, path_type, keys=['x','y','h',
 
     return [data, selection]+[a[key] for key in keys]
 
-def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget):
+def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget, link_with_lines=True):
     r"""
     Initial idea for this function comes from @arose, the rest is @gph82
     """
@@ -660,15 +660,17 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget):
         ("Mismatching frame numbers %u vs %u"%( nglwidget.trajectory_0.n_frames, pos.shape[0]))
     x, y = pos.T
 
-    lineh = ax.axhline(ax.get_ybound()[0], c="black", ls='--')
-    linev = ax.axvline(ax.get_xbound()[0], c="black", ls='--')
+    if link_with_lines:
+        lineh = ax.axhline(ax.get_ybound()[0], c="black", ls='--')
+        linev = ax.axvline(ax.get_xbound()[0], c="black", ls='--')
     dot, = ax.plot(pos[0,0],pos[0,1], 'o', c='red', ms=7)
 
     nglwidget.isClick = False
 
     def onclick(event):
-        linev.set_xdata((event.xdata, event.xdata))
-        lineh.set_ydata((event.ydata, event.ydata))
+        if link_with_lines:
+            linev.set_xdata((event.xdata, event.xdata))
+            lineh.set_ydata((event.ydata, event.ydata))
         data = [event.xdata, event.ydata]
         _, index = kdtree.query(x=data, k=1)
         dot.set_xdata((x[index]))

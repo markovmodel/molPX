@@ -177,7 +177,8 @@ def visualize_traj(MD_trajfile, MD_top, projected_trajectory):
 def visualize_sample(sample, geom,
                     ax,
                     plot_path=False,
-                    clear_lines=True
+                    clear_lines=True,
+                     **link_ax2wdg_kwargs
                    ):
 
     r"""
@@ -195,7 +196,8 @@ def visualize_sample(sample, geom,
     # Link the axes widget with the ngl widget
     _link_ax_w_pos_2_nglwidget(ax,
                                sample,
-                               iwd
+                               iwd,
+                               **link_ax2wdg_kwargs
                                )
     return iwd
 

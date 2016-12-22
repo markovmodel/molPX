@@ -1,10 +1,8 @@
-# projection_explorer
-ipython API to visualize MD-trajectories along projected coordinates or simply probe the projection space.
 
-The API is projX and has three methods. There's a lot of UNTESTED code in bmutils.
-The notebook pretty much explains the general case
+# projection_explorer by gph82.
+ipython API to visualize MD-trajectories interactively on any projection space.
+
+The API is projX. bmutils is mostly untested (this will change shortly).
+The notebook explains the general cases, but you can combine the methods in bmutils freelyl.
 
 Have FUN!
-
-# KNOWN ISSUES
-python setup.py does not really install the requirements

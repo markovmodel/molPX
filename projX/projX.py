@@ -171,12 +171,13 @@ def visualize_traj(MD_trajfile, MD_top, projected_trajectory):
     h, (x, y) = _np.histogramdd(_np.vstack(data), bins=50)
 
     irange = _np.hstack((x[[0,-1]], y[[0,-1]]))
+    _plt.figure()
     _plt.contourf(-_np.log(h).T, extent=irange)
     ax = _plt.gca()
 
     iwd = visualize_sample(sample, geoms.superpose(geoms[0]), ax)
 
-    return _plt.gca(), iwd, sample, geoms
+    return _plt.gca(), _plt.gcf(), iwd, sample, geoms
 
 def visualize_sample(sample, geom,
                     ax,

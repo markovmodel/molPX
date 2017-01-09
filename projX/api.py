@@ -4,11 +4,12 @@ __author__ = 'gph82'
 
 
 __all__ = [
-             'generate_paths',
-             'visualize_traj',
-             'generate_sample',
-             'visualize_sample'
-           ]
+    'generate_paths',
+    'visualize_traj',
+    'generate_sample',
+    'visualize_sample',
+    'visualize_FES'
+]
 
 from pyemma.coordinates import source as _source, save_traj as _save_traj
 import numpy as _np
@@ -157,9 +158,10 @@ def generate_paths(MDtrajectory_files, topology, projected_data,
         #TODO : consider storing the data in each dict. It's redundant but makes each dict kinda standalone
     return out_dict, idata
 
-def visualize_traj(MD_trajfile, MD_top, projected_trajectory):
+def visualize_FES(MD_trajfile, MD_top, projected_trajectory):
     r"""
-    TODO: document everything, parse options to generate_sample
+    TODO: document everything, parse options to generate_sample. Right now everything is
+    taking its default values (which work well)
 
     returns: ax, iwd, sample, geoms
         ax : matplotlib axis object
@@ -181,10 +183,64 @@ def visualize_traj(MD_trajfile, MD_top, projected_trajectory):
 
     return _plt.gca(), _plt.gcf(), iwd, sample, geoms
 
+def visualize_traj(trajectory,
+                   MD_top, projected_trajectory, max_frames=1000,
+                   stride=1, proj_idxs=[0,1], dt=1, plot_FES=False):
+    r"""
+    TODO: document everything, parse options to generate_sample. Right now everything is
+    taking its default values (which work well)
+
+    returns: ax, iwd, sample, geoms
+        ax : matplotlib axis object
+        iwd : nglwidget
+        sample: the position of the red dots in the plot
+        geoms: the geometries incorporated into the nglwidget
+    """
+    assert len(proj_idxs) == 2
+
+    # Parse input
+    data = _data_from_input(projected_trajectory)[0][:,proj_idxs]
+    if isinstance(trajectory, _md.Trajectory):
+        geoms = trajectory
+    else:
+        geoms = _md.load(trajectory, top=MD_top)
+
+    # Does the projected trajectory and the data match?
+    assert geoms.n_frames == len(data), (geoms.n_frames, len(data))
+
+    # Stride even more if necessary
+    time = _np.arange(geoms.n_frames)
+    if len(time[::stride]) > max_frames:
+        stride = int(_np.floor(geoms.n_frames/max_frames))
+    # Stride
+    geoms = geoms[::stride]
+    data = data[::stride]
+    time = time[::stride]
+
+    myfig, myax = _plt.subplots(2,1, sharex=True)
+
+    widget = None
+    for idata, iax in zip(data.T, myax):
+        sample =_np.vstack((time, idata)).T
+        iax.plot(time, idata)
+        widget = visualize_sample(sample, geoms.superpose(geoms[0]), iax, clear_lines=False, widget=widget)
+
+    if plot_FES:
+        h, (x, y) = _np.histogramdd(data, bins=50)
+        irange = _np.hstack((x[[0,-1]], y[[0,-1]]))
+        _plt.figure()
+        _plt.contourf(-_np.log(h).T, extent=irange)
+        ax = _plt.gca()
+        widget = visualize_sample(data, geoms.superpose(geoms[0]), ax, widget=widget)
+
+    return _plt.gca(), _plt.gcf(), widget, geoms
+
+
 def visualize_sample(sample, geom,
                     ax,
                     plot_path=False,
                     clear_lines=True,
+                     widget=None,
                      **link_ax2wdg_kwargs
                    ):
 
@@ -192,7 +248,10 @@ def visualize_sample(sample, geom,
     TODO
     """
     # Create ngl_viewer widget
-    iwd = _nglview.show_mdtraj(geom)
+    if widget is None:
+        iwd = _nglview.show_mdtraj(geom)
+    else:
+        iwd = widget
 
     if clear_lines == True:
         [ax.lines.pop() for ii in range(len(ax.lines))]

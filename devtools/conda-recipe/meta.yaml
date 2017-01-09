@@ -8,32 +8,31 @@ source:
   path: ../..
 
 build:
-  script:  python setup.py install --single-version-externally-managed --record record.txt
-  preserve_egg_dir: True
+  number: 0 # remember to change this manually every build
+  noarch_python: True
 
 requirements:
   build:
     - python
     - setuptools
+    - wheel
   run:
     - python
     - setuptools
-    - nglview
+    - nglview >=0.6.2.1
     - pyemma
     - scikit-learn
-    - jupyter
-    - widgetsnbextension ==1.2.6
-    - ipywidgets ==5.2.2
-
+    - notebook
 test:
   requires:
     - pytest 
     - pytest-cov
-    #- pytest-xdist
+    - nbconvert
   imports:
     - projX
   commands:
     - pytest --pyargs projX
+    - jupyter nbconvert --execute $(python -c "from __future__ import print_function; import pkg_resources; print(pkg_resources.resource_filename('projX', 'notebooks/Projection_Explorer.ipynb'))")
 #about:
 #  home: http://emma-project.org
 #  license: GNU Lesser Public License v3+

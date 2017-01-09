@@ -19,7 +19,7 @@ class MyTestCase(unittest.TestCase):
         feat.add_all()
         source = pyemma.coordinates.source(self.MD_trajectory, features=feat)
         tica = pyemma.coordinates.tica(source,lag=1, dim=2)
-        Y =    tica.get_output()[0]
+        Y = tica.get_output()[0]
         print(self.tempdir)
         np.save(self.projected_file,Y)
 

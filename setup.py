@@ -15,12 +15,12 @@ setup(name='projX',
 #                'nglview',
 #                ],
       install_requires=[
-          'nglview>=0.6.2.1',
+          'nglview',
           'pyemma',
           'scikit-learn',
-          'jupyter',
-          'widgetsnbextension=1.2.6',
-          'ipywidgets=5.2.2',
+          #'jupyter',
+          #'widgetsnbextension=1.2.6',
+          #'ipywidgets=5.2.2',
       ]
 )
 

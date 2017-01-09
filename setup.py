@@ -7,9 +7,9 @@ setup(name='projX',
       version='0.0',
       py_modules=['projX'],
       packages=[
-                'projX', 
-#                'bmutils'
-],
+                'projX',
+          'projX.tests'
+      ],
 #      requires=[
                 #'pyemma',
 #                'nglview',

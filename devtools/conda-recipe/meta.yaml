@@ -1,0 +1,42 @@
+package:
+  name: projx
+  # version number: [base tag]+[commits-upstream]_[git_hash]
+  # eg. v2.0+0_g8824162
+  version: 0
+  #{{ GIT_DESCRIBE_TAG[1:] + '+' +GIT_BUILD_STR}}
+source:
+  path: ../..
+
+build:
+  script:  python setup.py install --single-version-externally-managed --record record.txt
+  preserve_egg_dir: True
+
+requirements:
+  build:
+    - python
+    - setuptools
+  run:
+    - python
+    - setuptools
+    - nglview
+    - pyemma
+    - scikit-learn
+    - jupyter
+    - widgetsnbextension ==1.2.6
+    - ipywidgets ==5.2.2
+
+test:
+  requires:
+    - pytest 
+    - pytest-cov
+    #- pytest-xdist
+  imports:
+    - projX
+  commands:
+    - pytest --pyargs projX
+#about:
+#  home: http://emma-project.org
+#  license: GNU Lesser Public License v3+
+#  summary: "EMMA: Emma's Markov Model Algorithms"
+
+

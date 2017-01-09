@@ -1,8 +1,40 @@
-language: python
+language: c
+git:
+  submodules: false
+  depth: 250
 os:
+ - osx
  - linux
 
 sudo: false
 
+env:
+  global:
+    - PATH=$HOME/miniconda/bin:$PATH
+    - common_py_deps="conda-build=2.0.1"
+    #- PACKAGENAME=pyemma
+    #- ORGNAME=omnia
+    - PYTHONHASHSEED=0
+    - OMP_NUM_THREADS=2
+  matrix:
+    - CONDA_PY=2.7 CONDA_NPY=1.11
+    - CONDA_PY=3.4 CONDA_NPY=1.10
+    - CONDA_PY=3.5 CONDA_NPY=1.11
+
+before_install:
+- devtools/ci/travis/install_miniconda.sh
+- conda config --set always_yes true
+- conda config --add channels omnia
+- conda config --add channels conda-forge
+- conda config --add channels bioconda
+- conda install -q $common_py_deps
+
 script:
-- python setup.py -q install
+- conda build -q devtools/conda-recipe
+
+after_success:
+- pwd; ls -alh
+#- bash <(curl -s https://codecov.io/bash) -s $HOME
+- pip install codecov
+- codecov --file $HOME/coverage.xml
+

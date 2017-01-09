@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as _np
 import mdtraj as _md
 from matplotlib import pyplot as _plt
@@ -8,7 +9,7 @@ import tempfile
 
 try:
     from sklearn.mixture import GaussianMixture as _GMM
-except:
+except ImportError:
     from sklearn.mixture import GMM as _GMM
 
 from pyemma.util.linalg import eig_corr

@@ -32,6 +32,7 @@ test:
     - projX
   commands:
     - pytest --pyargs projX
+    - ls $(python -c "from __future__ import print_function; import pkg_resources; print(pkg_resources.resource_filename('projX', 'notebooks/')))
     - jupyter nbconvert --execute $(python -c "from __future__ import print_function; import pkg_resources; print(pkg_resources.resource_filename('projX', 'notebooks/Projection_Explorer.ipynb'))")
 #about:
 #  home: http://emma-project.org

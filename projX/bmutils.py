@@ -5,8 +5,11 @@ from matplotlib.widgets import AxesWidget as _AxesWidget
 from glob import glob
 import os
 import tempfile
-#from sklearn.mixture import GMM as _GMM
-from sklearn.mixture import GaussianMixture as _GMM
+
+try:
+    from sklearn.mixture import GaussianMixture as _GMM
+except:
+    from sklearn.mixture import GMM as _GMM
 
 from pyemma.util.linalg import eig_corr
 from pyemma.coordinates import source as _source, cluster_regspace as _cluster_regspace

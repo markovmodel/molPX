@@ -84,88 +84,6 @@ def _vertex_order(vertices):
     return np.concatenate(([i0], others[order]))
 
 
-def find_vertices_inner_simplex(input_, return_centers=False):
-    r'''Find vertices of the "inner simplex". This is the old PCCA algorithm from Weber & Galliat 2002.
-
-    parameters
-    ----------
-    input_ : np.ndarray((n_time_steps, n_dims))
-        The concatenated input data. Trajectories and chunking is not yet
-        implemented but possible in principle.
-
-    returns
-    -------
-    vertices : np.ndarray((n_dims+1, n_dims))
-        Coordinates of the n_dims+1 vertices.
-    '''
-    # inner simplex algorithm (a.k.a. old PCCA, Weber & Galliat 2002) for large number of data points
-    dim = input_.shape[1]
-
-    # First find the two most distant vertices. We use the following heuristic:
-    # The two points with the largest separation in a simplex should be among those that 
-    # lie on the (axes-parallel, Cartesian) bounding box of the points. E.g. in 2-D 
-    # a simplex is a triangle. Even if the triangle has an obtuse angle, two of its
-    # vertices will lie on the bounding box. In 3-D two (or more) vertices of a 
-    # tetrahedron will lie on the bounding box while up to two vertices will dangle 
-    # in midair, etc.
-    maxima = np.zeros(dim) - np.inf
-    minima = np.zeros(dim) + np.inf
-    min_pts = np.empty((dim, dim))
-    max_pts = np.empty((dim, dim))
-
-    # first pass
-    #it = input_.iterator()
-    #with it:
-    #    for chunk in it:
-    for x in input_:
-        wh = x < minima
-        minima[wh] = x[wh]
-        min_pts[wh, :] = x
-        wh = x > maxima
-        maxima[wh] = x[wh]
-        max_pts[wh, :] = x
-
-    # Among all the points on the bounding box, pick the ones with largest separation.
-    ext_pts = np.concatenate((max_pts, min_pts))
-    d = sp.spatial.distance.squareform(sp.spatial.distance.pdist(ext_pts))
-    i, j = np.unravel_index(np.argmax(d), d.shape)
-    vertices = np.empty((2, dim))
-    vertices[0, :] = ext_pts[i]
-    vertices[1, :] = ext_pts[j]
-
-    # further passes, follow the algorithm form Weber & Galliat
-    for k in range(2, dim+1): # find dim+1 vertices
-        print('pass', k)
-        v0, w = _othonormalize(vertices)
-        P = _projector(w, min_1=True)
-        candidate = vertices[-1, :]
-        d = 0.0
-        #it = input_.iterator()
-        #with it:
-        #    for chunk in it:
-        for frame in input_:
-            d_candidate = np.linalg.norm(P.dot(frame-v0))
-            if d_candidate > d:
-                candidate = frame
-                d = d_candidate
-        vertices = np.vstack((vertices, candidate))
-
-    order = _vertex_order(vertices)
-
-    if return_centers:
-        centers = np.zeros((dim+1, dim))
-        counts = np.zeros(dim+1, dtype=int)
-        for x in input_:
-            i = np.argmin(np.linalg.norm(x-vertices, axis=1))
-            counts[i] += 1
-            centers[i, :] += x
-        centers /= counts[:, np.newaxis]
-
-        return vertices[order, :], centers[order, :]
-    else:
-        return vertices[order, :]
-
-
 def core_assignments(input_, vertices, f=0.5):
     r"""Assign every row of input_ to that vertex to which is has the highest membership.
 
@@ -185,6 +103,9 @@ def core_assignments(input_, vertices, f=0.5):
             For every assigned frame, the index of the vertex with highest membership.
             For frames that are unassigned, the value -1.
     """
+    if not isinstance(input_, (list, tuple)):
+        input_ = [ input_ ]
+
     M = np.vstack((vertices.T, np.ones(vertices.shape[0])))
     lu_and_piv = sp.linalg.lu_factor(M)
 
@@ -205,6 +126,96 @@ def core_assignments(input_, vertices, f=0.5):
             #    dtraj[i] = order[0]
 
     return dtrajs
+
+
+def find_vertices_inner_simplex(input_, return_centers=False):
+    r'''Find vertices of the "inner simplex". This is the old PCCA algorithm from Weber & Galliat 2002.
+
+    parameters
+    ----------
+    input_ : list of np.ndarray((n_time_steps, n_dims))
+        The concatenated input data. Chunking is not yet implemented but
+        possible in principle.
+
+    returns
+    -------
+    vertices : np.ndarray((n_dims+1, n_dims))
+        Coordinates of the n_dims+1 vertices.
+    '''
+    # inner simplex algorithm (a.k.a. old PCCA, Weber & Galliat 2002) for large number of data points
+    if not isinstance(input_, (list, tuple)):
+        input_ = [ input_ ]
+
+    dim = input_[0].shape[1]
+
+    # First find the two most distant vertices. We use the following heuristic:
+    # The two points with the largest separation in a simplex should be among those that 
+    # lie on the (axes-parallel, Cartesian) bounding box of the points. E.g. in 2-D 
+    # a simplex is a triangle. Even if the triangle has an obtuse angle, two of its
+    # vertices will lie on the bounding box. In 3-D two (or more) vertices of a 
+    # tetrahedron will lie on the bounding box while up to two vertices will dangle 
+    # in midair, etc.
+    maxima = np.zeros(dim) - np.inf
+    minima = np.zeros(dim) + np.inf
+    min_pts = np.empty((dim, dim))
+    max_pts = np.empty((dim, dim))
+
+    # first pass
+    #it = input_.iterator()
+    #with it:
+    #    for chunk in it:
+    print('pass 1')
+    for traj in input_:
+        for x in traj:
+            wh = x < minima
+            minima[wh] = x[wh]
+            min_pts[wh, :] = x
+            wh = x > maxima
+            maxima[wh] = x[wh]
+            max_pts[wh, :] = x
+
+    # Among all the points on the bounding box, pick the ones with largest separation.
+    ext_pts = np.concatenate((max_pts, min_pts))
+    d = sp.spatial.distance.squareform(sp.spatial.distance.pdist(ext_pts))
+    i, j = np.unravel_index(np.argmax(d), d.shape)
+    vertices = np.empty((2, dim))
+    vertices[0, :] = ext_pts[i]
+    vertices[1, :] = ext_pts[j]
+
+    # further passes, follow the algorithm form Weber & Galliat
+    for k in range(2, dim+1): # find dim+1 vertices
+        print('pass', k)
+        v0, w = _othonormalize(vertices)
+        P = _projector(w, min_1=True)
+        candidate = vertices[-1, :]
+        d = 0.0
+        #it = input_.iterator()
+        #with it:
+        #    for chunk in it:
+        for traj in input_:
+            for frame in traj:
+                d_candidate = np.linalg.norm(P.dot(frame-v0))
+                if d_candidate > d:
+                    candidate = frame
+                    d = d_candidate
+        vertices = np.vstack((vertices, candidate))
+
+    order = _vertex_order(vertices)
+
+    if return_centers:
+        centers = np.zeros((dim+1, dim))
+        counts = np.zeros(dim+1, dtype=int)
+        dtrajs = core_assignments(input_, vertices, f=-1.0)
+        for traj, dtraj in zip(input_, dtrajs):
+            for x, d in zip(traj, dtraj):
+                counts[d] += 1
+                centers[d, :] += x
+
+        centers /= counts[:, np.newaxis]
+
+        return vertices[order, :], centers[order, :]
+    else:
+        return vertices[order, :]
 
 
 def mds_projection(vertices, center=None, n_dim_target=2):
@@ -230,7 +241,7 @@ def mds_projection(vertices, center=None, n_dim_target=2):
 
         To apply the projection to your data `d`, compute `(d-o).dot(P)`
     """
-    # todo: this can be omptimized...
+    # todo: this can be optimized...
     from sklearn.manifold import MDS
     mds = MDS(n_components=n_dim_target, metric=True, dissimilarity='euclidean')
     vertices_low_D = mds.fit_transform(vertices)
@@ -367,6 +378,56 @@ def splash_corner_projection(vertices, center=0, n_dim_target=2, max_iter=100):
     else:
         raise Exception('n_dim must be an integer > 1')
     return np.linalg.inv(W).dot(L), o
+
+
+def milestoning_count_matrix(dtrajs, lag=1, n_states=None, return_scrapped=False):
+    if n_states is None:
+        n_states = max([np.max(d) for d in dtrajs]) + 1
+        assert n_states >= 1
+
+    c = np.zeros((n_states, n_states), dtype=int)
+    n_scrapped = 0
+
+    for d in dtrajs:
+        if np.any(d>=0):
+            # cut off transition state pieces at the end and beginning
+            first_idx = next(i for i, s in enumerate(d) if s>=0)
+            #print(first_idx)
+            last_idx = len(d) - next(i for i, s in enumerate(d[::-1]) if s>=0)
+            #print(last_idx)
+            if last_idx - first_idx <= lag:
+                n_scrapped += len(d)
+                continue
+            n_scrapped += first_idx
+            #print(first_idx)
+            n_scrapped += len(d)-last_idx
+            #print( len(d)-last_idx)
+            d = d[first_idx:last_idx]
+            # generate past and future
+            past = np.zeros(len(d), dtype=int)
+            last_s = d[0]
+            for i, s in enumerate(d):
+                if s!=-1:
+                    last_s = s
+                past[i] = last_s
+            future = np.zeros(len(d), dtype=int)
+            next_s = d[-1]
+            for i, s in enumerate(d[::-1]):
+                if s!=-1:
+                    next_s = s
+                future[i] = next_s
+            future = future[::-1]
+            # fill count matrix
+            for p, f in zip(past[0:-lag], future[lag:]):
+                c[p, f] += 1
+        else:
+            n_scrapped += len(d)
+
+    if return_scrapped:
+        return c, n_scrapped
+    else:
+        return c
+
 
 ## workflow for visualization:
 # vertices = find_vertices_inner_simplex(data)

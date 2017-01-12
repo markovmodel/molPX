@@ -128,7 +128,7 @@ def core_assignments(input_, vertices, f=0.5):
     return dtrajs
 
 
-def find_vertices_inner_simplex(input_, return_centers=False):
+def find_vertices_inner_simplex(input_, return_means=False, f_centers=float('-inf')):
     r'''Find vertices of the "inner simplex". This is the old PCCA algorithm from Weber & Galliat 2002.
 
     parameters
@@ -202,10 +202,10 @@ def find_vertices_inner_simplex(input_, return_centers=False):
 
     order = _vertex_order(vertices)
 
-    if return_centers:
+    if return_means:
         centers = np.zeros((dim+1, dim))
         counts = np.zeros(dim+1, dtype=int)
-        dtrajs = core_assignments(input_, vertices, f=-1.0)
+        dtrajs = core_assignments(input_, vertices, f=f_centers)
         for traj, dtraj in zip(input_, dtrajs):
             for x, d in zip(traj, dtraj):
                 counts[d] += 1

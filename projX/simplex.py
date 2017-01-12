@@ -134,8 +134,7 @@ def find_vertices_inner_simplex(input_, return_means=False, f_centers=float('-in
     parameters
     ----------
     input_ : list of np.ndarray((n_time_steps, n_dims))
-        The concatenated input data. Chunking is not yet implemented but
-        possible in principle.
+        The input data. Chunking is not yet implemented but possible in principle.
 
     returns
     -------

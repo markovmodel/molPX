@@ -379,12 +379,55 @@ def splash_corner_projection(vertices, center=0, n_dim_target=2, max_iter=100):
     return np.linalg.inv(W).dot(L), o
 
 
-def milestoning_count_matrix(dtrajs, lag=1, n_states=None, return_scrapped=False):
+def milestoning_count_matrix(dtrajs, lag=1, n_states=None, return_mass_matrix=False, return_scrapped=False):
+    r"""Computed the Milestoning covariance matrix and mass matrix as described in [1]_
+
+        parameters
+        ----------
+        dtrajs : list of np.ndarray((n_time_steps, ), dtype=int)
+            Core label trajectories. Frames that are not assigned to any
+            core, should take a strictly neagtive value, e. g. -1.
+        lag : int, default = 1
+            the lag time
+        n_states : int, optional
+            determines the shape of the retuned matrices. If None, use
+            the maximum core index in dtrajs + 1.
+        return_mass_matrix : bool, optional, default = False
+            whether to compute and return the mass matrix (a. k. a. the
+            instantaneous covariance matrix of the core committors)
+        return_scrapped : bool, optional, default = False
+            whether to return the number of frames that were scrapped
+            in the computation of the matrices. Frames at the beginning
+            or the end of a trajectory that are not assigned to any
+            core, are scrapped.
+
+        returns
+        -------
+        Depending on the value of return_mass_matrix, return_scrapped
+        *  c
+        *  (c, m)
+        *  (c, n)
+        *  (c, m, n)
+
+        c : np.ndarray((n_states, n_states), dtype=int)
+            the time-lagged covartiance matrix of the core committors
+        m : np.ndarray((n_states, n_states), dtype=int)
+            the mass matrix
+        n : number of frames that weren't used in estimating the matrices
+
+    References
+    ----------
+    .. [1] Ch. Schuette & M. Sarich, Eur. Phys. J. Spec. Top. 244, 245 (2005)
+    """
+    import warnings
+    warnings.warn('Milestoning code is not thoroughly tested, to be safe, please use pyemma.')
     if n_states is None:
         n_states = max([np.max(d) for d in dtrajs]) + 1
         assert n_states >= 1
 
     c = np.zeros((n_states, n_states), dtype=int)
+    if return_mass_matrix:
+        m = np.zeros((n_states, n_states), dtype=int)
     n_scrapped = 0
 
     for d in dtrajs:
@@ -406,23 +449,29 @@ def milestoning_count_matrix(dtrajs, lag=1, n_states=None, return_scrapped=False
             past = np.zeros(len(d), dtype=int)
             last_s = d[0]
             for i, s in enumerate(d):
-                if s!=-1:
+                if s>=0:
                     last_s = s
                 past[i] = last_s
             future = np.zeros(len(d), dtype=int)
             next_s = d[-1]
-            for i, s in enumerate(d[::-1]):
-                if s!=-1:
+            for i, s in zip(np.arange(len(d))[::-1], d[::-1]):
+                if s>=0:
                     next_s = s
                 future[i] = next_s
-            future = future[::-1]
             # fill count matrix
             for p, f in zip(past[0:-lag], future[lag:]):
                 c[p, f] += 1
+            if return_mass_matrix:
+                for p, f in zip(past[0:-lag], future[0:-lag]):
+                    m[p, f] += 1
         else:
             n_scrapped += len(d)
 
-    if return_scrapped:
+    if return_mass_matrix and return_scrapped:
+        return c, m, n_scrapped
+    elif return_mass_matrix:
+        return c, m
+    elif return_scrapped:
         return c, n_scrapped
     else:
         return c

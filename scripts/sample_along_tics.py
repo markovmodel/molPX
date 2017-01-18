@@ -5,7 +5,7 @@ from pyemma.coordinates import save_traj
 import numpy as np
 from glob import glob
 import matplotlib.pylab as plt
-from bmutils import *
+from projX.bmutils import *
 #%matplotlib qt4
 
 parser = argparse.ArgumentParser(description="Provided the project name(s) of previously simon-featurized project(s), do stuff",
@@ -85,7 +85,7 @@ vars2dict = ['ticfile',
 for proj in args.projects:
 
     # Create a src object for this project (this is lagtime independent)
-    src, xtcs = src_in_this_proj(proj, args.mdtraj_dir)
+    src, xtcs = src_in_this_proj(proj, args.mdtraj_dir, starting_idx=1, struct='../*pdb')
     topology = src.data_producer._readers[0][0].featurizer.topology
 
     # Create a base name for everything related to this project

@@ -77,8 +77,8 @@ def cluster_to_target(data, n_clusters_target, n_try_max=5,
 
     # Works well for connected, 1D-clustering,
     # otherwise bad starting guess for dmin
-    cmax = _np.hstack(data).max()
-    cmin = _np.hstack(data).min()
+    cmax = _np.vstack(data).max()
+    cmin = _np.vstack(data).min()
     dmin = (cmax-cmin)/(n_clusters_target+1)
 
     err = _np.ceil(n_clusters_target*.05)
@@ -523,17 +523,33 @@ def minimize_rmsd2ref_in_sample(sample, ref):
 def src_in_this_proj(proj, mdtraj_dir,
                       dirstartswith='DESRES-Trajectory_',
                       strfile_fmt = '%s-%u-protein',
-                      ext='dcd'):
+                      ext='dcd',
+                     starting_idx = 0, ## to deal with some dir-structure, unclean solution by now,
+                     struct = None,
+                     ):
     xtcs = []
-    ii = 0
-    struct = None
-    for __, idir in enumerate(sorted(glob(os.path.join(mdtraj_dir, dirstartswith+proj+'*')))):
+    ii = starting_idx
+
+    tocheck = os.path.join(mdtraj_dir, dirstartswith+proj+'*')
+    assert len(glob(tocheck)) != 0,("globbing for %s yields an empty list"%tocheck)
+    tocheck = sorted(glob(tocheck))
+    if isinstance(tocheck, str):
+        tocheck = [tocheck]
+    for __, idir in enumerate(tocheck):
         if not idir.endswith('tar.gz'):
             subdir = os.path.join(idir,strfile_fmt%(proj, ii))
-            these_trajs = sorted(glob(os.path.join(subdir,'*'+ext)))
+            these_trajs = os.path.join(subdir,'*'+ext)
+            assert len(glob(these_trajs)) != 0,("globbing for %s yields an empty list"%these_trajs)
+            these_trajs = sorted(glob(these_trajs))
             xtcs.append(these_trajs)
             if struct is None:
-                struct = os.path.join(subdir,'%s-%u-protein.pdb'%(proj,ii))
+                struct = '%s-%u-protein.pdb'%(proj,ii)
+            elif isinstance(struct, str):
+                struct = os.path.join(subdir,struct)
+                struct = sorted(glob(struct))
+            
+            if isinstance(struct,list):
+                struct=struct[0]
             ii += 1
 
     src = _source(xtcs, top=struct)

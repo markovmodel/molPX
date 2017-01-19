@@ -8,10 +8,13 @@ __all__ = [
     'visualize_traj',
     'generate_sample',
     'visualize_sample',
-    'visualize_FES'
+    'visualize_FES',
+    'visualize_fnamez',
+    'visualize_project_dict'
 ]
 
 from pyemma.coordinates import source as _source, save_traj as _save_traj
+from pyemma.plots import plot_free_energy
 import numpy as _np
 from .bmutils import cluster_to_target as _cluster_to_target, \
     catalogues as _catalogues, \
@@ -20,12 +23,14 @@ from .bmutils import cluster_to_target as _cluster_to_target, \
     visual_path as _visual_path, \
     link_ax_w_pos_2_nglwidget as _link_ax_w_pos_2_nglwidget, \
     data_from_input as _data_from_input, \
-    minimize_rmsd2ref_in_sample as _minimize_rmsd2ref_in_sample
+    minimize_rmsd2ref_in_sample as _minimize_rmsd2ref_in_sample, \
+    extract_visual_fnamez as _extract_visual_fnamez
 
 from matplotlib import pylab as _plt
 from collections import defaultdict as _defdict
 import nglview as _nglview
 import mdtraj as _md
+from os.path import basename as _basename
 
 def generate_paths(MDtrajectory_files, topology, projected_data,
                    n_projs=1, proj_dim=2, proj_idxs=None,
@@ -158,7 +163,9 @@ def generate_paths(MDtrajectory_files, topology, projected_data,
         #TODO : consider storing the data in each dict. It's redundant but makes each dict kinda standalone
     return out_dict, idata
 
-def visualize_FES(MD_trajfile, MD_top, projected_trajectory):
+def visualize_FES(MD_trajfile, MD_top, projected_trajectory,
+                  nbins=100,
+                  xlabel='proj_0', ylabel='proj_1'):
     r"""
     TODO: document everything, parse options to generate_sample. Right now everything is
     taking its default values (which work well)
@@ -172,12 +179,16 @@ def visualize_FES(MD_trajfile, MD_top, projected_trajectory):
     sample, geoms, data= generate_sample(MD_trajfile, MD_top,projected_trajectory,
                                         return_data=True
                                          )
-    h, (x, y) = _np.histogramdd(_np.vstack(data), bins=50)
+    data = _np.vstack(data)
+    #h, (x, y) = _np.histogramdd(data, bins=nbins)
 
-    irange = _np.hstack((x[[0,-1]], y[[0,-1]]))
+    #irange = _np.hstack((x[[0,-1]], y[[0,-1]]))
     _plt.figure()
-    _plt.contourf(-_np.log(h).T, extent=irange)
+    plot_free_energy(data[:,0], data[:,1], nbins=nbins)
+    #_plt.contourf(-_np.log(h).T, extent=irange)
     ax = _plt.gca()
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
 
     iwd = visualize_sample(sample, geoms.superpose(geoms[0]), ax)
 
@@ -327,4 +338,99 @@ def generate_sample(MDtrajectory_files, topology, projected_data,
     else:
         return pos, geom_smpl, idata
 
-    pass
+def visualize_fnamez(fname,
+                     path_type='min_rmsd',
+                     proj_type='TIC',
+                     only_selection=True,
+                     selection_label='within 1 sigma',
+                     figsize=(10,10)
+                   ):
+
+    proj_name = _basename(fname)[:_basename(fname).find(proj_type)].strip('.')
+
+    data, selection, x, y, h, v_crd_1, v_crd_2 = _extract_visual_fnamez(fname, path_type)
+    data = data[:,[v_crd_1,v_crd_2]]
+
+    # Load geometry
+    geom = _md.load(fname.replace('.npz','.%s.pdb'%path_type))
+
+    # Create contourplot
+    _plt.figure(figsize=figsize)
+    _plt.contourf(x[:-1],y[:-1], h.T, alpha=.50)
+    #_plt.contourf(project_dict["h"].T, alpha=.50)
+    # This can be take care of in "visualize sample"
+    _plt.plot(data[:, v_crd_1],
+              data[:, v_crd_2],
+              alpha=.25, label=path_type)
+
+    if only_selection:
+        geom = geom[selection]
+        data = data[selection]
+        _plt.plot(data[:,0],data[:,1],'o', label=path_type+' '+selection_label)
+
+    _plt.legend(loc='best')
+    _plt.xlabel('%s %u'%(proj_type, v_crd_1))
+    _plt.ylabel('%s %u'%(proj_type, v_crd_2))
+    _plt.xlim(x[[0,-1]])
+    _plt.ylim(y[[0,-1]])
+    _plt.title('%s\n-np.log(counts)'%proj_name)
+
+    iwd = visualize_sample(data, geom, _plt.gca(), plot_path=False, clear_lines=False)
+
+    project_dict = {}
+    for key, value in _np.load(fname).items():
+        project_dict[key] = value
+
+    return iwd, project_dict
+
+def visualize_project_dict(project_dict,
+                           path_type='min_rmsd',
+                           proj_type='TIC',
+                           only_compact_path=True,
+                           selection_label='within 1 sigma',
+                           figsize=(10,10),
+                           project_name = None
+                   ):
+
+
+
+    # From dict to variables
+    if path_type == 'min_rmsd':
+        path = project_dict["Y_path_smpl"]
+        compact_path = project_dict["compact_path_sample"]
+    elif path_type == 'min_disp':
+        path = project_dict["Y_path"]
+        compact_path = project_dict["compact_path"]
+    v_crd_1 = project_dict["v_crd_1"]
+    v_crd_2 = project_dict["v_crd_2"]
+    path = path[:, [v_crd_1, v_crd_2]]
+    geom = project_dict["geom_"+path_type]
+    x = project_dict["x"]
+    y = project_dict["y"]
+    h = project_dict["h"]
+
+    # Create contourplot
+    _plt.figure(figsize=figsize)
+    _plt.contourf(x[:-1],y[:-1], h.T, alpha=.50) #ATTN h is already log(PDF)
+
+    # This can be taken care of in "visualize sample", but i'm doing it here
+    _plt.plot(path[:, 0],
+              path[:, 1],
+              alpha=.25, label=path_type)
+
+    if only_compact_path:
+        geom = geom[compact_path]
+        path = path[compact_path]
+        _plt.plot(path[:,0],path[:,1],'o', label=path_type+' '+selection_label)
+
+    _plt.legend(loc='best')
+    _plt.xlabel('%s %u'%(proj_type, v_crd_1))
+    _plt.ylabel('%s %u'%(proj_type, v_crd_2))
+    _plt.xlim(x[[0,-1]])
+    _plt.ylim(y[[0,-1]])
+    if project_name is not None:
+        _plt.title('-np.log(counts)\n%s'%project_name)
+
+    iwd = visualize_sample(path, geom, _plt.gca(), plot_path=False, clear_lines=False)
+
+    return iwd

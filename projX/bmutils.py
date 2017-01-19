@@ -547,7 +547,6 @@ def src_in_this_proj(proj, mdtraj_dir,
             elif isinstance(struct, str):
                 struct = os.path.join(subdir,struct)
                 struct = sorted(glob(struct))
-            
             if isinstance(struct,list):
                 struct=struct[0]
             ii += 1
@@ -607,7 +606,7 @@ def plot_histo_reaction_coord(data, reaction_path, reaction_coord_idx, start_idx
 
     # Prepare a dictionary with plot-specific stuff
 
-    return compact_paths, dictionarize_list(['h', 'x', 'y', 'v_crd_1', 'v_crd_2'], locals())
+    return compact_paths, dictionarize_list(['h', 'x', 'y', 'v_crd_1', 'v_crd_2', 'log'], locals())
 
 def plot_paths(path_list, path_labels=[],
     ax=None, refs=[], backdrop=True, legend=True, markers=None, linestyles=None, alpha=1,
@@ -913,3 +912,24 @@ def customvmd(structure,
         for line in lines:
             f.write(line)
         f.close()
+
+from re import split
+def sort_nicely( l ):
+    """ Sort the given list in the way that humans expect.
+    https://blog.codinghorror.com/sorting-for-humans-natural-sort-order/
+    """
+    convert = lambda text: int(text) if text.isdigit() else text
+    alphanum_key = lambda key: [ convert(c) for c in split('([0-9]+)', key) ]
+    l.sort( key=alphanum_key )
+    return l
+
+def fnamez2dict(fnamez, add_geometries=True):
+    import mdtraj as _md
+    project_dict = {}
+    for key, value in _np.load(fnamez).items():
+        project_dict[key] = value
+    if add_geometries:
+        # Load geometry
+        for path_type in ['min_rmsd', 'min_disp']:
+            project_dict['geom_'+path_type]= _md.load(fnamez.replace('.npz','.%s.pdb'%path_type))
+    return project_dict

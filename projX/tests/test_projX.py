@@ -27,16 +27,16 @@ class MyTestCase(unittest.TestCase):
         shutil.rmtree(self.tempdir)
 
     def test_generate_paths(self):
-        projX.generate_paths(self.MD_trajectory, self.topology, self.projected_file)
+        projX.generate.paths(self.MD_trajectory, self.topology, self.projected_file)
 
     def test_generate_sample(self):
-        projX.generate_sample(self.MD_trajectory, self.topology, self.projected_file)
+        projX.generate.sample(self.MD_trajectory, self.topology, self.projected_file)
 
     # Cannot get the widget to run outside the notebook because it needs an interact bar
-    def _test_visualize_sample(self):
-        pos, geom_smpl = projX.generate_sample(self.MD_trajectory, self.topology, self.projected_file)
+    def _test_visualize_qsample(self):
+        pos, geom_smpl = projX.generate.sample(self.MD_trajectory, self.topology, self.projected_file)
         plt.figure()
-        iwd = projX.visualize_sample(pos, geom_smpl, plt.gca())
+        iwd = projX.visualize.sample(pos, geom_smpl, plt.gca())
 
 if __name__ == '__main__':
     unittest.main()

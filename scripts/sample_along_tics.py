@@ -85,7 +85,10 @@ vars2dict = ['ticfile',
 for proj in args.projects:
 
     # Create a src object for this project (this is lagtime independent)
-    src, xtcs = src_in_this_proj(proj, args.mdtraj_dir, starting_idx=1, struct='../*pdb')
+    src, xtcs = src_in_this_proj(proj, args.mdtraj_dir,
+                                 starting_idx=1,
+                                 struct='../*pdb'
+                                 )
     topology = src.data_producer._readers[0][0].featurizer.topology
 
     # Create a base name for everything related to this project

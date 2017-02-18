@@ -16,8 +16,9 @@ python setup.py install
 (conda installation will follow)
 
 KNOWN ISSUES:
-- installation of nglview might give a "Sandbox" error. Recommended install 
-is then to externally use "conda install nglview -c bioconda"
+- installation of nglview might give a "SandboxViolation" error. IDK how to 
+fix this for now. Recommended install is then to externally use "conda 
+install nglview -c bioconda"
 
 
 Have FUN!

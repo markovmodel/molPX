@@ -6,7 +6,7 @@ __author__ = 'gph82'
 
 from pyemma.coordinates import source as _source, save_traj as _save_traj
 import numpy as _np
-from .bmutils import cluster_to_target as _cluster_to_target, \
+from .bmutils import regspace_cluster_to_target as _cluster_to_target, \
     catalogues as _catalogues, \
     re_warp as _re_warp, \
     get_good_starting_point as _get_good_starting_point, \

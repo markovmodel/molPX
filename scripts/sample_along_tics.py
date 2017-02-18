@@ -112,7 +112,7 @@ for proj in args.projects:
         for coord in args.proj_idxs:
             print('lag %s, coord %u'%(lag_str, coord), flush=True)
             # Cluster in regspace along the dimension you want to advance, to approximately n_points
-            cl = cluster_to_target([jdata[:,coord] for jdata in idata],
+            cl = regspace_cluster_to_target([jdata[:,coord] for jdata in idata],
                                    args.n_points, n_try_max=args.n_try_max_cl,
                                      #verbose=True
                                      )

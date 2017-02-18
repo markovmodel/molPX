@@ -69,10 +69,12 @@ def correlations2CA_pairs(icorr,  geom_sample, corr_cutoff_after_max=.95, feat_t
 
     return CA_pairs, max_corr
 
-def cluster_to_target(data, n_clusters_target, n_try_max=5,
+def regspace_cluster_to_target(data, n_clusters_target, n_try_max=5,
                       verbose=False):
     r"""
-    Naive heuristic to try to get to the right n_clusters using 1D regspace cl in n_try_max tries"
+    Naive heuristic to try to get to the target n_clusters using regspace cl in under n_try_max tries"
+
+    data: ndarray or list thereof
     """
 
     # Works well for connected, 1D-clustering,
@@ -95,8 +97,6 @@ def cluster_to_target(data, n_clusters_target, n_try_max=5,
         if verbose:
             print('cl iter %u %u -> %u (Delta to target (%u +- %u): %u'%(cc, n_cl_now, cl.n_clusters,
                                                                          n_clusters_target, err, delta_cl_now))
-
-
     return cl
 
 def fake_md_iterator(traj, chunk=None, stride=1):
@@ -491,7 +491,16 @@ def targets_in_candidates(candidates, targets, verbose=True ):
     return out_list
 
 def data_from_input(projected_data):
+    """r
+    make sure that whatever the input is, you get a list of ndarrays as data
+    projected data: string or list of strings containing filenames [.npy or any ascii format] with data to be read
+                    or nd.array or list of ndarrays with data
 
+    returns: list of ndarrays
+
+    tested: True
+    """
+    # Create a list if ONE str or ONE ndarray are input
     if isinstance(projected_data, str) or isinstance(projected_data, _np.ndarray):
         projected_data = [projected_data]
     elif not isinstance(projected_data, list):

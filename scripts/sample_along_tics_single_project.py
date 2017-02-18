@@ -12,7 +12,7 @@ parser = argparse.ArgumentParser(description="Provided the project name(s) of pr
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
 parser.add_argument('--proj', type=str, help="Give your project a name", default='proj')
-parser.add_argument('-proj_top')
+parser.add_argument('-top_proj')
 parser.add_argument('--md_ext', type=str, help='extensions of the md trajectory files', default='dcd')
 parser.add_argument('--projection_dir', type=str, default='.',
                     help='directory where the simon-tica-files lie')
@@ -88,9 +88,9 @@ vars2dict = ['ticfile',
 
 # Create a src object for this project (this is lagtime independent)
 # VERY STRONG ASSUMPTION, this is one single trajectory (may be fragmented, but must be only one!)
-xtcs = [sorted(glob(args.mdtraj_dir+'*'+args.md_ext))]
+xtcs = [sorted(glob(os.path.join(args.mdtraj_dir+'*'+args.md_ext)))]
 
-src = source(xtcs, top=args.proj_top)
+src = source(xtcs[:5], top=args.top_proj)
 
 topology = src.data_producer._readers[0][0].featurizer.topology
 
@@ -113,7 +113,7 @@ for ticfile in avail_tica_trajfiles:
     for coord in args.proj_idxs:
         print('lag %s, coord %u'%(lag_str, coord), flush=True)
         # Cluster in regspace along the dimension you want to advance, to approximately n_points
-        cl = cluster_to_target([jdata[:,coord] for jdata in idata],
+        cl = regspace_cluster_to_target([jdata[:,coord] for jdata in idata],
                                args.n_points, n_try_max=args.n_try_max_cl,
                                  #verbose=True
                                  )

@@ -69,29 +69,44 @@ def correlations2CA_pairs(icorr,  geom_sample, corr_cutoff_after_max=.95, feat_t
 
     return CA_pairs, max_corr
 
-def regspace_cluster_to_target(data, n_clusters_target, n_try_max=5,
-                      verbose=False):
+def regspace_cluster_to_target(data, n_clusters_target,
+                               n_try_max=5, delta=5.,
+                               verbose=False):
     r"""
-    Naive heuristic to try to get to the target n_clusters using regspace cl in under n_try_max tries"
+    Clusters a dataset to a target n_clusters using regspace clustering by iteratively. "
+    Work best with 1D data
 
     data: ndarray or list thereof
-    """
+    n_clusters_target: int, number of clusters.
+    n_try_max: int, default is 5. Maximum number of iterations in the heuristic.
+    delta: float, defalut is 5. Percentage of n_clusters_target to consider converged.
+             Eg. n_clusters_target=100 and delta = 5 will consider any clustering between 95 and 100 clustercenters as
+             valid. Note. Note: An off-by-one in n_target_clusters is sometimes unavoidable
 
+    returns: pyemma clustering object
+
+    tested:True
+    """
+    delta = delta/100
+
+    assert len(_np.vstack(data)) > n_clusters_target, "Cannot cluster " \
+                                                      "%u datapoints on %u clustercenters. Reduce the number of target " \
+                                                      "clustercenters."%(len(_np.hstack(data)), n_clusters_target)
     # Works well for connected, 1D-clustering,
-    # otherwise bad starting guess for dmin
+    # otherwise it's bad starting guess for dmin
     cmax = _np.vstack(data).max()
     cmin = _np.vstack(data).min()
     dmin = (cmax-cmin)/(n_clusters_target+1)
 
-    err = _np.ceil(n_clusters_target*.05)
+    err = _np.ceil(n_clusters_target*delta)
     cl = _cluster_regspace(data, dmin=dmin)
     for cc in range(n_try_max):
         n_cl_now = cl.n_clusters
         delta_cl_now = _np.abs(n_cl_now - n_clusters_target)
         if not n_clusters_target-err <= cl.n_clusters <= n_clusters_target+err:
             # Cheap (and sometimes bad) heuristic to get relatively close relatively quick
-            dmin = cl.dmin*cl.n_clusters/n_clusters_target
-            cl = _cluster_regspace(data, dmin=dmin)
+            dmin = cl.dmin*cl.n_clusters/   n_clusters_target
+            cl = _cluster_regspace(data, dmin=dmin, max_centers=5000)# max_centers is given so that we never reach it (dangerous)
         else:
             break
         if verbose:
@@ -232,6 +247,7 @@ def min_rmsd_path(start, path_of_candidates, selection=None, history_aware=False
 
 def catalogues(cl, data=None, sort_by=None):
     r""" Returns a catalogue of frames from a pyemma.coor.cl object
+
     Parameters:
     ----------
     cl: pyemma clustering object
@@ -258,6 +274,8 @@ def catalogues(cl, data=None, sort_by=None):
 
     cat_cont : list of ndarrays
         The actual value (asumed continuous) of the data at the (file-frame)-pairs of the cat_idxslist
+
+    tested: True
     """
 
     idata = cl.data_producer.data
@@ -381,12 +399,19 @@ def get_good_starting_point(cl, geom_samples, cl_order=None, strategy='smallest_
 
     cl: pyemma clustering object
     geom_samples: list of md.Trajectory objects corresponding to each clustercenter
-    cl_order: iterable of integers
-        It can be
+    cl_order: None or iterable of integers
+        Typically, the ordering of the list  "geom_samples" has meaning, i.e., the sampled-geometries are listed
+        in ascending order of a given coordinate. MOST OF THE TIME, THIS WILL NOT BE THE CASE of the centers
+        in the cl object, which is arbitrary. cl_order represents this reordering, such that geom_samples[cl_order] will
+         reorder the list to represent the order of the clusterscenters:
+         geom_samples[cl_order][ii] contains geometries sampled for the ii-th clustercenter
 
+    returns:
+    start_idx: int
+        Index referring to the list of md.trajectories in geom_samples that best satisfies the "strategy" criterion
+
+    # TODO DOCUMENT AND TEST
     """
-
-    Y = _np.sort(cl.clustercenters.squeeze())
     if cl_order is None:
         cl_order = _np.arange(cl.n_clusters)
     if strategy == 'smallest_Rgyr':
@@ -402,15 +427,20 @@ def get_good_starting_point(cl, geom_samples, cl_order=None, strategy='smallest_
         rgyr /= rgyr.sum()
         pop /= pop.sum()
         start_idx = _np.argmax(rgyr*pop)
-    elif strategy == 'bimodal_compact':
+
+    elif strategy in ['bimodal_compact', 'bimodal_open']:
         #  assume bimodality in the coordinate of interest (usually the case at least for TIC_0)
-        (left_idx, right_idx), __ = find_centers_gmm(_np.vstack(cl.data_producer.data).reshape(-1,1),
-                                                     Y, n_components=2
+        (left_idx, right_idx), igmm = find_centers_gmm(_np.vstack(cl.data_producer.data).reshape(-1,1),
+                                                       cl.clustercenters[cl_order].squeeze(), n_components=2
                                                      )
         #  bias towards starting points with compact structures (low small radius of gyration)
         left_value, right_value = _md.compute_rg(geom_samples[left_idx]).mean(), \
                                   _md.compute_rg(geom_samples[right_idx]).mean()
-        start_idx = [left_idx, right_idx][_np.argmin([left_value, right_value])]
+
+        if strategy == 'bimodal_compact':
+            start_idx = [left_idx, right_idx][_np.argmin([left_value, right_value])]
+        else:
+            start_idx = [left_idx, right_idx][_np.argmax([left_value, right_value])]
     else:
         raise NotImplementedError("This starting point strategy is unkown %s"%strategy)
 
@@ -420,6 +450,17 @@ def get_good_starting_point(cl, geom_samples, cl_order=None, strategy='smallest_
 def find_centers_gmm(data, gridpoints, n_components=2):
     r""" Provided 1D data and a grid of points, return the indices of the points closest to
     the centers of an assumed n-modal distribution behind "data"
+
+    data : 1D data ndarray, of shape (N, 1)
+    gridpoints: 1D gridpoints
+
+    returns: idxs, igmm
+    idxs: 1D ndarray
+            INDICES of gridpoints that are closest to the centers of the gaussians
+
+    igmm: gaussian mixture model (sklearn type)
+
+    tested = true
     """
     igmm = _GMM(n_components=n_components)
     igmm.fit(data)

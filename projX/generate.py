@@ -20,7 +20,7 @@ import mdtraj as _md
 def paths(MDtrajectory_files, topology, projected_data,
                    n_projs=1, proj_dim=2, proj_idxs=None,
                    n_points=100, n_geom_samples=100, proj_stride=1,
-                   history_aware=True, verbose=False):
+                   history_aware=True, verbose=False, minRMSD_selection='backbone'):
     r"""
     projected_data : data to be connected with geometries
         Contains the data either in form of:
@@ -87,18 +87,19 @@ def paths(MDtrajectory_files, topology, projected_data,
             'most_pop_x_smallest_Rgyr',
             'bimodal_compact'
             ]:
-            # Choose the starting point for the fwd and bwd paths, see the options of the method for more info
+            # Choose the starting coordinate-value for the fwd and bwd paths,
+            # see the options of the method for more info
             istart_idx = _get_good_starting_point(cl, geom_smpl, cl_order=sorts_coord,
                                                   strategy=strategy
                                                   )
 
             # Of all the sampled geometries that share this starting point of "coord"
-            # pick the one that's closest to zero
+            # pick the one that's closest to zero in all remaining coordinates
             istart_Y = _np.vstack([idata[ii][jj] for ii,jj in cat_smpl[istart_idx]])
             istart_Y[:,coord] = 0
             istart_frame = _np.sum(istart_Y**2,1).argmin()
 
-            selection = geom_smpl[0].top.select('backbone')
+            selection = geom_smpl[0].top.select(minRMSD_selection)
             # Create a path minimising minRMSD between frames
             path_smpl, __ = _visual_path(cat_smpl, geom_smpl,
                                         start_frame=istart_frame,

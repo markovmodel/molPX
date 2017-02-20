@@ -6,7 +6,8 @@
 projX.generate
 ===============================================
 
-If an ordinary molecular dynamics (MD) trajectory is the starting point, some work has to be done previous to the visualization.
+This module contains methods that generate needed objects for :any:`visualize` of the methods to work.
+
 
 .. automodule:: projX.generate
    :members:

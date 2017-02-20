@@ -26,19 +26,19 @@ class TestBmutils(unittest.TestCase):
         np.save(self.projected_file,self.Y)
         np.savetxt(self.projected_file.replace('.npy','.dat'),self.Y)
 
-        self.data_for_cluster = [[[1, 3],
-                                  [2, 3],
-                                  [3, 3]],
-                                 [[17,1]],
-                                 [[11, 2],
-                                  [12, 2],
-                                  [13, 3]],
-                                 [[1,  3],
-                                  [11, 2],
-                                  [2,  3],
-                                  [12, 2],
-                                  [3,  3],
-                                  [13, 2]]
+        self.data_for_cluster = [np.array([[1, 3],
+                                           [2, 3],
+                                           [3, 3]]),
+                                 np.array([[17,1]]),
+                                 np.array([[11, 2],
+                                           [12, 2],
+                                           [13, 3]]),
+                                 np.array([[1,  3],
+                                           [11, 2],
+                                           [2,  3],
+                                           [12, 2],
+                                           [3,  3],
+                                           [13, 2]])
                                  ]
 
     def tearDown(self):

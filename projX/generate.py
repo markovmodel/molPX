@@ -59,7 +59,7 @@ def paths(MDtrajectory_files, topology, projected_data,
                            "min_disp": _defdict(dict)
                            }
         # Cluster in regspace along the dimension you want to advance, to approximately n_points
-        cl = _cluster_to_target([jdata[:,coord] for jdata in idata],
+        cl = _cluster_to_target([jdata[:,[coord]] for jdata in idata],
                                 n_points, n_try_max=3,
                                 verbose=verbose,
                                 )

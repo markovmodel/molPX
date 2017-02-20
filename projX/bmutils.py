@@ -89,9 +89,9 @@ def regspace_cluster_to_target(data, n_clusters_target,
     """
     delta = delta/100
 
-    assert len(_np.hstack(data)) > n_clusters_target, "Cannot cluster " \
+    assert _np.vstack(data).shape[0] >= n_clusters_target, "Cannot cluster " \
                                                       "%u datapoints on %u clustercenters. Reduce the number of target " \
-                                                      "clustercenters."%(len(_np.hstack(data)), n_clusters_target)
+                                                      "clustercenters."%(_np.vstack(data).shape[0], n_clusters_target)
     # Works well for connected, 1D-clustering,
     # otherwise it's bad starting guess for dmin
     cmax = _np.vstack(data).max()

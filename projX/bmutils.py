@@ -144,20 +144,23 @@ def geom2tic(geom, tica_mean, U, cutoff=.4, kinetic_map_scaling=None, chunk=None
 
     return _np.vstack(Y)
 
-def min_disp_path(start, path_of_candidates, exclude_coords=None, history_aware=False):
+def min_disp_path(start, path_of_candidates,
+                  exclude_coords=None, history_aware=False):
     r""""Returns a list of indices [i,j,k...] s.t. the distances 
      d_i = |path_of_candidates[0][i] - path_of_candidates[1][j]|, 
      d_j = |path_of_candidates[1][j] - path_of_candidates[2][k]|,...
      are minimized
 
+    n is the dimension of the space in which the path exist
     Parameters:
-    start : 2D np.array of shape (1,n) 
-       starting point, for the path. path_of_candidates[ii].shape[1] == start.shape[1] == n
+    start : ndarray of shape (1,n)
+       starting point. path_of_candidates[ii].shape[1] == start.shape[1] == n,
+       for all ii
          
     path_of_candidates: iterable of 2D np.arrays each of shape (m, n)
        The list of candidates to pick from to minimize the distances
 
-    exclude_coords: None or iterable of ints, default is None
+    exclude_coords: None, int, or iterable of ints, default is None
        The default behaviour is to consider all n-dimensions of the points when 
        computing distances. However, it might be useful to exclude the i-th (and jth etc) coordinate(s)
        if the path is supossed to be advancing along the i-th coordinate (exclude=i)
@@ -171,8 +174,11 @@ def min_disp_path(start, path_of_candidates, exclude_coords=None, history_aware=
     path: list of integers
        One index per array of candidates, with len(path==len(path_of_candidates), s.t. the traveled 
        distance is minimized
-       
+
+    tested = True
     """
+    if isinstance(exclude_coords, int):
+        exclude_coords = [exclude_coords]
     path_out = []
     now = _np.copy(start)
     if _np.ndim(now) == 1:
@@ -181,12 +187,14 @@ def min_disp_path(start, path_of_candidates, exclude_coords=None, history_aware=
     include = _np.arange(now.shape[1])
     if exclude_coords is not None:
        include = [ii for ii in include if ii not in exclude_coords]
-    
+
     # For the list of candidates, extract the closest one
     history = [now]
     for ii, cands in enumerate(path_of_candidates):
         closest_to_now = _np.argmin(_np.sqrt(_np.sum((now[:,include]-cands[:,include])**2,1)))
         path_out.append(closest_to_now)
+        # Debugging stuff
+        #print("At moment %u we're at point %s and have chosen the point %s which has the index %u"%(ii, now, cands[path_out[-1]], path_out[-1]))
         #print("choose frame %u from %u cands"%(path_out[-1], len(cands)))
         now = _np.array(cands[closest_to_now], ndmin=2)
         history.append(now)
@@ -315,6 +323,8 @@ def visual_path(cat_idxs, cat_cont, path_type='min_disp', start_pos='maxpop', st
 
     start_frame = if the user already knows, of the start_pos index, the frame that's best
 
+    tested = False
+
     *path_kwargs: keyword arguments for the path-choosing algorithm. See min_disp_path or min_rmsd_path for details, but
      in the meantime, these are history_aware=True or False and exclude_coords=None or [0], or [0,1] etc...
     """
@@ -410,7 +420,8 @@ def get_good_starting_point(cl, geom_samples, cl_order=None, strategy='smallest_
     start_idx: int
         Index referring to the list of md.trajectories in geom_samples that best satisfies the "strategy" criterion
 
-    # TODO DOCUMENT AND TEST
+    Tested: true
+    #TODO DOCUMENT
     """
     if cl_order is None:
         cl_order = _np.arange(cl.n_clusters)

@@ -219,7 +219,6 @@ class TestGetGoodStartingPoint(unittest.TestCase):
         self.cat_smpl = self.cl.sample_indexes_by_cluster(np.arange(self.cl.n_clusters), n_geom_samples)
         self.geom_smpl = self.traj[np.vstack(self.cat_smpl)[:,1]]
         self.geom_smpl = bmutils.re_warp(self.geom_smpl, [n_geom_samples]*self.cl.n_clusters)
-        print("came here")
 
     def test_smallest_rgyr(self):
         start_idx = bmutils.get_good_starting_point(self.cl, self.geom_smpl)
@@ -256,16 +255,65 @@ class TestGetGoodStartingPoint(unittest.TestCase):
                                                             " The found OPEN starting " \
                                                             "point should be in the interval [13,16] approx (see setUp)"
 
-    def test_smallest_rgyr_ordering(self):
+    def test_most_pop_ordering(self):
         order = np.random.permutation(np.arange(self.cl.n_clusters))
         geom_smpl = [self.geom_smpl[ii] for ii in order]
-        start_idx = bmutils.get_good_starting_point(self.cl, geom_smpl, cl_order=order)
-        print(self.cl.clustercenters[start_idx])
-        print(np.sort(self.cl.clustercenters.squeeze()))
-        assert 13 <= self.cl.clustercenters[start_idx] <= 17, "The coordinate distribution was created with a max pop " \
-                                                              "around the value 15. The found starting point should be" \
-                                                              "in this interval (see the setUp)"
+        start_idx = bmutils.get_good_starting_point(self.cl, geom_smpl,
+                                                    cl_order=order, strategy='most_pop')
 
+        # For the check to work via the clustercenter value, we have to re-order the clusters themselves
+        assert 13 <= self.cl.clustercenters[order][start_idx] <= 17, "The coordinate distribution was created with " \
+                                                                     "a max pop around the value 15. The found starting " \
+                                                                     "point should be in this interval (see the setUp)"
+        # However, for the geom_smpl object, start_idx can be used directly:
+        assert 13 <= geom_smpl[start_idx].xyz[:,-1,-1].mean() <= 17, "The coordinate distribution was created with " \
+                                                                     "a max pop around the value 15. The found starting " \
+                                                                     "point should be in this interval (see the setUp)"
+
+    # The rest of strategies do not need a test, since ordering does not play a role in them
+
+class TestPaths(unittest.TestCase):
+
+    def setUp(self):
+        self.start = np.array([0, 0, 0])
+        self.path_of_candidates = [ # Two candidates two choose for each point along the path
+                                    np.array([[1,  0,    1],    #this one is closest overall to 0 0 0
+                                              [1,  20,  20],    # filler
+                                              [1,  1.5,  0]]),  #this one is closest if the second coord is ignored
+
+                                   np.array([[2,  1.5,  0],     # closest if 2nd coord excluded
+                                             [2,  0,    1],     # closest overall
+                                             [2,  20,  20]]),   # filler
+
+                                   np.array([[3,  20,  20],     #filler
+                                             [3,  1.5,  0],     # closest if 2nd coord excluded
+                                             [3,  0,    1]]),    # closest overall
+
+                                   np.array([[4,  0,    0],     # This one is only closer if we choose to have excluded some coords
+                                             [4,  0., .75],    # This one is closest to the last frame no matter what
+                                             [2,  0,  .75]])     # The history aware option should pick this one out
+                                   ]
+
+        # the "all-coords-included-path" should be
+        # [0], [1], [2]
+
+        # the "some-coords-excluded should be
+        # [2], [0], [1]
+
+        # variable "now" with history aware option is
+        # array([ 1.5 ,  0.  ,  0.75])
+
+    def test_closest_all_coords_no_history(self):
+        path = bmutils.min_disp_path(self.start, self.path_of_candidates)
+        assert np.allclose(path, [0, 1, 2, 1]), path
+
+    def test_closest_exclude_some_no_history(self):
+        path = bmutils.min_disp_path(self.start, self.path_of_candidates, exclude_coords=1)
+        assert np.allclose(path, [2, 0, 1, 0]), path
+
+    def test_closest_all_coords_history(self):
+        path = bmutils.min_disp_path(self.start, self.path_of_candidates, history_aware=True)
+        assert np.allclose(path, [0, 1, 2, 2]), path
 
 if __name__ == '__main__':
     unittest.main()

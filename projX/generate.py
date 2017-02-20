@@ -17,27 +17,82 @@ from .bmutils import regspace_cluster_to_target as _cluster_to_target, \
 from collections import defaultdict as _defdict
 import mdtraj as _md
 
-def paths(MDtrajectory_files, topology, projected_data,
+def projection_paths(MDtrajectory_files, MD_top, projected_trajectories,
                    n_projs=1, proj_dim=2, proj_idxs=None,
                    n_points=100, n_geom_samples=100, proj_stride=1,
                    history_aware=True, verbose=False, minRMSD_selection='backbone'):
     r"""
-    projected_data : data to be connected with geometries
-        Contains the data either in form of:
-             np.ndarray or filename_str  (one single trajectory)
-        list of np.ndarrays or filename_str (lists of trajectories)
-        NOT: list of lists are not yet implemented (equivalent to pyemma fragmented trajectory reader)
+    Return a path along a given projection. More info on what this means exactly will follow soon.
 
-    proj_dim : int, dimensionality of the space in which distances will be computed
-    n_projs : int, number of projections to visualize
-    proj_idxs: int, indices of projections to visualize, defaultis None
-        Selection of projection idxs (zero-idxd) to visualize. The default
-        behaviour is that proj_idxs = range(n_projs).
+    Parameters
+    -----------
+
+    MDtrajectory_files : list of strings
+        Filenames (any extension that :py:obj:`mdtraj` can read is accepted) containing the trajectory data
+
+    MD_top : str to topology filename or directly :obj:`mdtraj.Topology` object
+
+    projected_trajectories : (lists of) strings or (lists of) numpy ndarrays of shape (n_frames, n_dims)
+        Time-series with the projection(s) that want to be explored. If these have been computed externally,
+        you can provide .npy-filenames or readable asciis (.dat, .txt etc).
+        NOTE: projX assumes that there is no time column.
+
+    n_projs : int, default is 1
+        Number of projection paths to generate. If the input :obj:`projected_trajectories` are n-dimensional,
+        in principle up to n-paths can be generated
+
+    proj_dim : int, default is 2
+        Dimensionality of the space in which distances will be computed
+
+    proj_idxs: int, defaultis None
+        Selection of projection idxs (zero-idxd) to visualize. The default behaviour is that proj_idxs = range(n_projs).
         However, if proj_idxs != None, then n_projs is ignored and proj_dim is set automatically
+
+    n_points : int, default is 100
+        Number of points along the projection path. The higher this number, the higher the projected coordinate is
+        resolved, at the cost of more computational effort
+
+    n_geom_samples : int, default is 100
+        For each of the :obj:`n_points` along the projection path, :obj:`n_geom_samples` will be retrieved from
+        the trajectory files. The higher this number, the *smoother* the minRMSD projection path. Also, the longer
+        it takes for the path to be computed
+
+    proj_stride : int, default is 1
+        The stride of the :obj:`projected_trajectories` relative to the :obj:`MDtrajectory_files`.
+        This will play a role particularly if :obj:`projected_trajectories` is already strided (because the user is
+        holding it in memory) but the MD-data on disk has not been strided.
+
+    histore_aware : bool, default is True
+        The path-searching algorigthm the can minimize distances between adjacent points along the path or minimize
+        the distance between each point and the mean value of all the other up to that point. Use this parameter
+        to avoid a situation in which the path gets "derailed" because an outlier is chosen at a given point.
+
+    verbose : bool, default is False
+        The verbosity level
+
+    minRMSD_selection : str, default is 'backbone'
+        When computing minRMSDs between a given point and adjacent candidates, use this string to select the
+        atoms that will be considered. Check mdtraj's selection language here http://mdtraj.org/latest/atom_selection.html
+
+    Returns
+    --------
+
+    paths_dict :
+
+        dictionary of dictionaries containing the :obj:`projection_paths`.
+
+
+        The integer keys [0], [1], [2], ... represent the index of the projected coordinate. The next key chooses
+        between the two available types of paths "min_rmsd" or "min_disp"
+        Finally, the availabe objects are
+        paths_dict[idxs][type_of_path].keys() = ["proj", "geom"]
+
+    idata:
+        data
     """
 
-    src = _source(MDtrajectory_files, top=topology)
-    idata = _data_from_input(projected_data)
+    src = _source(MDtrajectory_files, top=MD_top)
+    idata = _data_from_input(projected_trajectories)
     #TODO: assert total_n_frames (strided) coincies with the n_frames in data
     # What's the hightest dimensionlatiy that the input data allows?
     input_dim = idata[0].shape[1]
@@ -53,9 +108,9 @@ def paths(MDtrajectory_files, topology, projected_data,
     idata = [dd[:,:proj_dim] for dd in idata]
 
     # Iterate over wanted coords
-    out_dict = {}
+    paths_dict = {}
     for coord in proj_idxs:
-        out_dict[coord] = {"min_rmsd": _defdict(dict),
+        paths_dict[coord] = {"min_rmsd": _defdict(dict),
                            "min_disp": _defdict(dict)
                            }
         # Cluster in regspace along the dimension you want to advance, to approximately n_points
@@ -73,7 +128,7 @@ def paths(MDtrajectory_files, topology, projected_data,
         # Create sampled catalogues in ascending order of the cordinate of interest
         sorts_coord = _np.argsort(cl.clustercenters[:,0]) # again, here we're ALWAYS USING "1" because cl. is 1D
         cat_smpl = cl.sample_indexes_by_cluster(sorts_coord, n_geom_samples)
-        geom_smpl = _save_traj(src, _np.vstack(cat_smpl), None, topology, stride=proj_stride)
+        geom_smpl = _save_traj(src, _np.vstack(cat_smpl), None, MD_top, stride=proj_stride)
         geom_smpl = _re_warp(geom_smpl, [n_geom_samples]*cl.n_clusters)
 
         # Initialze stuff
@@ -87,7 +142,7 @@ def paths(MDtrajectory_files, topology, projected_data,
             'most_pop_x_smallest_Rgyr',
             'bimodal_compact'
             ]:
-            # Choose the starting coordinate-value for the fwd and bwd paths,
+            # Choose the starting coordinate-value for the fwd and bwd projection_paths,
             # see the options of the method for more info
             istart_idx = _get_good_starting_point(cl, geom_smpl, cl_order=sorts_coord,
                                                   strategy=strategy
@@ -128,9 +183,9 @@ def paths(MDtrajectory_files, topology, projected_data,
         path_smpl = path_sample[min_key]
         istart_idx = start_idx[min_key]
 
-        out_dict[coord]["min_rmsd"]["proj"] = _np.vstack([idata[ii][jj] for ii,jj in path_smpl])
-        out_dict[coord]["min_rmsd"]["geom"] = _save_traj(src.filenames, path_smpl, None,
-                                                         stride=proj_stride, top=topology
+        paths_dict[coord]["min_rmsd"]["proj"] = _np.vstack([idata[ii][jj] for ii,jj in path_smpl])
+        paths_dict[coord]["min_rmsd"]["geom"] = _save_traj(src.filenames, path_smpl, None,
+                                                         stride=proj_stride, top=MD_top
                                                         )
 
         # With the starting point the creates the minimally diffusive path,
@@ -143,11 +198,11 @@ def paths(MDtrajectory_files, topology, projected_data,
                                start_frame=istart_frame,
                                history_aware=history_aware,
                                exclude_coords=[coord])
-        out_dict[coord]["min_disp"]["geom"]  = _save_traj(src.filenames, path, None, stride=proj_stride, top=topology)
-        out_dict[coord]["min_disp"]["proj"] = _np.vstack([idata[ii][jj] for ii,jj in path])
+        paths_dict[coord]["min_disp"]["geom"]  = _save_traj(src.filenames, path, None, stride=proj_stride, top=MD_top)
+        paths_dict[coord]["min_disp"]["proj"] = _np.vstack([idata[ii][jj] for ii,jj in path])
 
         #TODO : consider storing the data in each dict. It's redundant but makes each dict kinda standalone
-    return out_dict, idata
+    return paths_dict, idata
 
 
 def sample(MDtrajectory_files, topology, projected_data,

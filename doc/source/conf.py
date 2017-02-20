@@ -37,7 +37,7 @@ extensions = [
     'sphinx.ext.napoleon' 
 ]
 
-# Add any paths that contain templates here, relative to this directory.
+# Add any projection_paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
 # The suffix(es) of source filenames.
@@ -134,7 +134,7 @@ html_theme = 'sphinx_rtd_theme'
 #
 # html_theme_options = {}
 
-# Add any paths that contain custom themes here, relative to this directory.
+# Add any projection_paths that contain custom themes here, relative to this directory.
 # html_theme_path = []
 
 # The name for this set of Sphinx documents.
@@ -157,12 +157,12 @@ html_theme = 'sphinx_rtd_theme'
 #
 # html_favicon = None
 
-# Add any paths that contain custom static files (such as style sheets) here,
+# Add any projection_paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
 
-# Add any extra paths that contain custom files (such as robots.txt or
+# Add any extra projection_paths that contain custom files (such as robots.txt or
 # .htaccess) here, relative to this directory. These files are copied
 # directly to the root of the documentation.
 #

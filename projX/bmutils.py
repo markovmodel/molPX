@@ -314,7 +314,7 @@ def visual_path(cat_idxs, cat_cont, path_type='min_disp', start_pos='maxpop', st
        Where to start the path. Since the path is constructed to be visually appealing, 
        it makes sense to start the path close to the most visited value of the coordinatet. Options are
        'maxpop': does exactly that: Starting from the most populated value of the coordinate, 
-                 it creates two paths, one moving forward and one moving backward.  
+                 it creates two projection_paths, one moving forward and one moving backward.
                  These are the n and backward ('left') create a coordinate-increasing, diffusion-minimizing path from 
        'left':   starts at the "left end" of the coordinate, i.e. at its minimum value, and moves forward
        'right'   starts at the "right end" of the coordinate, i.e. at its maximum value, and moves backward

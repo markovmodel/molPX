@@ -34,7 +34,11 @@ WARNINGS:
 
 KNOWN ISSUES:
 =============
-The installation of nglview might give a "SandboxViolation" error. Until this is fixed, the recommended install is to install externally, e.g. using "conda install nglview -c bioconda"
+The installation of nglview might give a "SandboxViolation" error. Until this is fixed, the recommended install is
+to externally issue
+
+    >>> conda install nglview -c bioconda
+    >>>
 
 
 Module's Documentation

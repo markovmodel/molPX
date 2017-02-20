@@ -17,19 +17,52 @@ from os.path import basename as _basename
 
 
 def FES(MD_trajfile, MD_top, projected_trajectory,
-        nbins=100,
+        nbins=100, n_sample = 100,
         xlabel='proj_0', ylabel='proj_1'):
     r"""
-    TODO: document everything, parse options to generate_sample. Right now everything is
-    taking its default values (which work well)
+    Return a molecular visualization widget connected with a free energy plot.
 
-    returns: ax, iwd, data_sample, geoms
-        ax : matplotlib axis object
-        iwd : nglwidget
-        data_sample: the position of the red dots in the plot
-        geoms: the geometries incorporated into the nglwidget
+    Parameters
+    ----------
+
+    MD_trajfile : str, name of the file the the molecular dynamics (MD) trajectory.
+            :obj:`mdtraj.Trajectory` object. Any extension that :py:obj:`mdtraj` can read is accepted
+
+    MD_top : str to topology filename directly :obj:`mdtraj.Topology` object
+
+    projected_trajectory : str to a filename or numpy ndarray of shape (n_frames, n_dims)
+        Time-series with the projection(s) that want to be explored. If these have been computed externally,
+        you can provide .npy-filenames or readable asciis (.dat, .txt etc).
+        NOTE: projX assumes that there is no time column.
+
+    nbins : int, default 100
+        The number of bins per axis to used in the histogram (FES)
+
+    n_sample : int, default is 100
+        The number of geometries that will be used to represent the FES. The higher the number, the higher the spatial
+        resolution of the "click"-action.
+
+    xlabel : str, default is 'proj_0'
+        xlabel of the FES plot
+
+    ylabel : str, default is 'proj_1'
+        ylabel of the FES plot
+
+    Returns
+    --------
+
+    ax :
+        :obj:`pylab.Axis` object
+    iwd :
+        :obj:`nglview.NGLWidget`
+    data_sample:
+        numpy ndarray of shape (n, n_sample) with the position of the dots in the plot
+    geoms:
+        :obj:`mdtraj.Trajectory` object with the geometries n_sample geometries shown by the nglwidget
+
     """
     data_sample, geoms, data = generate.sample(MD_trajfile, MD_top,projected_trajectory,
+                                               n_points=n_sample,
                                         return_data=True
                                          )
     data = _np.vstack(data)
@@ -49,16 +82,53 @@ def FES(MD_trajfile, MD_top, projected_trajectory,
 
 def traj(trajectory,
          MD_top, projected_trajectory, max_frames=1000,
-         stride=1, proj_idxs=[0,1], dt=1, plot_FES=False):
-    r"""
-    TODO: document everything, parse options to generate_sample. Right now everything is
-    taking its default values (which work well)
+         stride=1, proj_idxs=[0,1], plot_FES=False):
+    r"""Link a projected trajectory, X(t) with the molecular structures behind it. Optionally plot also the resulting
+    FES.
 
-    returns: ax, iwd, data_sample, geoms
-        ax : matplotlib axis object
-        iwd : nglwidget
-        data_sample: the position of the red dots in the plot
-        geoms: the geometries incorporated into the nglwidget
+    Parameters
+    -----------
+
+    trajectory : str,  or :obj:`mdtraj.Trajectory` object.
+        Filename (any extension that :py:obj:`mdtraj` can read is accepted) or directly the :obj:`mdtraj.Trajectory`
+        object containing the MD trajectory
+
+    MD_top : str to topology filename directly :obj:`mdtraj.Topology` object
+
+    projected_trajectory : str to a filename or numpy ndarray of shape (n_frames, n_dims)
+        Time-series with the projection(s) that want to be explored. If these have been computed externally,
+        you can provide .npy-filenames or readable asciis (.dat, .txt etc).
+        NOTE: projX assumes that there is no time column.
+
+    max_frames : int, default is 1000
+        If the trajectoy is longer than this, stride to this length (in frames)
+
+    stride : int, default is 1
+        Stride value in case of large datasets. In case of having :obj:`trajectory` and :obj:`projected_trajectory`
+        in memmory (and not on disk) the stride can take place before calling :obj:`traj`. This parameter only
+        has effect when reading things from disk. NOTE:
+
+    proj_idxs : iterable of ints, default is [0,1]
+        Indices of the projected coordinates to use in the various representations
+
+    plot_FES : bool, default is False
+        Plot (and interactively link) the FES as well
+
+    Returns
+    ---------
+
+     ax, iwd, data_sample, geoms
+         return _plt.gca(), _plt.gcf(), widget, geoms
+
+    ax :
+        :obj:`pylab.Axis` object
+    fig :
+        :obj:`pylab.Figure` object
+    iwd :
+        :obj:`nglview.NGLWidget`
+    geoms:
+        :obj:`mdtraj.Trajectory` object with the geometries n_sample geometries shown by the nglwidget
+
     """
     assert len(proj_idxs) == 2
 
@@ -66,7 +136,7 @@ def traj(trajectory,
     data = _data_from_input(projected_trajectory)[0][:,proj_idxs]
     if isinstance(trajectory, _md.Trajectory):
         geoms = trajectory
-    else:
+    else: # let mdtraj fail
         geoms = _md.load(trajectory, top=MD_top)
 
     # Does the projected trajectory and the data match?
@@ -100,7 +170,7 @@ def traj(trajectory,
     return _plt.gca(), _plt.gcf(), widget, geoms
 
 
-def sample(data_sample, geom,  ax,
+def sample(positions, geom,  ax,
            plot_path=False,
            clear_lines=True,
            widget=None,
@@ -108,8 +178,42 @@ def sample(data_sample, geom,  ax,
                    ):
 
     r"""
-    TODO
+    Visualize the geometries in :obj:`geom` according to the data in :obj:`positions` on an existing matplotlib axes :obj:`ax`
+
+    Use this method when the array of positions, the geometries, the axes (and the widget, optionally) have already been
+    generated elsewhere.
+
+    Parameters
+    ----------
+    positions : numpy nd.array of shape (n_frames, 2)
+        Contains the position associated with each frame in :obj:`geom` in that order
+
+    geom : :obj:`mdtraj.Trajectory` object
+        Contains n_frames, each frame
+
+    ax : matplotlib.pyplot.Axes object
+        The axes to be linked with the nglviewer widget
+
+    plot_path : bool, default is False
+        whether to draw a line connecting the positions in :obj:`positions`
+
+    clear_lines : bool, default is True
+        whether to clear all the lines that were previously drawn in :obj:`ax`
+
+    widget : None or existing nglview widget
+        you can provide an already instantiated nglviewer widget here
+
+    link_ax2wdg_kwargs: dictionary of named arguments, optional
+        named arguments for the function :any:`_link_ax_w_pos_2_nglwidget`, which is the one that internally
+        provides the interactivity. Non-expert users can safely ignore this option.
+
+    Returns
+    --------
+
+    iwd : :obj:`nglview.NGLWidget`
+
     """
+
     # Create ngl_viewer widget
     if widget is None:
         iwd = _nglview.show_mdtraj(geom)
@@ -120,11 +224,11 @@ def sample(data_sample, geom,  ax,
         [ax.lines.pop() for ii in range(len(ax.lines))]
     # Plot the path on top of it
     if plot_path:
-        ax.plot(data_sample[:,0], data_sample[:,1], '-g', lw=3)
+        ax.plot(positions[:,0], positions[:,1], '-g', lw=3)
 
     # Link the axes widget with the ngl widget
     _link_ax_w_pos_2_nglwidget(ax,
-                               data_sample,
+                               positions,
                                iwd,
                                **link_ax2wdg_kwargs
                                )

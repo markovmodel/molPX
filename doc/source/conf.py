@@ -33,7 +33,8 @@
 extensions = [
     'sphinx.ext.intersphinx',
     'sphinx.ext.mathjax',
-    'sphinx.ext.autodoc' 
+    'sphinx.ext.autodoc', 
+    'sphinx.ext.napoleon' 
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -345,4 +346,11 @@ texinfo_documents = [
 
 
 # Example configuration for intersphinx: refer to the Python standard library.
-intersphinx_mapping = {'https://docs.python.org/': None}
+#intersphinx_mapping = {'https://docs.python.org/': None, 
+intersphinx_mapping = {'pyemma': ('http://www.emma-project.org/latest/', None),
+                       'mdtraj': ('http://mdtraj.org/1.8.0/', None),
+                       'pylab' : ('http://matplotlib.org/api/', None),
+                       'nglview' : ('http://arose.github.io/nglview/latest/', None)
+}
+
+

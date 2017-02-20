@@ -3,10 +3,10 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-generate
+projX.generate
 ===============================================
 
-Generate text here
+If an ordinary molecular dynamics (MD) trajectory is the starting point, some work has to be done previous to the visualization.
 
 .. automodule:: projX.generate
    :members:

@@ -180,7 +180,6 @@ def sample(MDtrajectory_files, topology, projected_data,
         do not necessarily have to be the same
     """
 
-
     src = _source(MDtrajectory_files, top=topology)
 
     # Find out if we already have a clustering object

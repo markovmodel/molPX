@@ -11,25 +11,38 @@ of molecular dynamics (MD) trajectories** inside an ipython notebook. At the mom
  * ``projX.visualize``
  * ``projX.generate``
 
-Projection Explorer uses the incredibly useful  ``nglview`` `IPython/Jupyter <https://github.com/arose/nglview>`_ widget. Other libraries heavily used are are `mdtraj <http://mdtraj.org/>`_ and `PyEMMA <http://www.emma-project.org/latest/>`_, a library into which projX will utimately be merged into.
+Projection Explorer uses the incredibly useful  ``nglview`` `IPython/Jupyter <https://github.com/arose/nglview>`_ widget.
+Other libraries heavily used are are `mdtraj <http://mdtraj.org/>`_ and `PyEMMA <http://www.emma-project.org/latest/>`_, a library into which projX will utimately be merged into.
 
 Download and Install
 =====================
-At the moment, cloning or downloading the `source from github <https://github.com/gph82/projection_explorer>`_ is the only option to get projX. After that, just cd to the directory ``projection explorer`` and issue
+At the moment, cloning or downloading the `source from github <https://github.com/gph82/projection_explorer>`_ is the only option to get projX.
+After that, just cd to the directory ``projection explorer`` and issue
 
     >>> python setup.py install
-    >>>
 
-You can build html documentation alongside the installation by issuing
+QUICK START
+=============
+
+    >>> cd projX/notebooks
+    >>> jupyter notebook Projection_Explorer.ipynb
+
+should put you in front of an ipython notebook explaining the basic functionality.
+
+DOCUMENTATION
+==============
+You can build html documentation by issuing
 
     >>> python setup.py install build_sphinx
-    >>>
 
-See the warning and known issues for more info.
+This will generate `projection_explorer/docs/build/html/index.html` with the html
+documentation.
 
 WARNINGS:
 =========
- * The important methods (stored in bmutils) have been tested thoroughly. The higher level API-functions are not yet fully tested.
+
+ * The important methods (bmutils) have been tested, the API  has only been tested superficially. Expect some instability.
+
  * This is currently under heavy development and the API might change rapidly.
 
 KNOWN ISSUES:
@@ -38,8 +51,13 @@ The installation of nglview might give a "SandboxViolation" error. Until this is
 to externally issue
 
     >>> conda install nglview -c bioconda
-    >>>
 
+    or, alternatively
+
+    >>> pip install nglview
+
+**The interplay between nglview, nbextensions, ipywidgets might limit you to use python3.X on some platforms.
+Sorry about that.**
 
 Module's Documentation
 ======================

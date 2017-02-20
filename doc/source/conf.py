@@ -55,8 +55,8 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'Projection Explorer'
-copyright = '2017, Guillermo Pérez-Hernández'
-author = 'Guillermo Pérez-Hernández'
+copyright = '2017, Guillermo Perez-Hernandez'
+author = 'Guillermo Perez-Hernandez'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the

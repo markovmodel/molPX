@@ -89,7 +89,7 @@ def regspace_cluster_to_target(data, n_clusters_target,
     """
     delta = delta/100
 
-    assert len(_np.vstack(data)) > n_clusters_target, "Cannot cluster " \
+    assert len(_np.hstack(data)) > n_clusters_target, "Cannot cluster " \
                                                       "%u datapoints on %u clustercenters. Reduce the number of target " \
                                                       "clustercenters."%(len(_np.hstack(data)), n_clusters_target)
     # Works well for connected, 1D-clustering,

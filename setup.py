@@ -14,6 +14,7 @@ setup(name='projX',
           'pyemma',
           'scikit-learn',
           'notebook',
+          'mdtraj',
       ],
           package_data = {
               'projX': ['notebooks/*', 'notebooks/data/*']

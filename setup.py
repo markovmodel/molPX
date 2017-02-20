@@ -15,6 +15,7 @@ setup(name='projX',
           'scikit-learn',
           'notebook',
           'mdtraj',
+          'sphinx'
       ],
           package_data = {
               'projX': ['notebooks/*', 'notebooks/data/*']

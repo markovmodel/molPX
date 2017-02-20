@@ -7,15 +7,25 @@ Welcome to Projection Explorer's Documentation!
 ===============================================
 Projection Explorer (projX) is a python module that provides **interactive visualization of projected coordinates
 of molecular dynamics (MD) trajectories** inside an ipython notebook. At the moment the API consists of two subpackages:
-* ``projX.visualize``
-* ``projX.generate``
+
+ * ``projX.visualize``
+ * ``projX.generate``
 
 Projection Explorer uses the incredibly useful  ``nglview`` `IPython/Jupyter <https://github.com/arose/nglview>`_ widget. Other libraries heavily used are are `mdtraj <http://mdtraj.org/>`_ and `PyEMMA <http://www.emma-project.org/latest/>`_, a library into which projX will utimately be merged into.
 
 Download and Install
 =====================
-At the moment, cloning or downloading the `source from github <https://github.com/gph82/projection_explorer>`_ is the only option to get projX. After that, just cd to the directory "projection explorer" and issue
-python setup.py install. See the warning and known issues for more info
+At the moment, cloning or downloading the `source from github <https://github.com/gph82/projection_explorer>`_ is the only option to get projX. After that, just cd to the directory ``projection explorer`` and issue
+
+    >>> python setup.py install
+    >>>
+
+You can build html documentation alongside the installation by issuing
+
+    >>> python setup.py install build_sphinx
+    >>>
+
+See the warning and known issues for more info.
 
 WARNINGS:
 =========
@@ -24,7 +34,11 @@ WARNINGS:
 
 KNOWN ISSUES:
 =============
-The installation of nglview might give a "SandboxViolation" error. Until this is fixed, the recommended install is to install externally, e.g. using "conda install nglview -c bioconda"
+The installation of nglview might give a "SandboxViolation" error. Until this is fixed, the recommended install is
+to externally issue
+
+    >>> conda install nglview -c bioconda
+    >>>
 
 
 Module's Documentation

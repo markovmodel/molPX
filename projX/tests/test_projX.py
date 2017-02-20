@@ -27,7 +27,7 @@ class MyTestCase(unittest.TestCase):
         shutil.rmtree(self.tempdir)
 
     def test_generate_paths(self):
-        projX.generate.paths(self.MD_trajectory, self.topology, self.projected_file)
+        projX.generate.projection_paths(self.MD_trajectory, self.topology, self.projected_file)
 
     def test_generate_sample(self):
         projX.generate.sample(self.MD_trajectory, self.topology, self.projected_file)

@@ -93,7 +93,7 @@ def traj(trajectory,
         Filename (any extension that :py:obj:`mdtraj` can read is accepted) or directly the :obj:`mdtraj.Trajectory`
         object containing the MD trajectory
 
-    MD_top : str to topology filename directly :obj:`mdtraj.Topology` object
+    MD_top : str to topology filename or directly :obj:`mdtraj.Topology` object
 
     projected_trajectory : str to a filename or numpy ndarray of shape (n_frames, n_dims)
         Time-series with the projection(s) that want to be explored. If these have been computed externally,

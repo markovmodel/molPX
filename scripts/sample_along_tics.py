@@ -139,7 +139,7 @@ for proj in args.projects:
                 'most_pop_x_smallest_Rgyr',
                 'bimodal_compact'
                 ]:
-                # Choose the starting point for the fwd and bwd paths, see the options of the method for more info
+                # Choose the starting point for the fwd and bwd projection_paths, see the options of the method for more info
                 istart_idx = get_good_starting_point(cl, geom_smpl, cl_order=sorts_coord,
                                                     strategy=strategy,
                                                     )
@@ -216,7 +216,7 @@ for proj in args.projects:
             # Feature correlations (see options of correlations2CA_pairs for more info)
             CA_pairs, max_corr = correlations2CA_pairs(tcorr[:,coord], geom_smpl)
 
-            # Save the paths in form of .pdbs and .vmds
+            # Save the projection_paths in form of .pdbs and .vmds
             if args.pdbs:
                 # Do a fit just to have them in approximately the same orientation
                 trajs_path_smpl.superpose(trajs_path[istart_idx])

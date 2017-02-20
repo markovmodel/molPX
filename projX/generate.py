@@ -50,7 +50,7 @@ def projection_paths(MDtrajectory_files, MD_top, projected_trajectories,
 
     n_points : int, default is 100
         Number of points along the projection path. The higher this number, the higher the projected coordinate is
-        resolved, at the cost of more computational effort
+        resolved, at the cost of more computational effort. It's a trade-off parameter
 
     n_geom_samples : int, default is 100
         For each of the :obj:`n_points` along the projection path, :obj:`n_geom_samples` will be retrieved from
@@ -78,17 +78,22 @@ def projection_paths(MDtrajectory_files, MD_top, projected_trajectories,
     --------
 
     paths_dict :
+        dictionary of dictionaries containing the projection paths.
 
-        dictionary of dictionaries containing the :obj:`projection_paths`.
+        * ``paths_dict[idxs][type_of_path]``
 
+            * idxs represent the index of the projected coordinate ([0], [1]...)
+            * types of paths "min_rmsd" or "min_disp"
 
-        The integer keys [0], [1], [2], ... represent the index of the projected coordinate. The next key chooses
-        between the two available types of paths "min_rmsd" or "min_disp"
-        Finally, the availabe objects are
-        paths_dict[idxs][type_of_path].keys() = ["proj", "geom"]
+        * What the dictionary actually contains
 
-    idata:
-        data
+            * ``paths_dict[idxs][type_of_path]["proj"]`` : ndarray of shape (n_points, proj_dim) with the
+            coordinates of the projection along the path
+
+            * paths_dict[idxs][type_of_path]["proj"] : geometries along the path
+
+    idata :
+        list of ndarrays with the the data in  :obj:`projected_trajectories`
     """
 
     src = _source(MDtrajectory_files, top=MD_top)
@@ -202,27 +207,51 @@ def projection_paths(MDtrajectory_files, MD_top, projected_trajectories,
         paths_dict[coord]["min_disp"]["proj"] = _np.vstack([idata[ii][jj] for ii,jj in path])
 
         #TODO : consider storing the data in each dict. It's redundant but makes each dict kinda standalone
+
     return paths_dict, idata
 
 
-def sample(MDtrajectory_files, topology, projected_data,
-                 idxs=[0,1], n_points=100, n_geom_samples=1,
+def sample(MDtrajectory_files, MD_top, projected_trajectories,
+                 proj_idxs=[0,1], n_points=100, n_geom_samples=1,
                  keep_all_samples = False,
                  proj_stride=1,
                  verbose=False,
-                    return_data=False
+                 return_data=False
                  ):
     r"""
-    n_geoms_samples : int, default is 1
-        The number of sampled geometries per clustercenter. If you increase this number to n, generate_sample
-         will look for 1) the most populated clustercenter
-                       2) the most compact geometry, among the "n" available in that center. That's the reference
-                       3) for all other clustercenters, each with "n" candidates, the geometry that's closest
-                       in rmsd to the refrence
-        This is a trade-off parameter between how smooth the transitons between geometries can be and how long it takes
-         to generate the sample
 
-    keep_all_samples = boolean, default is False
+    Parameters
+    ----------
+
+    MDtrajectory_files : list of strings
+        Filenames (any extension that :py:obj:`mdtraj` can read is accepted) containing the trajectory data
+
+    MD_top : str to topology filename or directly :obj:`mdtraj.Topology` object
+
+    projected_trajectories : (lists of) strings or (lists of) numpy ndarrays of shape (n_frames, n_dims)
+        Time-series with the projection(s) that want to be explored. If these have been computed externally,
+        you can provide .npy-filenames or readable asciis (.dat, .txt etc). Alternatively, you can feed in
+        your own clustering object.
+        NOTE: projX assumes that there is no time column.
+
+    proj_idxs: int, defaultis None
+        Selection of projection idxs (zero-idxd) to visualize. The default behaviour is that proj_idxs = range(n_projs).
+        However, if proj_idxs != None, then n_projs is ignored and proj_dim is set automatically
+
+    n_points : int, default is 100
+        Number of points along the projection path. The higher this number, the higher the projected coordinate is
+        resolved, at the cost of more computational effort. It's a trade-off parameter
+
+    n_points : int, default is 100
+        For each of the :obj:`n_points` along the projection path, :obj:`n_geom_samples` will be retrieved from
+        the trajectory files. The higher this number, the *smoother* the minRMSD projection path. Also, the longer
+        it takes for the path to be computed
+
+    n_geoms_samples : int, default is 1
+        This is a trade-off parameter between how smooth the transitons between geometries can be and how long it takes
+        to generate the sample
+
+    keep_all_samples : boolean, default is False
         In principle, once the closest-to-ref geometry has been kept, the other geometries are discarded, and the
         output sample contains only n_point geometries. HOWEVER, there are special cases where the user might
         want to keep all sampled geometries. Typical use-case is when the n_points is low and many representatives
@@ -230,20 +259,20 @@ def sample(MDtrajectory_files, topology, projected_data,
         (i know, this is confusing TODO: write this better)
 
 
-    projected data: nd.array or list of nd.arrays OR pyemma.clustering object
+    projected data : nd.array or list of nd.arrays OR pyemma.clustering object
         Although 2D is the most usual case, the dimensionality of the clustering and the one of the visualization (2D)
         do not necessarily have to be the same
     """
 
-    src = _source(MDtrajectory_files, top=topology)
+    src = _source(MDtrajectory_files, top=MD_top)
 
     # Find out if we already have a clustering object
     try:
-        projected_data.dtrajs
-        cl = projected_data
+        projected_trajectories.dtrajs
+        cl = projected_trajectories
     except:
-        idata = _data_from_input(projected_data)
-        cl = _cluster_to_target([dd[:,idxs] for dd in idata], n_points, n_try_max=10, verbose=verbose)
+        idata = _data_from_input(projected_trajectories)
+        cl = _cluster_to_target([dd[:,proj_idxs] for dd in idata], n_points, n_try_max=10, verbose=verbose)
 
     pos = cl.clustercenters
     cat_smpl = cl.sample_indexes_by_cluster(_np.arange(cl.n_clusters), n_geom_samples)

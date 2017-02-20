@@ -1,27 +1,42 @@
-# projection_explorer by gph82.
-ipython API to visualize MD-trajectories interactively on any projection space.
-
-The API is projX, which provides access to projX.generate and projX.visualize
-
-The notebook Projection_Explorer explains the general cases, 
-but you can combine the methods freely.
+## projection_explorer (projX) by gph82
+ipython API to visualize MD-trajectories interactively on any projection space inside an ipython notebook. The API is `projX`, which provides access to `projX.generate` and `projX.visualize`. The notebook `projX/notebooks/Projection_Explorer.ipynb` explains the general cases, but you can combine the methods freely.
 
 
-WARNINGS:
-- The important methods of bmutils have been tested, but higher level API
- have only been tested superfically.
-- This is currently under heavy development and the API might change rapidly
+### WARNINGS:
 
-INSTALL:
-python setup.py install
-(conda installation will follow)
+* The important methods (bmutils) have been tested, the level API
+ has only been tested superficially. Expect some instability
+* This is currently under heavy development and the API might change rapidly
 
-KNOWN ISSUES:
-- installation of nglview might give a "SandboxViolation" error. IDK how to 
-    fix this for now. Recommended install is then to externally use "conda
-    install nglview -c bioconda"
+### INSTALLATION:
+    
+    >>> python setup.py install
+    
+### DOCUMENTATION:
 
-NOTE:
-This package is based upon the nglview package by Alexander Rose, Ngyen
+    >>> python setup.py install build_sphinx
+    
+This will generate `projection_explorer/docs/build/html/index.html` with the html 
+documentation.
 
+### KNOWN ISSUES:
+ 
+### The interplay between nglview, nbextensions, ipywidgets might limit you to use python3.X on some platforms. Sorry about that.
+
+Installation of `nglview` might give a "SandboxViolation" error. IDK how to 
+ fix this for now. Recommended install is then to externally use 
+    
+    >>> conda install nglview -c bioconda
+
+or, alternatively
+  
+    >>> pip install nglview
+    
+On MAC-OS, an `unknown locale: UTF-8` error might show up when building the docs. According 
+to some guy on the internet (https://coderwall.com/p/-k_93g/mac-os-x-valueerror-unknown-locale-utf-8-in-python), adding this line will help with that, although it seems pretty aggresive
+to change all locale just for this.
+
+export LC_ALL=en_US.UTF-8
+export LANG=en_US.UTF-8
+ 
 Have FUN!

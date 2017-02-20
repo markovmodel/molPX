@@ -8,17 +8,12 @@ projX.generate
 
 This module contains methods that generate needed objects for :any:`visualize` of the methods to work.
 
+.. autosummary::
+   :toctree: DIRNAME
+
+   projX.generate.projection_paths
+   projX.generate.sample
 
 .. automodule:: projX.generate
    :members:
-
-.. toctree::
-   :maxdepth: 2
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
 

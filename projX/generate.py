@@ -259,9 +259,14 @@ def sample(MDtrajectory_files, MD_top, projected_trajectories,
         (i know, this is confusing TODO: write this better)
 
 
-    projected data : nd.array or list of nd.arrays OR pyemma.clustering object
-        Although 2D is the most usual case, the dimensionality of the clustering and the one of the visualization (2D)
-        do not necessarily have to be the same
+    Returns
+    --------
+
+    pos :
+        ndarray with the positions of the sample
+    geom_smpl :
+        :obj:`mdtraj.Trajectory` object with the sampled geometries
+
     """
 
     src = _source(MDtrajectory_files, top=MD_top)

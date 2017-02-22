@@ -6,13 +6,22 @@
 Welcome to Projection Explorer's Documentation!
 ===============================================
 Projection Explorer (projX) is a python module that provides **interactive visualization of projected coordinates
-of molecular dynamics (MD) trajectories** inside an ipython notebook. At the moment the API consists of two subpackages:
-
- * ``projX.visualize``
- * ``projX.generate``
+of molecular dynamics (MD) trajectories** inside an ipython notebook. 
 
 Projection Explorer uses the incredibly useful  ``nglview`` `IPython/Jupyter <https://github.com/arose/nglview>`_ widget.
 Other libraries heavily used are are `mdtraj <http://mdtraj.org/>`_ and `PyEMMA <http://www.emma-project.org/latest/>`_, a library into which projX will utimately be merged into.
+
+.. image:: ../images/output.gif
+   :align: center
+
+At the moment the API consists of two subpackages:
+
+.. toctree::
+   :maxdepth: 4
+
+   index_visualize
+   index_generate
+
 
 Download and Install
 =====================
@@ -58,14 +67,6 @@ to externally issue
 
 **The interplay between nglview, nbextensions, ipywidgets might limit you to use python3.X on some platforms.
 Sorry about that.**
-
-Module's Documentation
-======================
-.. toctree::
-   :maxdepth: 0
-
-   index_visualize
-   index_generate
 
 Indices and tables
 ==================

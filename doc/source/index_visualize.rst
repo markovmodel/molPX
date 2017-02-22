@@ -15,7 +15,7 @@ The core functionality is to interactively link two figures inside an ipython no
 You are **strongly encouraged** to check nglview' `documentation <https://github.com/arose/nglview>`_, since its functionalities extend beyond the scope of this package and the molecular visualization universe is rich and complex (unlike this module).
 
 .. autosummary::
-   :toctree: DIRNAME
+   :toctree: autosummaries
 
    projX.visualize.FES
    projX.visualize.sample

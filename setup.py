@@ -16,7 +16,8 @@ setup(name='projX',
           'notebook',
           'mdtraj',
           'sphinx',
-          'sphinx_rtd_theme'
+          'sphinx_rtd_theme',
+          'nbsphinx'
       ],
           package_data = {
               'projX': ['notebooks/*', 'notebooks/data/*']

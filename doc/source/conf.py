@@ -35,7 +35,8 @@ extensions = [
     'sphinx.ext.mathjax',
     'sphinx.ext.autodoc', 
     'sphinx.ext.autosummary', 
-    'sphinx.ext.napoleon' 
+    'sphinx.ext.napoleon',
+    'nbsphinx'
 ]
 
 # Add any projection_paths that contain templates here, relative to this directory.
@@ -357,4 +358,4 @@ intersphinx_mapping = {'pyemma': ('http://www.emma-project.org/latest/', None),
 
 autosummary_generate = True
 autodoc_default_flags = ['members', 'inherited-members']
-
+exclude_patterns = ['_build', '**.ipynb_checkpoints']

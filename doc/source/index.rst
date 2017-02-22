@@ -22,6 +22,12 @@ At the moment the API consists of two subpackages:
 
    index_visualize
    index_generate
+
+The quickest way to see projX in action is through the 
+
+.. toctree::
+   :maxdepth: 1
+
    index_notebooks
 
 .. contents:: 

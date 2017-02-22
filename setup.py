@@ -4,7 +4,7 @@ __author__ = 'gph82'
 from setuptools import setup
 
 setup(name='projX',
-      version='0.0',
+      version='0.1.0',
       packages=[
           'projX',
           'projX.tests'

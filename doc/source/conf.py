@@ -66,7 +66,8 @@ author = 'Guillermo Perez-Hernandez'
 # built documents.
 #
 # The short X.Y version.
-version = '0'
+from projX import __version__
+version = __version__
 # The full version, including alpha/beta/rc tags.
 release = '0'
 

@@ -35,7 +35,9 @@ extensions = [
     'sphinx.ext.mathjax',
     'sphinx.ext.autodoc', 
     'sphinx.ext.autosummary', 
-    'sphinx.ext.napoleon' 
+    'sphinx.ext.napoleon',
+    'nbsphinx',
+    'IPython.sphinxext.ipython_console_highlighting'  # https://github.com/spatialaudio/nbsphinx/issues/24 and https://github.com/ContinuumIO/anaconda-issues/issues/1430
 ]
 
 # Add any projection_paths that contain templates here, relative to this directory.
@@ -357,4 +359,4 @@ intersphinx_mapping = {'pyemma': ('http://www.emma-project.org/latest/', None),
 
 autosummary_generate = True
 autodoc_default_flags = ['members', 'inherited-members']
-
+exclude_patterns = ['_build', '**.ipynb_checkpoints']

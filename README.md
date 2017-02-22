@@ -21,6 +21,8 @@ documentation.
 
 ### KNOWN ISSUES:
  
+### The interplay between nglview, nbextensions, ipywidgets might limit you to use python3.X on some platforms. Sorry about that.
+
 Installation of `nglview` might give a "SandboxViolation" error. IDK how to 
  fix this for now. Recommended install is then to externally use 
     
@@ -30,6 +32,11 @@ or, alternatively
   
     >>> pip install nglview
     
-### The interplay between nglview, nbextensions, ipywidgets might limit you to use python3.X on some platforms. Sorry about that.
+On MAC-OS, an `unknown locale: UTF-8` error might show up when building the docs. According 
+to some guy on the internet (https://coderwall.com/p/-k_93g/mac-os-x-valueerror-unknown-locale-utf-8-in-python), adding this line will help with that, although it seems pretty aggresive
+to change all locale just for this.
+
+export LC_ALL=en_US.UTF-8
+export LANG=en_US.UTF-8
  
 Have FUN!

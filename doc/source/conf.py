@@ -36,7 +36,8 @@ extensions = [
     'sphinx.ext.autodoc', 
     'sphinx.ext.autosummary', 
     'sphinx.ext.napoleon',
-    'nbsphinx'
+    'nbsphinx',
+    'IPython.sphinxext.ipython_console_highlighting'  # https://github.com/spatialaudio/nbsphinx/issues/24 and https://github.com/ContinuumIO/anaconda-issues/issues/1430
 ]
 
 # Add any projection_paths that contain templates here, relative to this directory.

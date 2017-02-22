@@ -18,14 +18,18 @@ At the moment, there is also an `sklearn <http://scikit-learn.org/stable/index.h
 At the moment the API consists of two subpackages:
 
 .. toctree::
-   :maxdepth: 4
+   :maxdepth: 1
 
    index_visualize
    index_generate
    index_notebooks
 
+.. contents:: 
+   What you'll find on this page
+
 Download and Install
 =====================
+
 At the moment, cloning or downloading the `source from github <https://github.com/gph82/projection_explorer>`_ is the only option to get projX.
 After that, just cd to the directory ``projection explorer`` and issue
 
@@ -43,9 +47,10 @@ DOCUMENTATION
 ==============
 You can build html documentation by issuing
 
-    >>> python setup.py install build_sphinx
+    >>> cd docs
+    >>> make html 
 
-This will generate `projection_explorer/docs/build/html/index.html` with the html
+This will generate ``projection_explorer/docs/build/html/index.html`` with the html
 documentation.
 
 WARNINGS:
@@ -57,8 +62,8 @@ WARNINGS:
 
 KNOWN ISSUES:
 =============
-The installation of nglview might give a "SandboxViolation" error. Until this is fixed, the recommended install is
-to externally issue
+ * The installation of nglview might give a ``SandboxViolation`` error. Until this is fixed, the recommended install is
+   to externally issue
 
     >>> conda install nglview -c bioconda
 
@@ -66,8 +71,10 @@ to externally issue
 
     >>> pip install nglview
 
-**The interplay between nglview, nbextensions, ipywidgets might limit you to use python3.X on some platforms.
-Sorry about that.**
+ * Projection Explorer only works with ``nglview`` versions >=0.6.2.1. 
+
+ * **The interplay between nglview, nbextensions, ipywidgets might limit you to use python3.X on some platforms.
+   Sorry about that.**
 
 Indices and tables
 ==================

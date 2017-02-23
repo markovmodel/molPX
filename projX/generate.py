@@ -219,6 +219,7 @@ def sample(MDtrajectory_files, MD_top, projected_trajectories,
                  return_data=False
                  ):
     r"""
+    Returns a sample of molecular geometries  and their positions in the projected space
 
     Parameters
     ----------

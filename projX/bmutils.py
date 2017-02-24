@@ -254,34 +254,40 @@ def min_rmsd_path(start, path_of_candidates, selection=None, history_aware=False
     return path_out
 
 def catalogues(cl, data=None, sort_by=None):
-    r""" Returns a catalogue of frames from a pyemma.coor.cl object
+    r""" Returns a catalogue of frames from a :obj:`pyemma.coordinates.cluster_regspace` object
 
-    Parameters:
+    Parameters
     ----------
-    cl: pyemma clustering object
+
+    cl : :obj:`pyemma.coordinates.cluster_regspace` object
     
     data : None or list, default is None
-       The default behaviour is to return the catalogue of continuous values (cat_cont, see below)
-       using the cl-object's own cl.dataproducer.data, but other any data can be given
-       here, as long as it satisfies:
+       The :obj:`cl` has its own  :obj:`cl.dataproducer.data` attribute from which it can
+       retrieve the necessary information for  the :obj:`cat_cont` (default behaviour)
+       However, any other any data can be given here, **as long as the user is sure that it represents EXACTLY
+       the data that was used to parametrize the :obj:`cl` object.
+       Internally, the only checks that are carried out are:
+
            len(data) == len(cl.dataproducer.data)
+
            [len(idata) == len(jdata) for idata, jdata in zip(data, cl.dataproducer.data)]
        
-       (Note that by construction the same relations should hold for cl.dtrajs)
+       (Note that by construction the same relations should hold for :obj:`cl.dtrajs`)
  
     sort_by : None or int, default is None
        Default behaviour is to return the catalogues in the same order of clustercenters as the input, 
        but it is sometimes useful have them sorted by ascending order of the n-th coordinate 
-       of the input space, where sort_by = n
+       of the input space
        
-    Returns:
+    Returns
     --------
+
     cat_idxs : list of 2D np.arrays
-        The discrete catalogue. It is a list of len = cl.n_clustercenters containing a 2D vector
-        with all the (file, frame)-pairs in which this clustercenter appears
+        The discrete catalogue. It is a list of len = :obj:`cl.n_clustercenters` containing a 2D vector
+        with all the (file, frame)-pairs in which each clustercenter appears
 
     cat_cont : list of ndarrays
-        The actual value (asumed continuous) of the data at the (file-frame)-pairs of the cat_idxslist
+        The actual value (assumed continuous) of the data at the (file-frame)-pairs of the :obj:`cat_idxs` list
 
     tested: True
     """
@@ -543,15 +549,23 @@ def targets_in_candidates(candidates, targets, verbose=True ):
     return out_list
 
 def data_from_input(projected_data):
-    """r
-    make sure that whatever the input is, you get a list of ndarrays as data
+    r""" Returns properly formatted data (list of ndarrays as data) from different types of inputs
+
+    Parameters
+    -----------
+
     projected data: string or list of strings containing filenames [.npy or any ascii format] with data to be read
                     or nd.array or list of ndarrays with data
 
-    returns: list of ndarrays
+    Returns
+    --------
 
-    tested: True
+    data : list of ndarrays
+
+    tested : True
+
     """
+
     # Create a list if ONE str or ONE ndarray are input
     if isinstance(projected_data, str) or isinstance(projected_data, _np.ndarray):
         projected_data = [projected_data]

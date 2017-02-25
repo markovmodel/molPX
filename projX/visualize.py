@@ -66,12 +66,15 @@ def FES(MD_trajfile, MD_top, projected_trajectory,
                                         return_data=True
                                          )
     data = _np.vstack(data)
-    #h, (x, y) = _np.histogramdd(data, bins=nbins)
 
-    #irange = _np.hstack((x[[0,-1]], y[[0,-1]]))
     _plt.figure()
+    # Use PyEMMA's plotting routing
     plot_free_energy(data[:,0], data[:,1], nbins=nbins)
+
+    #h, (x, y) = _np.histogramdd(data, bins=nbins)
+    #irange = _np.hstack((x[[0,-1]], y[[0,-1]]))
     #_plt.contourf(-_np.log(h).T, extent=irange)
+
     ax = _plt.gca()
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
@@ -212,6 +215,8 @@ def sample(positions, geom,  ax,
 
     iwd : :obj:`nglview.NGLWidget`
 
+    ax_wdg : :obj:`Axes widget`
+
     """
 
     # Create ngl_viewer widget
@@ -227,11 +232,13 @@ def sample(positions, geom,  ax,
         ax.plot(positions[:,0], positions[:,1], '-g', lw=3)
 
     # Link the axes widget with the ngl widget
-    _link_ax_w_pos_2_nglwidget(ax,
+    ax_wdg = _link_ax_w_pos_2_nglwidget(ax,
                                positions,
                                iwd,
                                **link_ax2wdg_kwargs
                                )
+    # somehow returning the ax_wdg messes the displaying of both widgets
+
     return iwd
 
 def fnamez(fname,

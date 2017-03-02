@@ -176,6 +176,7 @@ def traj(trajectories,
         if ii == active_traj:
             geoms = geoms[::stride]
 
+    tmax, tmin = _np.max(time), _np.min(times)
 
 
     myfig, myax = _plt.subplots(len(data)*2,1, sharex=True)
@@ -183,13 +184,17 @@ def traj(trajectories,
 
     widget = None
     for jj, (jdata, jax) in enumerate(zip(data, myax)):
-        print(jj, jdata.shape)
-        for time, idata, iax in zip(times, jdata.T, jax):
+        for ii, (time, idata, iax) in enumerate(zip(times, jdata.T, jax)):
             data_sample =_np.vstack((time, idata)).T
             iax.plot(time, idata)
             if jj == active_traj:
                 widget = sample(data_sample, geoms.superpose(geoms[0]), iax, clear_lines=False, widget=widget)
 
+            # Axis-Cosmetics
+            if ii == 0:
+                iax.set_title('traj %u'%jj)
+            iax.set_ylabel('$\mathregular{proj_%u}$'%ii)
+            iax.set_xlim([tmin, tmax])
     if plot_FES:
         h, (x, y) = _np.histogramdd(_np.vstack(data), bins=50)
         irange = _np.hstack((x[[0,-1]], y[[0,-1]]))

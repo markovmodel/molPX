@@ -224,7 +224,8 @@ def sample(MDtrajectory_files, MD_top, projected_trajectories,
     ----------
 
     MDtrajectory_files : list of strings
-        Filenames (any extension that :py:obj:`mdtraj` can read is accepted) containing the trajectory data
+        Filenames (any extension that :py:obj:`mdtraj` can read is accepted) containing the trajectory data.
+        There is an untested input mode where the user parses directly :obj:`mdtraj.Trajectory` objects
 
     MD_top : str to topology filename or directly :obj:`mdtraj.Topology` object
 
@@ -269,7 +270,15 @@ def sample(MDtrajectory_files, MD_top, projected_trajectories,
 
     """
 
-    src = _source(MDtrajectory_files, top=MD_top)
+    if not isinstance(MDtrajectory_files, list):
+        MDtrajectory_files = [MDtrajectory_files]
+    if isinstance(MDtrajectory_files[0], _md.Trajectory):
+        src = MDtrajectory_files
+        input_was_files = False
+    else:
+        src = _source(MDtrajectory_files, top=MD_top)
+        input_was_files = True
+
 
     # Find out if we already have a clustering object
     try:
@@ -281,7 +290,14 @@ def sample(MDtrajectory_files, MD_top, projected_trajectories,
 
     pos = cl.clustercenters
     cat_smpl = cl.sample_indexes_by_cluster(_np.arange(cl.n_clusters), n_geom_samples)
-    geom_smpl = _save_traj(src, _np.vstack(cat_smpl), None, stride=proj_stride)
+    if input_was_files:
+        geom_smpl = _save_traj(src, _np.vstack(cat_smpl), None, stride=proj_stride)
+    else:
+        file_idx, frame_idx = _np.vstack(cat_smpl)[0]
+        geom_smpl = src[file_idx][frame_idx]
+        for file_idx, frame_idx in _np.vstack(cat_smpl)[1:]:
+            # TODO: we don't need the vstack every time
+            geom_smpl = geom_smpl.join(src[file_idx][frame_idx])
     if n_geom_samples>1:
         if not keep_all_samples:
             geom_smpl = _re_warp(geom_smpl, [n_geom_samples] * cl.n_clusters)

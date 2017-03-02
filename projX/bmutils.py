@@ -797,6 +797,8 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget, link_with_lines=True):
     # Connect widget to axes
     nglwidget.observe(my_observer, "frame", "change")
 
+    return axes_widget
+
 def myflush(pipe, istr='#', size=1e4):
     pipe.write(''.join([istr+'\n\n' for ii in range(int(size))]))
 

@@ -16,7 +16,7 @@ import mdtraj as _md
 from os.path import basename as _basename
 
 
-def FES(MD_trajfile, MD_top, projected_trajectory,
+def FES(MD_trajfiles, MD_top, projected_trajectory,
         nbins=100, n_sample = 100,
         xlabel='proj_0', ylabel='proj_1'):
     r"""
@@ -25,7 +25,7 @@ def FES(MD_trajfile, MD_top, projected_trajectory,
     Parameters
     ----------
 
-    MD_trajfile : str, name of the file the the molecular dynamics (MD) trajectory.
+    MD_trajfiles : str, or list of strings with the filename(s) the the molecular dynamics (MD) trajectories.
             :obj:`mdtraj.Trajectory` object. Any extension that :py:obj:`mdtraj` can read is accepted
 
     MD_top : str to topology filename directly :obj:`mdtraj.Topology` object
@@ -61,17 +61,20 @@ def FES(MD_trajfile, MD_top, projected_trajectory,
         :obj:`mdtraj.Trajectory` object with the geometries n_sample geometries shown by the nglwidget
 
     """
-    data_sample, geoms, data = generate.sample(MD_trajfile, MD_top,projected_trajectory,
+    data_sample, geoms, data = generate.sample(MD_trajfiles, MD_top,projected_trajectory,
                                                n_points=n_sample,
                                         return_data=True
                                          )
     data = _np.vstack(data)
-    #h, (x, y) = _np.histogramdd(data, bins=nbins)
 
-    #irange = _np.hstack((x[[0,-1]], y[[0,-1]]))
     _plt.figure()
+    # Use PyEMMA's plotting routing
     plot_free_energy(data[:,0], data[:,1], nbins=nbins)
+
+    #h, (x, y) = _np.histogramdd(data, bins=nbins)
+    #irange = _np.hstack((x[[0,-1]], y[[0,-1]]))
     #_plt.contourf(-_np.log(h).T, extent=irange)
+
     ax = _plt.gca()
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
@@ -80,33 +83,45 @@ def FES(MD_trajfile, MD_top, projected_trajectory,
 
     return _plt.gca(), _plt.gcf(), iwd, data_sample, geoms
 
-def traj(trajectory,
-         MD_top, projected_trajectory, max_frames=1000,
-         stride=1, proj_idxs=[0,1], plot_FES=False):
-    r"""Link a projected trajectory, X(t) with the molecular structures behind it. Optionally plot also the resulting
-    FES.
+def traj(trajectories,
+         MD_top, projected_trajectories,
+         active_traj=0,
+         max_frames=1000,
+         stride=1,
+         proj_stride=1,
+         proj_idxs=[0,1], plot_FES=False):
+    r"""Link one or many projected trajectories, [X_0(t), X_1(t)...] with the molecular structures behind it.
+
+    Optionally plot also the resulting FES.
 
     Parameters
     -----------
 
-    trajectory : str,  or :obj:`mdtraj.Trajectory` object.
-        Filename (any extension that :py:obj:`mdtraj` can read is accepted) or directly the :obj:`mdtraj.Trajectory`
-        object containing the MD trajectory
+    trajectories : str,  or :obj:`mdtraj.Trajectory` object.
+        Filename (any extension that :py:obj:`mdtraj` can read is accepted) or directly the :obj:`mdtraj.Trajectory` or
+        object containing the the MD trajectories
 
     MD_top : str to topology filename or directly :obj:`mdtraj.Topology` object
 
-    projected_trajectory : str to a filename or numpy ndarray of shape (n_frames, n_dims)
+    projected_trajectories : str to a filename or numpy ndarray of shape (n_frames, n_dims)
         Time-series with the projection(s) that want to be explored. If these have been computed externally,
         you can provide .npy-filenames or readable asciis (.dat, .txt etc).
         NOTE: projX assumes that there is no time column.
+
+    active_traj : int, default 0
+        Index of the trajectory that will be responsive
 
     max_frames : int, default is 1000
         If the trajectoy is longer than this, stride to this length (in frames)
 
     stride : int, default is 1
-        Stride value in case of large datasets. In case of having :obj:`trajectory` and :obj:`projected_trajectory`
+        Stride value in case of large datasets. In case of having :obj:`trajectories` and :obj:`projected_trajectories`
         in memmory (and not on disk) the stride can take place before calling :obj:`traj`. This parameter only
-        has effect when reading things from disk. NOTE:
+        has effect when reading things from disk.
+
+    proj_stride : int, default is 1
+        Stride value that was used in the :obj:`projected_trajectories` relative to the :obj:`projected_trajectories`
+        (untested for now)
 
     proj_idxs : iterable of ints, default is [0,1]
         Indices of the projected coordinates to use in the various representations
@@ -114,11 +129,13 @@ def traj(trajectory,
     plot_FES : bool, default is False
         Plot (and interactively link) the FES as well
 
+
+
     Returns
     ---------
 
-     ax, iwd, data_sample, geoms
-         return _plt.gca(), _plt.gcf(), widget, geoms
+    ax, iwd, data_sample, geoms
+        return _plt.gca(), _plt.gcf(), widget, geoms
 
     ax :
         :obj:`pylab.Axis` object
@@ -129,38 +146,57 @@ def traj(trajectory,
     geoms:
         :obj:`mdtraj.Trajectory` object with the geometries n_sample geometries shown by the nglwidget
 
+
     """
     assert len(proj_idxs) == 2
 
     # Parse input
-    data = _data_from_input(projected_trajectory)[0][:,proj_idxs]
-    if isinstance(trajectory, _md.Trajectory):
-        geoms = trajectory
+    data = [iY[::proj_stride,proj_idxs] for iY in _data_from_input(projected_trajectories)]
+
+    if not isinstance(trajectories, list):
+        trajectories = [trajectories]
+
+    if isinstance(trajectories[active_traj], _md.Trajectory):
+        geoms = trajectories[active_traj]
     else: # let mdtraj fail
-        geoms = _md.load(trajectory, top=MD_top)
+        geoms = _md.load(trajectories[active_traj], top=MD_top)
 
-    # Does the projected trajectory and the data match?
-    assert geoms.n_frames == len(data), (geoms.n_frames, len(data))
+    # Does the projected trajectories and the data match?
+    assert geoms.n_frames == len(data[active_traj]), (geoms.n_frames, len(data[active_traj]))
 
-    # Stride even more if necessary
-    time = _np.arange(geoms.n_frames)
-    if len(time[::stride]) > max_frames:
-        stride = int(_np.floor(geoms.n_frames/max_frames))
-    # Stride
-    geoms = geoms[::stride]
-    data = data[::stride]
-    time = time[::stride]
+    # Stride to avoid representing huge vectors
+    times = []
+    for ii in range(len(data)):
+        time = _np.arange(data[ii].shape[0])
+        if len(time[::stride]) > max_frames:
+            stride = int(_np.floor(data[ii].shape[0]/max_frames))
 
-    myfig, myax = _plt.subplots(2,1, sharex=True)
+        times.append(time[::stride])
+        data[ii] = data[ii][::stride]
+        if ii == active_traj:
+            geoms = geoms[::stride]
+
+    tmax, tmin = _np.max(time), _np.min(times)
+
+
+    myfig, myax = _plt.subplots(len(data)*2,1, sharex=True)
+    myax = myax.reshape(len(data), -1)
 
     widget = None
-    for idata, iax in zip(data.T, myax):
-        data_sample =_np.vstack((time, idata)).T
-        iax.plot(time, idata)
-        widget = sample(data_sample, geoms.superpose(geoms[0]), iax, clear_lines=False, widget=widget)
+    for jj, (jdata, jax) in enumerate(zip(data, myax)):
+        for ii, (time, idata, iax) in enumerate(zip(times, jdata.T, jax)):
+            data_sample =_np.vstack((time, idata)).T
+            iax.plot(time, idata)
+            if jj == active_traj:
+                widget = sample(data_sample, geoms.superpose(geoms[0]), iax, clear_lines=False, widget=widget)
 
+            # Axis-Cosmetics
+            if ii == 0:
+                iax.set_title('traj %u'%jj)
+            iax.set_ylabel('$\mathregular{proj_%u}$'%ii)
+            iax.set_xlim([tmin, tmax])
     if plot_FES:
-        h, (x, y) = _np.histogramdd(data, bins=50)
+        h, (x, y) = _np.histogramdd(_np.vstack(data), bins=50)
         irange = _np.hstack((x[[0,-1]], y[[0,-1]]))
         _plt.figure()
         _plt.contourf(-_np.log(h).T, extent=irange)
@@ -212,6 +248,8 @@ def sample(positions, geom,  ax,
 
     iwd : :obj:`nglview.NGLWidget`
 
+    ax_wdg : :obj:`Axes widget`
+
     """
 
     # Create ngl_viewer widget
@@ -227,11 +265,13 @@ def sample(positions, geom,  ax,
         ax.plot(positions[:,0], positions[:,1], '-g', lw=3)
 
     # Link the axes widget with the ngl widget
-    _link_ax_w_pos_2_nglwidget(ax,
+    ax_wdg = _link_ax_w_pos_2_nglwidget(ax,
                                positions,
                                iwd,
                                **link_ax2wdg_kwargs
                                )
+    # somehow returning the ax_wdg messes the displaying of both widgets
+
     return iwd
 
 def fnamez(fname,

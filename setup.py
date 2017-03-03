@@ -16,6 +16,8 @@ setup(name='projX',
           'pyemma',
           'scikit-learn',
           'notebook',
+          'numpy',  # IDK why I'm adding this, but readthedocs is complaining
+          'cython', #
           'mdtraj',
           'sphinx',
           'sphinx_rtd_theme',

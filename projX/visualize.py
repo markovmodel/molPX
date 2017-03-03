@@ -61,7 +61,7 @@ def FES(MD_trajfiles, MD_top, projected_trajectory,
         :obj:`mdtraj.Trajectory` object with the geometries n_sample geometries shown by the nglwidget
 
     """
-    data_sample, geoms, data = generate.sample(MD_trajfiles, MD_top,projected_trajectory,
+    data_sample, geoms, data = generate.sample(MD_trajfiles, MD_top, projected_trajectory,
                                                n_points=n_sample,
                                         return_data=True
                                          )

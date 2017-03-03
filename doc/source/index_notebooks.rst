@@ -10,5 +10,5 @@ You can find this notebook in the `projX/notebooks/` directory.
 .. toctree::
    :maxdepth: 1
 
-   Projection_Explorer.ipynb
+   Projection_Explorer_Copy.ipynb
 

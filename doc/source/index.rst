@@ -30,13 +30,6 @@ The quickest way to see projX in action is through the
 
    index_notebooks
 
-The most of the low-level functions are contained in the submodule
-
-.. toctree::
-   :maxdepth: 1
-   
-   index_bmutils
-
 .. contents:: 
    What you'll find on this page
 

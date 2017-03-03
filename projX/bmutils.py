@@ -13,7 +13,9 @@ except ImportError:
     from sklearn.mixture import GMM as _GMM
 
 from pyemma.util.linalg import eig_corr
-from pyemma.coordinates import source as _source, cluster_regspace as _cluster_regspace
+from pyemma.coordinates import source as _source, \
+    cluster_regspace as _cluster_regspace, \
+    save_traj as _save_traj
 from pyemma.util.discrete_trajectories import index_states as _index_states
 from scipy.spatial import cKDTree as _cKDTree
 #from myMDvisuals import customvmd
@@ -483,6 +485,7 @@ def find_centers_gmm(data, gridpoints, n_components=2):
     igmm.fit(data)
     return _np.abs(gridpoints-_np.sort(igmm.means_, 0)).argmin(1), igmm
 
+
 def find_centers_bimodal(distro, space, barrier=0):
     #, geoms, mdfunction, pop=None, barrier=0, fitness='min')
     r"""
@@ -581,6 +584,28 @@ def data_from_input(projected_data):
         idata = projected_data
 
     return idata
+
+def save_traj_wrapper(traj_inp, indexes, outfile, top=None, stride=1, chunksize=1000, image_molecules=False, verbose=True):
+    r"""wrapper for :pyemma:`save_traj` so that it works seamlessly with lists of :mdtraj:`Trajectories`
+
+
+    returns: see the return values of :pyemma:`save_traj`
+    """
+
+    if not isinstance(traj_inp, list):
+        traj_inp = [traj_inp]
+
+    if isinstance(traj_inp[0], _md.Trajectory):
+        file_idx, frame_idx = indexes[0]
+        geom_smpl = traj_inp[file_idx][frame_idx]
+        for file_idx, frame_idx in indexes[1:]:
+            geom_smpl = geom_smpl.join(traj_inp[file_idx][frame_idx])
+
+    else:
+        geom_smpl = _save_traj(traj_inp, indexes, None, stride=stride,
+                               chunksize=chunksize, image_molecules=image_molecules, verbose=verbose)
+
+    return geom_smpl
 
 def minimize_rmsd2ref_in_sample(sample, ref):
     # Candidate selection

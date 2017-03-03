@@ -132,7 +132,7 @@ def traj(MD_trajectories,
 
     proj_stride : int, default is 1
         Stride value that was used in the :obj:`projected_trajectories` relative to the :obj:`MD_trajectories`
-        If the original :any:`MD_trajectories` were stored every 5 ps but the projected trajectories were stored
+        If the original :obj:`MD_trajectories` were stored every 5 ps but the projected trajectories were stored
         every 50 ps, :obj:`proj_stride` = 10 has to be provided, otherwise an exception will be thrown informing
         the user that the :obj:`MD_trajectories` and the :obj:`projected_trajectories` have different number of frames.
 

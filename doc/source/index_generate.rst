@@ -6,7 +6,7 @@
 projX.generate
 ===============================================
 
-This module contains methods that generate needed objects for :any:`visualize` of the methods to work.
+This module contains methods that generate the needed objects for :any:`visualize` of the methods to work.
 
 .. autosummary::
    :toctree: autosummaries

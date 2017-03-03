@@ -89,7 +89,8 @@ def traj(trajectories,
          max_frames=1000,
          stride=1,
          proj_stride=1,
-         proj_idxs=[0,1], plot_FES=False):
+         proj_idxs=[0,1],
+         plot_FES=False):
     r"""Link one or many projected trajectories, [X_0(t), X_1(t)...] with the molecular structures behind it.
 
     Optionally plot also the resulting FES.
@@ -176,15 +177,14 @@ def traj(trajectories,
         if ii == active_traj:
             geoms = geoms[::stride]
 
-    tmax, tmin = _np.max(time), _np.min(times)
-
+    tmax, tmin = _np.max([time[-1] for time in times]), _np.min([time[0] for time in times])
 
     myfig, myax = _plt.subplots(len(data)*2,1, sharex=True)
     myax = myax.reshape(len(data), -1)
 
     widget = None
-    for jj, (jdata, jax) in enumerate(zip(data, myax)):
-        for ii, (time, idata, iax) in enumerate(zip(times, jdata.T, jax)):
+    for jj, (time, jdata, jax) in enumerate(zip(times, data, myax)):
+        for ii, (idata, iax) in enumerate(zip(jdata.T, jax)):
             data_sample =_np.vstack((time, idata)).T
             iax.plot(time, idata)
             if jj == active_traj:
@@ -248,7 +248,6 @@ def sample(positions, geom,  ax,
 
     iwd : :obj:`nglview.NGLWidget`
 
-    ax_wdg : :obj:`Axes widget`
 
     """
 

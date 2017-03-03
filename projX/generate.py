@@ -106,9 +106,12 @@ def projection_paths(MD_trajectories, MD_top, projected_trajectories,
         src = MD_trajectories
     else:
         src = _source(MD_trajectories, top=MD_top)
-    # TODO: This list of what checking snippet is repeated elsewhere. Refactor somewhere
+
 
     idata = _data_from_input(projected_trajectories)
+    assert  len(MD_trajectories) == len(idata), "Mismatch between the number of " \
+                                                "MD_trajectories and projected_trajectories: %u vs %u"%(len(MD_trajectories), len(idata))
+
     #TODO: assert total_n_frames (strided) coincies with the n_frames in data
     # What's the hightest dimensionlatiy that the input data allows?
     input_dim = idata[0].shape[1]

@@ -90,7 +90,10 @@ def traj(trajectories,
          stride=1,
          proj_stride=1,
          proj_idxs=[0,1],
-         plot_FES=False):
+         plot_FES=False,
+         panel_height = 1,
+         sharey_traj=True,
+         ):
     r"""Link one or many projected trajectories, [X_0(t), X_1(t)...] with the molecular structures behind it.
 
     Optionally plot also the resulting FES.
@@ -110,7 +113,7 @@ def traj(trajectories,
         NOTE: projX assumes that there is no time column.
 
     active_traj : int, default 0
-        Index of the trajectory that will be responsive
+        Index of the trajectory that will be responsive. (zero-indexing)
 
     max_frames : int, default is 1000
         If the trajectoy is longer than this, stride to this length (in frames)
@@ -130,7 +133,11 @@ def traj(trajectories,
     plot_FES : bool, default is False
         Plot (and interactively link) the FES as well
 
+    panel_height : int, default  1
+        Height, in inches, of each panel of the trajectory subplot
 
+    sharey_traj : bool, default is True
+        Force the panels of each projection to have the same yaxes across trajectories (Note: Not across coordinates)
 
     Returns
     ---------
@@ -153,16 +160,20 @@ def traj(trajectories,
 
     # Parse input
     data = [iY[::proj_stride,proj_idxs] for iY in _data_from_input(projected_trajectories)]
-
     if not isinstance(trajectories, list):
         trajectories = [trajectories]
+    assert len(data) == len(trajectories), "Mismatch between number of MD-trajectories " \
+                                           "and projected trajectores %u vs %u"%(len(trajectories), len(data))
+    assert len(trajectories) > active_traj, "Input is for traj nr. %u to be active (parameter active_traj)" \
+                                            " but your input has only %u trajs. Note: the parameter active_traj " \
+                                            "is zero-indexed"%(active_traj, len(trajectories))
 
     if isinstance(trajectories[active_traj], _md.Trajectory):
         geoms = trajectories[active_traj]
     else: # let mdtraj fail
         geoms = _md.load(trajectories[active_traj], top=MD_top)
 
-    # Does the projected trajectories and the data match?
+    # Do the projected trajectory and the data match?
     assert geoms.n_frames == len(data[active_traj]), (geoms.n_frames, len(data[active_traj]))
 
     # Stride to avoid representing huge vectors
@@ -177,11 +188,17 @@ def traj(trajectories,
         if ii == active_traj:
             geoms = geoms[::stride]
 
+    # For later axes-cosmetics
     tmax, tmin = _np.max([time[-1] for time in times]), _np.min([time[0] for time in times])
+    ylims = _np.zeros((2,2))
+    for ii in range(2):
+        ylims[0, ii] = _np.min([idata[:,ii].min() for idata in data])
+        ylims[1, ii] = _np.max([idata[:,ii].max() for idata in data])
+    ylabels = ['$\mathregular{proj_%u}$'%ii for ii in proj_idxs]
 
-    myfig, myax = _plt.subplots(len(data)*2,1, sharex=True)
+
+    myfig, myax = _plt.subplots(len(data)*2,1, sharex=True, figsize=(7, len(data)*2*panel_height))
     myax = myax.reshape(len(data), -1)
-
     widget = None
     for jj, (time, jdata, jax) in enumerate(zip(times, data, myax)):
         for ii, (idata, iax) in enumerate(zip(jdata.T, jax)):
@@ -193,15 +210,21 @@ def traj(trajectories,
             # Axis-Cosmetics
             if ii == 0:
                 iax.set_title('traj %u'%jj)
-            iax.set_ylabel('$\mathregular{proj_%u}$'%ii)
+            iax.set_ylabel(ylabels[ii])
             iax.set_xlim([tmin, tmax])
+            if sharey_traj:
+                iax.set_ylim(ylims[:,ii])
+
+
     if plot_FES:
         h, (x, y) = _np.histogramdd(_np.vstack(data), bins=50)
         irange = _np.hstack((x[[0,-1]], y[[0,-1]]))
         _plt.figure()
         _plt.contourf(-_np.log(h).T, extent=irange)
+        _plt.xlabel(ylabels[0])
+        _plt.ylabel(ylabels[1])
         ax = _plt.gca()
-        widget = sample(data, geoms.superpose(geoms[0]), ax, widget=widget)
+        widget = sample(data[active_traj], geoms.superpose(geoms[0]), ax, widget=widget)
 
     return _plt.gca(), _plt.gcf(), widget, geoms
 

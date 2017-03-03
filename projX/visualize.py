@@ -155,8 +155,8 @@ def traj(MD_trajectories,
         Name of the physical time unit provided in :obj:`dt`
 
     traj_selection : None, int, iterable of ints, default is None
-        Don't plot all trajectories but only few of them. The default None impolies that all trajs will be plotted.
-        Note: the data used for the FES will always include all trajectotires, regardless of this value
+        Don't plot all trajectories but only few of them. The default None implies that all trajs will be plotted.
+        Note: the data used for the FES will always include all trajectories, regardless of this value
 
     Returns
     ---------
@@ -187,8 +187,6 @@ def traj(MD_trajectories,
     assert len(MD_trajectories) > active_traj, "parameter active_traj selected for traj nr. %u to be active " \
                                             " but your input has only %u trajs. Note: the parameter active_traj " \
                                             "is zero-indexed"%(active_traj, len(MD_trajectories))
-    print(isinstance(traj_selection, int))
-    print(traj_selection is None, traj_selection)
     if isinstance(traj_selection, int):
         traj_selection = [traj_selection]
     elif traj_selection is None:
@@ -229,9 +227,13 @@ def traj(MD_trajectories,
 
 
     myfig, myax = _plt.subplots(len(traj_selection)*2,1, sharex=True, figsize=(7, len(data)*2*panel_height))
-    myax = myax.reshape(len(data), -1)
+    myax = myax.reshape(len(traj_selection), -1)
     widget = None
-    for jj, (time, jdata, jax) in enumerate(zip(times, data, myax)):
+    for jj, time, jdata, jax in zip(traj_selection,
+                                    [times[jj] for jj in traj_selection],
+                                    [data[jj] for jj in traj_selection],
+                                    myax):
+
         for ii, (idata, iax) in enumerate(zip(jdata.T, jax)):
             data_sample =_np.vstack((time, idata)).T
             iax.plot(time, idata)

@@ -86,7 +86,7 @@ def FES(MD_trajectories, MD_top, projected_trajectory,
 
     return _plt.gca(), _plt.gcf(), iwd, data_sample, geoms
 
-def traj(trajectories,
+def traj(MD_trajectories,
          MD_top, projected_trajectories,
          active_traj=0,
          max_frames=2000,
@@ -99,14 +99,14 @@ def traj(trajectories,
          dt = 1.0,
          tunits = 'ns'
          ):
-    r"""Link one or many projected trajectories, [X_0(t), X_1(t)...] with the molecular structures behind it.
+    r"""Link one or many projected MD_trajectories, [X_0(t), X_1(t)...] with the molecular structures behind it.
 
     Optionally plot also the resulting FES.
 
     Parameters
     -----------
 
-    trajectories : str,  or :obj:`mdtraj.Trajectory` object.
+    MD_trajectories : str,  or :obj:`mdtraj.Trajectory` object.
         Filename (any extension that :py:obj:`mdtraj` can read is accepted) or directly the :obj:`mdtraj.Trajectory` or
         object containing the the MD trajectories
 
@@ -124,7 +124,7 @@ def traj(trajectories,
         If the trajectoy is longer than this, stride to this length (in frames)
 
     stride : int, default is 1
-        Stride value in case of large datasets. In case of having :obj:`trajectories` and :obj:`projected_trajectories`
+        Stride value in case of large datasets. In case of having :obj:`MD_trajectories` and :obj:`projected_trajectories`
         in memory (and not on disk) the stride can take place also before calling :obj:`traj`.
 
     proj_stride : int, default is 1
@@ -170,18 +170,18 @@ def traj(trajectories,
 
     # Parse input
     data = [iY[:,proj_idxs] for iY in _data_from_input(projected_trajectories)]
-    if not isinstance(trajectories, list):
-        trajectories = [trajectories]
-    assert len(data) == len(trajectories), "Mismatch between number of MD-trajectories " \
-                                           "and projected trajectores %u vs %u"%(len(trajectories), len(data))
-    assert len(trajectories) > active_traj, "Input is for traj nr. %u to be active (parameter active_traj)" \
+    if not isinstance(MD_trajectories, list):
+        MD_trajectories = [MD_trajectories]
+    assert len(data) == len(MD_trajectories), "Mismatch between number of MD-trajectories " \
+                                           "and projected trajectores %u vs %u"%(len(MD_trajectories), len(data))
+    assert len(MD_trajectories) > active_traj, "Input is for traj nr. %u to be active (parameter active_traj)" \
                                             " but your input has only %u trajs. Note: the parameter active_traj " \
-                                            "is zero-indexed"%(active_traj, len(trajectories))
+                                            "is zero-indexed"%(active_traj, len(MD_trajectories))
 
-    if isinstance(trajectories[active_traj], _md.Trajectory):
-        geoms = trajectories[active_traj][::proj_stride]
+    if isinstance(MD_trajectories[active_traj], _md.Trajectory):
+        geoms = MD_trajectories[active_traj][::proj_stride]
     else: # let mdtraj fail
-        geoms = _md.load(trajectories[active_traj], stride=proj_stride, top=MD_top)
+        geoms = _md.load(MD_trajectories[active_traj], stride=proj_stride, top=MD_top)
 
     # Do the projected trajectory and the data match?
     assert geoms.n_frames == len(data[active_traj]), (geoms.n_frames, len(data[active_traj]))

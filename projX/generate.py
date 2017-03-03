@@ -18,7 +18,7 @@ from .bmutils import regspace_cluster_to_target as _cluster_to_target, \
 from collections import defaultdict as _defdict
 import mdtraj as _md
 
-def projection_paths(MDtrajectory_files, MD_top, projected_trajectories,
+def projection_paths(MD_trajectories, MD_top, projected_trajectories,
                    n_projs=1, proj_dim=2, proj_idxs=None,
                    n_points=100, n_geom_samples=100, proj_stride=1,
                    history_aware=True, verbose=False, minRMSD_selection='backbone'):
@@ -28,7 +28,7 @@ def projection_paths(MDtrajectory_files, MD_top, projected_trajectories,
     Parameters
     -----------
 
-    MDtrajectory_files : list of strings
+    MD_trajectories : list of strings
         Filenames (any extension that :py:obj:`mdtraj` can read is accepted) containing the trajectory data
 
     MD_top : str to topology filename or directly :obj:`mdtraj.Topology` object
@@ -59,7 +59,7 @@ def projection_paths(MDtrajectory_files, MD_top, projected_trajectories,
         it takes for the path to be computed
 
     proj_stride : int, default is 1
-        The stride of the :obj:`projected_trajectories` relative to the :obj:`MDtrajectory_files`.
+        The stride of the :obj:`projected_trajectories` relative to the :obj:`MD_trajectories`.
         This will play a role particularly if :obj:`projected_trajectories` is already strided (because the user is
         holding it in memory) but the MD-data on disk has not been strided.
 
@@ -97,13 +97,13 @@ def projection_paths(MDtrajectory_files, MD_top, projected_trajectories,
         list of ndarrays with the the data in  :obj:`projected_trajectories`
     """
 
-    if not isinstance(MDtrajectory_files, list):
-        MDtrajectory_files = [MDtrajectory_files]
+    if not isinstance(MD_trajectories, list):
+        MD_trajectories = [MD_trajectories]
 
-    if isinstance(MDtrajectory_files[0], _md.Trajectory):
-        src = MDtrajectory_files
+    if isinstance(MD_trajectories[0], _md.Trajectory):
+        src = MD_trajectories
     else:
-        src = _source(MDtrajectory_files, top=MD_top)
+        src = _source(MD_trajectories, top=MD_top)
     # TODO: This list of what checking snippet is repeated elsewhere. Refactor somewhere
 
     idata = _data_from_input(projected_trajectories)
@@ -220,7 +220,7 @@ def projection_paths(MDtrajectory_files, MD_top, projected_trajectories,
     return paths_dict, idata
 
 
-def sample(MDtrajectory_files, MD_top, projected_trajectories,
+def sample(MD_trajectories, MD_top, projected_trajectories,
                  proj_idxs=[0,1], n_points=100, n_geom_samples=1,
                  keep_all_samples = False,
                  proj_stride=1,
@@ -233,7 +233,7 @@ def sample(MDtrajectory_files, MD_top, projected_trajectories,
     Parameters
     ----------
 
-    MDtrajectory_files : list of strings
+    MD_trajectories : list of strings
         Filenames (any extension that :py:obj:`mdtraj` can read is accepted) containing the trajectory data.
         There is an untested input mode where the user parses directly :obj:`mdtraj.Trajectory` objects
 
@@ -280,12 +280,12 @@ def sample(MDtrajectory_files, MD_top, projected_trajectories,
 
     """
 
-    if not isinstance(MDtrajectory_files, list):
-        MDtrajectory_files = [MDtrajectory_files]
-    if isinstance(MDtrajectory_files[0], _md.Trajectory):
-        src = MDtrajectory_files
+    if not isinstance(MD_trajectories, list):
+        MD_trajectories = [MD_trajectories]
+    if isinstance(MD_trajectories[0], _md.Trajectory):
+        src = MD_trajectories
     else:
-        src = _source(MDtrajectory_files, top=MD_top)
+        src = _source(MD_trajectories, top=MD_top)
 
     # Find out if we already have a clustering object
     try:

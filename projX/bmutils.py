@@ -16,6 +16,7 @@ from pyemma.util.linalg import eig_corr
 from pyemma.coordinates import source as _source, \
     cluster_regspace as _cluster_regspace, \
     save_traj as _save_traj
+from pyemma.coordinates.data.feature_reader import  FeatureReader as _FeatureReader
 from pyemma.util.discrete_trajectories import index_states as _index_states
 from scipy.spatial import cKDTree as _cKDTree
 #from myMDvisuals import customvmd
@@ -588,22 +589,29 @@ def data_from_input(projected_data):
 def save_traj_wrapper(traj_inp, indexes, outfile, top=None, stride=1, chunksize=1000, image_molecules=False, verbose=True):
     r"""wrapper for :pyemma:`save_traj` so that it works seamlessly with lists of :mdtraj:`Trajectories`
 
+    Parameters
+    -----------
+
+    traj_inp : :pyemma:`FeatureReader` object or :mdtraj:`Trajectory` object or list of :mdtraj:`Trajectory` objects
 
     returns: see the return values of :pyemma:`save_traj`
     """
 
-    if not isinstance(traj_inp, list):
+     # Listify the input in case its needed
+    if not isinstance(traj_inp, list) and not isinstance(traj_inp, _FeatureReader):
         traj_inp = [traj_inp]
 
-    if isinstance(traj_inp[0], _md.Trajectory):
+    # Do the normal thing in case of Feature_reader or list of strings
+    if isinstance(traj_inp, _FeatureReader) or isinstance(traj_inp[0], str):
+        geom_smpl = _save_traj(traj_inp, indexes, None, top=top, stride=stride,
+                               chunksize=chunksize, image_molecules=image_molecules, verbose=verbose)
+    elif isinstance(traj_inp[0], _md.Trajectory):
         file_idx, frame_idx = indexes[0]
         geom_smpl = traj_inp[file_idx][frame_idx]
         for file_idx, frame_idx in indexes[1:]:
             geom_smpl = geom_smpl.join(traj_inp[file_idx][frame_idx])
-
     else:
-        geom_smpl = _save_traj(traj_inp, indexes, None, stride=stride,
-                               chunksize=chunksize, image_molecules=image_molecules, verbose=verbose)
+        raise TypeError("Cant handle input of type %s now"%(type(traj_inp[0])))
 
     return geom_smpl
 

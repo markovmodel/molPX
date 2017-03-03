@@ -1,13 +1,13 @@
 ## projection_explorer (projX)
 
-`projX` (projection explorer) is an ipython API to visualize MD-trajectories interactively on any projection space inside an ipython notebook. 
+`projX` (projection explorer) is an jupyter API to visualize MD-trajectories interactively on any projection space inside an jupyter notebook. 
 
 It provides access to `projX.generate` and `projX.visualize`. The notebook `projX/notebooks/Projection_Explorer.ipynb` explains the general cases, but you can combine the methods freely.
 
 Projection Explorer uses the incredibly useful  [``nglview``] (https://github.com/arose/nglview) `IPython/Jupyter widget`.
 Other libraries heavily used are are [`mdtraj`] (http://mdtraj.org/) and [`PyEMMA`] (http://www.emma-project.org/latest/), a library into which `projX` will utimately be merged into. At the moment, there is also an [`sklearn`] (http://scikit-learn.org/stable/index.html)  dependency that might disappear in the future.
 
-## WARNINGS:
+## Warnings:
 * This is currently under **heavy development** and the API might change rapidly, to the point 
 of even **changing its name** in its near future, so please stay tuned.
 
@@ -18,11 +18,11 @@ of even **changing its name** in its near future, so please stay tuned.
 the API methods has only been tested less thouroughly. Expect some instability
  
 
-## INSTALLATION:
+## Installation:
     
     >>> python setup.py install
     
-## DOCUMENTATION:
+## Documentation:
 An lot of effort has been made to document this project properly. Appart from the docstring documentation that will show on 
 your ipython terminal, there are also html pages and ipython tutorial notebooks online. 
 You can find everything [here] (http://page.mi.fu-berlin.de/gph82/projX/). 
@@ -43,7 +43,7 @@ your browser, e.g:
 
 
 
-## DATA PRIVACY STATEMENT 
+## Data Privacy Statement 
 
 When you import this Python package, some of your metadata is sent to our servers. These are:
 
@@ -72,7 +72,7 @@ Hints:
         >>> import os x    
         >>> os.path.expanduser('~/.projX')
 
-## KNOWN ISSUES:
+## Known Issues:
  
 ### The interplay between nglview, nbextensions, ipywidgets might limit you to use python3.X on some platforms. Sorry about that.
 

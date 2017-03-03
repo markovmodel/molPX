@@ -6,7 +6,7 @@
 Welcome to Projection Explorer's Documentation!
 ===============================================
 Projection Explorer (projX) is a python module that provides **interactive visualization of projected coordinates
-of molecular dynamics (MD) trajectories** inside an ipython notebook. 
+of molecular dynamics (MD) trajectories** inside a jupyter notebook.
 
 Projection Explorer uses the incredibly useful  `nglview IPython/Jupyter widget <https://github.com/arose/nglview>`_.
 Other libraries heavily used are  `mdtraj <http://mdtraj.org/>`_ and `PyEMMA <http://www.emma-project.org/latest/>`_, a library into which projX will utimately be merged into.
@@ -34,12 +34,12 @@ Find more about the people behind `projX` here:
 
 .. toctree::
 
-    about
+    About & YouTube Introduction <about>
 
 .. contents:: 
    What you'll find on this page
 
-DOWNLOAD AND INSTALL
+Download and Install
 =====================
 
 At the moment, cloning or downloading the `source from github <https://github.com/gph82/projection_explorer>`_ is the only option to get projX.
@@ -47,15 +47,15 @@ After that, just cd to the directory ``projection explorer`` and issue
 
     >>> python setup.py install
 
-QUICK START
+Quick Start
 =============
 
     >>> cd projX/notebooks
     >>> jupyter notebook Projection_Explorer.ipynb
 
-should put you in front of an ipython notebook explaining the basic functionality.
+should put you in front of a jupyter notebook explaining the basic functionality.
 
-DOCUMENTATION
+Documentation
 ==============
 You can build html documentation by issuing
 
@@ -65,14 +65,14 @@ You can build html documentation by issuing
 This will generate ``projection_explorer/docs/build/html/index.html`` with the html
 documentation.
 
-WARNINGS:
+Warnings
 =========
 
  * The important methods (bmutils) have been tested, the API  has only been tested superficially. Expect some instability.
 
  * This is currently under heavy development and the API might change rapidly.
 
-DATA PRIVACY STATEMENT
+Data Privacy Statement
 ======================
 
 When you import this Python package, some of your metadata is sent to our servers. These are:
@@ -89,7 +89,7 @@ It is very easy to disable this feature, even before you use install `projX` for
  1. Create a hidden folder `.projX` in your home folder
  2. Create a file `projX_conf.py` inside of `.projX` with the following line:
     `report_status = False`
- 3. Restart your ipython sessions
+ 3. Restart your ipython/jupyter sessions
 
 Hints:
 
@@ -104,7 +104,7 @@ Hints:
         >>> os.path.expanduser('~/.projX')
 
 
-KNOWN ISSUES:
+Known Issues
 =============
  * The installation of nglview might give a ``SandboxViolation`` error. Until this is fixed, the recommended install is
    to externally issue

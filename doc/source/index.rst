@@ -30,10 +30,16 @@ The quickest way to see projX in action is through the
 
    index_notebooks
 
+Find more about the people behind `projX` here:
+
+.. toctree::
+
+    about
+
 .. contents:: 
    What you'll find on this page
 
-Download and Install
+DOWNLOAD AND INSTALL
 =====================
 
 At the moment, cloning or downloading the `source from github <https://github.com/gph82/projection_explorer>`_ is the only option to get projX.
@@ -65,6 +71,38 @@ WARNINGS:
  * The important methods (bmutils) have been tested, the API  has only been tested superficially. Expect some instability.
 
  * This is currently under heavy development and the API might change rapidly.
+
+DATA PRIVACY STATEMENT
+======================
+
+When you import this Python package, some of your metadata is sent to our servers. These are:
+
+ * projX version
+ * Python version
+ * Operating System
+ * Hostname/ mac address of the accessing computer
+ * Time of retrieval
+
+It is very easy to disable this feature, even before you use install `projX` for the first time. Here's how
+--------------------------------------------------------------------------------
+
+ 1. Create a hidden folder `.projX` in your home folder
+ 2. Create a file `projX_conf.py` inside of `.projX` with the following line:
+    `report_status = False`
+ 3. Restart your ipython sessions
+
+Hints:
+
+* You can check your report status anytime by typing this line in a (i)python terminal
+
+        >>> import projX
+        >>> projX._report_status()
+
+* If you don't know where your home folder is (for whatever reason), you can find it out by typing in a (i)python terminal
+
+        >>> import os x
+        >>> os.path.expanduser('~/.projX')
+
 
 KNOWN ISSUES:
 =============

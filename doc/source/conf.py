@@ -361,3 +361,7 @@ intersphinx_mapping = {'pyemma': ('http://www.emma-project.org/latest/', None),
 autosummary_generate = True
 autodoc_default_flags = ['members', 'inherited-members']
 exclude_patterns = ['_build', '**.ipynb_checkpoints']
+
+# This is an ugly UGLY hack that I'll get rid of sometime soon
+import shutil
+shutil.copy('../../projX/notebooks/Projection_Explorer.ipynb', 'Projection_Explorer_Copy.ipynb')

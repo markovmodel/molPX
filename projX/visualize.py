@@ -16,24 +16,30 @@ import mdtraj as _md
 from os.path import basename as _basename
 
 
-def FES(MD_trajfiles, MD_top, projected_trajectory,
+def FES(MD_trajectories, MD_top, projected_trajectory,
+        proj_idxs = [0,1],
         nbins=100, n_sample = 100,
-        xlabel='proj_0', ylabel='proj_1'):
+        axlabel='proj'):
     r"""
     Return a molecular visualization widget connected with a free energy plot.
 
     Parameters
     ----------
 
-    MD_trajfiles : str, or list of strings with the filename(s) the the molecular dynamics (MD) trajectories.
-            :obj:`mdtraj.Trajectory` object. Any extension that :py:obj:`mdtraj` can read is accepted
+    MD_trajectories : str, or list of strings with the filename(s) the the molecular dynamics (MD) trajectories.
+        Any extension that :py:obj:`mdtraj` can read is accepted.
 
-    MD_top : str to topology filename directly :obj:`mdtraj.Topology` object
+        Alternatively, a single :obj:`mdtraj.Trajectory` object or a list of them can be given as input.
+
+    MD_top : str to topology filename or directly an :obj:`mdtraj.Topology` object
 
     projected_trajectory : str to a filename or numpy ndarray of shape (n_frames, n_dims)
         Time-series with the projection(s) that want to be explored. If these have been computed externally,
         you can provide .npy-filenames or readable asciis (.dat, .txt etc).
         NOTE: projX assumes that there is no time column.
+
+    proj_idxs: list or ndarray of length 2
+        Selection of projection idxs (zero-idxd) to visualize.
 
     nbins : int, default 100
         The number of bins per axis to used in the histogram (FES)
@@ -42,11 +48,8 @@ def FES(MD_trajfiles, MD_top, projected_trajectory,
         The number of geometries that will be used to represent the FES. The higher the number, the higher the spatial
         resolution of the "click"-action.
 
-    xlabel : str, default is 'proj_0'
-        xlabel of the FES plot
-
-    ylabel : str, default is 'proj_1'
-        ylabel of the FES plot
+    axlabel : str, default is 'proj'
+        Format of the labels in the FES plot
 
     Returns
     --------
@@ -61,7 +64,7 @@ def FES(MD_trajfiles, MD_top, projected_trajectory,
         :obj:`mdtraj.Trajectory` object with the geometries n_sample geometries shown by the nglwidget
 
     """
-    data_sample, geoms, data = generate.sample(MD_trajfiles, MD_top, projected_trajectory,
+    data_sample, geoms, data = generate.sample(MD_trajectories, MD_top, projected_trajectory, proj_idxs=proj_idxs,
                                                n_points=n_sample,
                                         return_data=True
                                          )
@@ -69,15 +72,15 @@ def FES(MD_trajfiles, MD_top, projected_trajectory,
 
     _plt.figure()
     # Use PyEMMA's plotting routing
-    plot_free_energy(data[:,0], data[:,1], nbins=nbins)
+    plot_free_energy(data[:,proj_idxs[0]], data[:,proj_idxs[1]], nbins=nbins)
 
     #h, (x, y) = _np.histogramdd(data, bins=nbins)
     #irange = _np.hstack((x[[0,-1]], y[[0,-1]]))
     #_plt.contourf(-_np.log(h).T, extent=irange)
 
     ax = _plt.gca()
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
+    ax.set_xlabel('$\mathregular{%s_{%u}}$'%(axlabel, proj_idxs[0]))
+    ax.set_ylabel('$\mathregular{%s_{%u}}$'%(axlabel, proj_idxs[1]))
 
     iwd = sample(data_sample, geoms.superpose(geoms[0]), ax)
 
@@ -86,13 +89,15 @@ def FES(MD_trajfiles, MD_top, projected_trajectory,
 def traj(trajectories,
          MD_top, projected_trajectories,
          active_traj=0,
-         max_frames=1000,
+         max_frames=2000,
          stride=1,
          proj_stride=1,
          proj_idxs=[0,1],
          plot_FES=False,
          panel_height = 1,
          sharey_traj=True,
+         dt = 1.0,
+         tunits = 'ns'
          ):
     r"""Link one or many projected trajectories, [X_0(t), X_1(t)...] with the molecular structures behind it.
 
@@ -120,8 +125,7 @@ def traj(trajectories,
 
     stride : int, default is 1
         Stride value in case of large datasets. In case of having :obj:`trajectories` and :obj:`projected_trajectories`
-        in memmory (and not on disk) the stride can take place before calling :obj:`traj`. This parameter only
-        has effect when reading things from disk.
+        in memory (and not on disk) the stride can take place also before calling :obj:`traj`.
 
     proj_stride : int, default is 1
         Stride value that was used in the :obj:`projected_trajectories` relative to the :obj:`projected_trajectories`
@@ -138,6 +142,12 @@ def traj(trajectories,
 
     sharey_traj : bool, default is True
         Force the panels of each projection to have the same yaxes across trajectories (Note: Not across coordinates)
+
+    dt : float, default is 1.0
+        Physical time-unit equivalent to one frame of the :obj:`projected_trajectories`
+
+    tunits : str, default is 'ns'
+        Name of the physical time unit provided in :obj:`dt`
 
     Returns
     ---------
@@ -159,7 +169,7 @@ def traj(trajectories,
     assert len(proj_idxs) == 2
 
     # Parse input
-    data = [iY[::proj_stride,proj_idxs] for iY in _data_from_input(projected_trajectories)]
+    data = [iY[:,proj_idxs] for iY in _data_from_input(projected_trajectories)]
     if not isinstance(trajectories, list):
         trajectories = [trajectories]
     assert len(data) == len(trajectories), "Mismatch between number of MD-trajectories " \
@@ -169,9 +179,9 @@ def traj(trajectories,
                                             "is zero-indexed"%(active_traj, len(trajectories))
 
     if isinstance(trajectories[active_traj], _md.Trajectory):
-        geoms = trajectories[active_traj]
+        geoms = trajectories[active_traj][::proj_stride]
     else: # let mdtraj fail
-        geoms = _md.load(trajectories[active_traj], top=MD_top)
+        geoms = _md.load(trajectories[active_traj], stride=proj_stride, top=MD_top)
 
     # Do the projected trajectory and the data match?
     assert geoms.n_frames == len(data[active_traj]), (geoms.n_frames, len(data[active_traj]))
@@ -179,7 +189,7 @@ def traj(trajectories,
     # Stride to avoid representing huge vectors
     times = []
     for ii in range(len(data)):
-        time = _np.arange(data[ii].shape[0])
+        time = _np.arange(data[ii].shape[0])*dt*proj_stride
         if len(time[::stride]) > max_frames:
             stride = int(_np.floor(data[ii].shape[0]/max_frames))
 
@@ -213,8 +223,8 @@ def traj(trajectories,
             iax.set_ylabel(ylabels[ii])
             iax.set_xlim([tmin, tmax])
             if sharey_traj:
-                iax.set_ylim(ylims[:,ii])
-
+                iax.set_ylim(ylims[:,ii]+[-1,1]*_np.diff(ylims[:,ii])*.1)
+    iax.set_xlabel(tunits)
 
     if plot_FES:
         h, (x, y) = _np.histogramdd(_np.vstack(data), bins=50)

@@ -12,7 +12,8 @@ from .bmutils import regspace_cluster_to_target as _cluster_to_target, \
     get_good_starting_point as _get_good_starting_point, \
     visual_path as _visual_path, \
     data_from_input as _data_from_input, \
-    minimize_rmsd2ref_in_sample as _minimize_rmsd2ref_in_sample
+    minimize_rmsd2ref_in_sample as _minimize_rmsd2ref_in_sample, \
+    save_traj_wrapper as _save_traj_wrapper
 
 from collections import defaultdict as _defdict
 import mdtraj as _md
@@ -144,14 +145,7 @@ def projection_paths(MDtrajectory_files, MD_top, projected_trajectories,
         sorts_coord = _np.argsort(cl.clustercenters[:,0]) # again, here we're ALWAYS USING "1" because cl. is 1D
         cat_smpl = cl.sample_indexes_by_cluster(sorts_coord, n_geom_samples)
         # TODO: this fallunterscheidung is repeated elsewhere.Refactor and consider an own method
-        if input_was_files:
-            geom_smpl = _save_traj(src, _np.vstack(cat_smpl), None, stride=proj_stride)
-        else:
-            file_idx, frame_idx = _np.vstack(cat_smpl)[0]
-            geom_smpl = src[file_idx][frame_idx]
-            for file_idx, frame_idx in _np.vstack(cat_smpl)[1:]:
-                # TODO: we don't need the vstack every time
-                geom_smpl = geom_smpl.join(src[file_idx][frame_idx])
+        geom_smpl = _save_traj_wrapper(src, _np.vstack(cat_smpl), None, stride=proj_stride)
         geom_smpl = _re_warp(geom_smpl, [n_geom_samples]*cl.n_clusters)
 
         # Initialze stuff
@@ -293,11 +287,8 @@ def sample(MDtrajectory_files, MD_top, projected_trajectories,
         MDtrajectory_files = [MDtrajectory_files]
     if isinstance(MDtrajectory_files[0], _md.Trajectory):
         src = MDtrajectory_files
-        input_was_files = False
     else:
         src = _source(MDtrajectory_files, top=MD_top)
-        input_was_files = True
-    # TODO: This list of what checking snippet is repeated elsewhere. Refactor somewhere
 
     # Find out if we already have a clustering object
     try:
@@ -310,15 +301,7 @@ def sample(MDtrajectory_files, MD_top, projected_trajectories,
     pos = cl.clustercenters
     cat_smpl = cl.sample_indexes_by_cluster(_np.arange(cl.n_clusters), n_geom_samples)
 
-    # TODO: this fallunterscheidung is repeated elsewhere.Refactor and consider an own method
-    if input_was_files:
-        geom_smpl = _save_traj(src, _np.vstack(cat_smpl), None, stride=proj_stride)
-    else:
-        file_idx, frame_idx = _np.vstack(cat_smpl)[0]
-        geom_smpl = src[file_idx][frame_idx]
-        for file_idx, frame_idx in _np.vstack(cat_smpl)[1:]:
-            # TODO: we don't need the vstack every time
-            geom_smpl = geom_smpl.join(src[file_idx][frame_idx])
+    geom_smpl = _save_traj_wrapper(src, _np.vstack(cat_smpl), None, stride=proj_stride)
 
     if n_geom_samples>1:
         if not keep_all_samples:

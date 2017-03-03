@@ -4,7 +4,7 @@ __author__ = 'gph82'
 
 
 
-from pyemma.coordinates import source as _source, save_traj as _save_traj
+from pyemma.coordinates import source as _source
 import numpy as _np
 from .bmutils import regspace_cluster_to_target as _cluster_to_target, \
     catalogues as _catalogues, \
@@ -102,10 +102,8 @@ def projection_paths(MDtrajectory_files, MD_top, projected_trajectories,
 
     if isinstance(MDtrajectory_files[0], _md.Trajectory):
         src = MDtrajectory_files
-        input_was_files = False
     else:
         src = _source(MDtrajectory_files, top=MD_top)
-        input_was_files = True
     # TODO: This list of what checking snippet is repeated elsewhere. Refactor somewhere
 
     idata = _data_from_input(projected_trajectories)
@@ -201,9 +199,8 @@ def projection_paths(MDtrajectory_files, MD_top, projected_trajectories,
         istart_idx = start_idx[min_key]
 
         paths_dict[coord]["min_rmsd"]["proj"] = _np.vstack([idata[ii][jj] for ii,jj in path_smpl])
-        paths_dict[coord]["min_rmsd"]["geom"] = _save_traj(src.filenames, path_smpl, None,
-                                                         stride=proj_stride, top=MD_top
-                                                        )
+        paths_dict[coord]["min_rmsd"]["geom"] = _save_traj_wrapper(src, path_smpl, None,
+                                                        stride=proj_stride, top=MD_top)
 
         # With the starting point the creates the minimally diffusive path,
         # create a path minimising displacemnt in the projected space (minimally diffusing path)
@@ -215,7 +212,7 @@ def projection_paths(MDtrajectory_files, MD_top, projected_trajectories,
                                start_frame=istart_frame,
                                history_aware=history_aware,
                                exclude_coords=[coord])
-        paths_dict[coord]["min_disp"]["geom"]  = _save_traj(src.filenames, path, None, stride=proj_stride, top=MD_top)
+        paths_dict[coord]["min_disp"]["geom"]  = _save_traj_wrapper(src, path, None, stride=proj_stride, top=MD_top)
         paths_dict[coord]["min_disp"]["proj"] = _np.vstack([idata[ii][jj] for ii,jj in path])
 
         #TODO : consider storing the data in each dict. It's redundant but makes each dict kinda standalone
@@ -301,7 +298,7 @@ def sample(MDtrajectory_files, MD_top, projected_trajectories,
     pos = cl.clustercenters
     cat_smpl = cl.sample_indexes_by_cluster(_np.arange(cl.n_clusters), n_geom_samples)
 
-    geom_smpl = _save_traj_wrapper(src, _np.vstack(cat_smpl), None, stride=proj_stride)
+    geom_smpl = _save_traj_wrapper(src, _np.vstack(cat_smpl), None, top=MD_top, stride=proj_stride)
 
     if n_geom_samples>1:
         if not keep_all_samples:

@@ -28,12 +28,14 @@ def projection_paths(MD_trajectories, MD_top, projected_trajectories,
     Parameters
     -----------
 
-    MD_trajectories : list of strings
-        Filenames (any extension that :py:obj:`mdtraj` can read is accepted) containing the trajectory data
+    MD_trajectories : str, or list of strings with the filename(s) the the molecular dynamics (MD) trajectories.
+        Any file extension that :py:obj:`mdtraj` (.xtc, .dcd etc) can read is accepted.
+
+        Alternatively, a single :obj:`mdtraj.Trajectory` object or a list of them can be given as input.
 
     MD_top : str to topology filename or directly :obj:`mdtraj.Topology` object
 
-    projected_trajectories : (lists of) strings or (lists of) numpy ndarrays of shape (n_frames, n_dims)
+    projected_trajectories : str to a filename or numpy ndarray of shape (n_frames, n_dims)
         Time-series with the projection(s) that want to be explored. If these have been computed externally,
         you can provide .npy-filenames or readable asciis (.dat, .txt etc).
         NOTE: projX assumes that there is no time column.
@@ -245,7 +247,7 @@ def sample(MD_trajectories, MD_top, projected_trajectories,
         your own clustering object.
         NOTE: projX assumes that there is no time column.
 
-    proj_idxs: int, defaultis None
+    proj_idxs: int, default is None
         Selection of projection idxs (zero-idxd) to visualize. The default behaviour is that proj_idxs = range(n_projs).
         However, if proj_idxs != None, then n_projs is ignored and proj_dim is set automatically
 

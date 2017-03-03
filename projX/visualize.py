@@ -27,7 +27,7 @@ def FES(MD_trajectories, MD_top, projected_trajectory,
     ----------
 
     MD_trajectories : str, or list of strings with the filename(s) the the molecular dynamics (MD) trajectories.
-        Any extension that :py:obj:`mdtraj` can read is accepted.
+        Any file extension that :py:obj:`mdtraj` (.xtc, .dcd etc) can read is accepted.
 
         Alternatively, a single :obj:`mdtraj.Trajectory` object or a list of them can be given as input.
 
@@ -97,18 +97,21 @@ def traj(MD_trajectories,
          panel_height = 1,
          sharey_traj=True,
          dt = 1.0,
-         tunits = 'ns'
+         tunits = 'ns',
+         traj_selection = None,
          ):
-    r"""Link one or many projected MD_trajectories, [X_0(t), X_1(t)...] with the molecular structures behind it.
+    r"""Link one or many :obj:`projected trajectories`, [Y_0(t), Y_1(t)...], with the :obj:`MD_trajectories` that
+    originated them.
 
     Optionally plot also the resulting FES.
 
     Parameters
     -----------
 
-    MD_trajectories : str,  or :obj:`mdtraj.Trajectory` object.
-        Filename (any extension that :py:obj:`mdtraj` can read is accepted) or directly the :obj:`mdtraj.Trajectory` or
-        object containing the the MD trajectories
+    MD_trajectories : str, or list of strings with the filename(s) the the molecular dynamics (MD) trajectories.
+        Any file extension that :py:obj:`mdtraj` (.xtc, .dcd etc) can read is accepted.
+
+        Alternatively, a single :obj:`mdtraj.Trajectory` object or a list of them can be given as input.
 
     MD_top : str to topology filename or directly :obj:`mdtraj.Topology` object
 
@@ -125,11 +128,13 @@ def traj(MD_trajectories,
 
     stride : int, default is 1
         Stride value in case of large datasets. In case of having :obj:`MD_trajectories` and :obj:`projected_trajectories`
-        in memory (and not on disk) the stride can take place also before calling :obj:`traj`.
+        in memory (and not on disk) the stride can take place also before calling this method.
 
     proj_stride : int, default is 1
-        Stride value that was used in the :obj:`projected_trajectories` relative to the :obj:`projected_trajectories`
-        (untested for now)
+        Stride value that was used in the :obj:`projected_trajectories` relative to the :obj:`MD_trajectories`
+        If the original :any:`MD_trajectories` were stored every 5 ps but the projected trajectories were stored
+        every 50 ps, :obj:`proj_stride` = 10 has to be provided, otherwise an exception will be thrown informing
+        the user that the :obj:`MD_trajectories` and the :obj:`projected_trajectories` have different number of frames.
 
     proj_idxs : iterable of ints, default is [0,1]
         Indices of the projected coordinates to use in the various representations
@@ -138,7 +143,7 @@ def traj(MD_trajectories,
         Plot (and interactively link) the FES as well
 
     panel_height : int, default  1
-        Height, in inches, of each panel of the trajectory subplot
+        Height, in inches, of each panel of each trajectory subplots
 
     sharey_traj : bool, default is True
         Force the panels of each projection to have the same yaxes across trajectories (Note: Not across coordinates)
@@ -148,6 +153,10 @@ def traj(MD_trajectories,
 
     tunits : str, default is 'ns'
         Name of the physical time unit provided in :obj:`dt`
+
+    traj_selection : None, int, iterable of ints, default is None
+        Don't plot all trajectories but only few of them. The default None impolies that all trajs will be plotted.
+        Note: the data used for the FES will always include all trajectotires, regardless of this value
 
     Returns
     ---------
@@ -168,15 +177,27 @@ def traj(MD_trajectories,
     """
     assert len(proj_idxs) == 2
 
+
     # Parse input
     data = [iY[:,proj_idxs] for iY in _data_from_input(projected_trajectories)]
     if not isinstance(MD_trajectories, list):
         MD_trajectories = [MD_trajectories]
     assert len(data) == len(MD_trajectories), "Mismatch between number of MD-trajectories " \
                                            "and projected trajectores %u vs %u"%(len(MD_trajectories), len(data))
-    assert len(MD_trajectories) > active_traj, "Input is for traj nr. %u to be active (parameter active_traj)" \
+    assert len(MD_trajectories) > active_traj, "parameter active_traj selected for traj nr. %u to be active " \
                                             " but your input has only %u trajs. Note: the parameter active_traj " \
                                             "is zero-indexed"%(active_traj, len(MD_trajectories))
+    print(isinstance(traj_selection, int))
+    print(traj_selection is None, traj_selection)
+    if isinstance(traj_selection, int):
+        traj_selection = [traj_selection]
+    elif traj_selection is None:
+        traj_selection = _np.arange(len(data))
+        print(traj_selection)
+    assert _np.max(traj_selection) < len(data), "Selected up to traj. nr. %u via the parameter traj_selection, " \
+                                                "but only provided %u trajs"%(_np.max(traj_selection), len(data))
+    assert active_traj in traj_selection, "Selected traj. nr. %u to be the active one, " \
+                                          "but it is not contained in traj_selection: %s"%(active_traj, traj_selection)
 
     if isinstance(MD_trajectories[active_traj], _md.Trajectory):
         geoms = MD_trajectories[active_traj][::proj_stride]
@@ -207,7 +228,7 @@ def traj(MD_trajectories,
     ylabels = ['$\mathregular{proj_%u}$'%ii for ii in proj_idxs]
 
 
-    myfig, myax = _plt.subplots(len(data)*2,1, sharex=True, figsize=(7, len(data)*2*panel_height))
+    myfig, myax = _plt.subplots(len(traj_selection)*2,1, sharex=True, figsize=(7, len(data)*2*panel_height))
     myax = myax.reshape(len(data), -1)
     widget = None
     for jj, (time, jdata, jax) in enumerate(zip(times, data, myax)):

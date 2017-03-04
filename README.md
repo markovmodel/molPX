@@ -23,7 +23,7 @@ the API methods has only been tested less thouroughly. Expect some instability
     >>> python setup.py install
     
 ## Documentation:
-An lot of effort has been made to document this project properly. Appart from the docstring documentation that will show on 
+A lot of effort has been made to document this project properly. Appart from the docstring documentation that will show on
 your ipython terminal, there are also html pages and ipython tutorial notebooks online. 
 You can find everything [here] (http://page.mi.fu-berlin.de/gph82/projX/). 
 

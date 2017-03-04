@@ -38,9 +38,9 @@ install:
 
 
   # use agg backend in matplotlib to avoid gui popup, which can not be closed.
-  - echo %userprofile%
-  - mkdir %userprofile%\\.matplotlib
-  - "echo backend: agg > %userprofile%\\.matplotlib\\matplotlibrc"
+#  - echo %userprofile%
+#  - mkdir %userprofile%\\.matplotlib
+#  - "echo backend: agg > %userprofile%\\.matplotlib\\matplotlibrc"
 
 build: false # Not a C# project, build stuff at the test step instead.
 

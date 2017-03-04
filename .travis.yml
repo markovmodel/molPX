@@ -3,7 +3,7 @@ git:
   submodules: false
   depth: 250
 os:
- #- osx
+ - osx
  - linux
 
 sudo: false

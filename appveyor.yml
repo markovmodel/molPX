@@ -44,6 +44,7 @@ install:
 
 build: false # Not a C# project, build stuff at the test step instead.
 
+# Running the tests has been disable for Windows
 #test_script:
   # run testsuite and upload test results to AppVeyor; return exit code of testsuite
   #- "%CMD_IN_ENV% conda build -q devtools/conda-recipe"

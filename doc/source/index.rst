@@ -100,7 +100,7 @@ Hints:
 
 * If you don't know where your home folder is (for whatever reason), you can find it out by typing in a (i)python terminal
 
-        >>> import os x
+        >>> import os
         >>> os.path.expanduser('~/.projX')
 
 

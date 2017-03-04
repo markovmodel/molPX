@@ -1,0 +1,5 @@
+notebook
+sphinx
+sphinx_rtd_theme
+nbsphinx
+nbconvert

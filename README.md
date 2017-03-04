@@ -1,6 +1,6 @@
 ## projection_explorer (projX)
 
-`projX` (projection explorer) is an jupyter API to visualize MD-trajectories interactively on any projection space inside an jupyter notebook. 
+`projX` (projection explorer) is a jupyter API to visualize MD-trajectories interactively on any projection space inside a jupyter notebook.
 
 It provides access to `projX.generate` and `projX.visualize`. The notebook `projX/notebooks/Projection_Explorer.ipynb` explains the general cases, but you can combine the methods freely.
 
@@ -11,7 +11,7 @@ Other libraries heavily used are are [`mdtraj`] (http://mdtraj.org/) and [`PyEMM
 * This is currently under **heavy development** and the API might change rapidly, to the point 
 of even **changing its name** in its near future, so please stay tuned.
 
-* Until there is a proper release, consider this just an ipython repository that changes 
+* Until there is a proper release, consider this just a ipython repository that changes
   rapidly.
 
 * The important methods (`bmutils`) have been tested for correctness, 
@@ -25,7 +25,7 @@ the API methods has only been tested less thouroughly. Expect some instability
 ## Documentation:
 A lot of effort has been made to document this project properly. Appart from the docstring documentation that will show on
 your ipython terminal, there are also html pages and ipython tutorial notebooks online. 
-You can find everything [here] (http://page.mi.fu-berlin.de/gph82/projX/). 
+You can find everything [here] (http://projection-explorer.readthedocs.io/).
 
 You can also build it locally issuing the following command:
 
@@ -40,7 +40,6 @@ This will generate `projection_explorer/docs/build/html/index.html` with the htm
 your browser, e.g:
 
     >>> firefox doc/build/html/index.html
-
 
 
 ## Data Privacy Statement 

@@ -52,7 +52,7 @@ When you import this Python package, some of your metadata is sent to our server
 * Hostname/ mac address of the accessing computer
 * Time of retrieval
 
-### It is very easy to disable this feature, even before you use install `projX` for the first time. Here's how:#
+### It is very easy to disable this feature, even before you use install `projX` for the first time. Here's how:
 
  1. Create a hidden folder `.projX` in your home folder 
  2. Create a file `projX_conf.py` inside of `.projX` with the following line:

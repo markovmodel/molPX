@@ -57,7 +57,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = 'Projection Explorer'
+project = 'molPX: Molecular Projection Explorer'
 copyright = '2017, Guillermo Perez-Hernandez'
 author = 'Guillermo Perez-Hernandez'
 

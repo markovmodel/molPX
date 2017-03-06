@@ -1,3 +1,8 @@
+r"""
+=====================================
+molPX - Molecular Projection Explorer
+=====================================
+"""
 from __future__ import print_function
 
 __author__ = 'gph82'

@@ -295,7 +295,7 @@ def sample(positions, geom,  ax,
         you can provide an already instantiated nglviewer widget here
 
     link_ax2wdg_kwargs: dictionary of named arguments, optional
-        named arguments for the function :any:`_link_ax_w_pos_2_nglwidget`, which is the one that internally
+        named arguments for the function :obj:`_link_ax_w_pos_2_nglwidget`, which is the one that internally
         provides the interactivity. Non-expert users can safely ignore this option.
 
     Returns

@@ -95,6 +95,7 @@ def projection_paths(MD_trajectories, MD_top, projected_trajectories,
 
             * paths_dict[idxs][type_of_path]["proj"] : geometries along the path
 
+
     idata :
         list of ndarrays with the the data in  :obj:`projected_trajectories`
     """

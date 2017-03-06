@@ -20,6 +20,8 @@
 import os
 import sys
 sys.path.insert(0, os.path.abspath('../../'))
+sys.path.insert(0, os.path.abspath('../../molpx'))
+
 print(sys.path)
 print(os.listdir(sys.path[0]))
 # -- General configuration ------------------------------------------------

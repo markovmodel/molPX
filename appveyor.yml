@@ -31,7 +31,7 @@ install:
 
   - conda config --set always_yes true
   - conda config --add channels omnia
-  - conda config --add channels bioconda
+#  - conda config --add channels bioconda
 
 #  - conda config --add channels conda-forge
   - conda install -q conda-build=2.1.5 jinja2

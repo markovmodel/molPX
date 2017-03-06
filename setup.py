@@ -4,15 +4,15 @@ __author__ = 'gph82'
 from setuptools import setup
 import versioneer
 
-setup(name='projX',
+setup(name='molpx',
       version=versioneer.get_version(),
       cmdclass=versioneer.get_cmdclass(),
       packages=[
-          'projX',
-          'projX.tests'
+          'molpx',
+          'molpx.tests'
       ],
       install_requires=[
-          'nglview>=0.6.2.1',
+          'nglview>=0.6.2.2',
           'pyemma',
           'scikit-learn',
           'notebook',
@@ -22,7 +22,7 @@ setup(name='projX',
           'nbsphinx'
       ],
           package_data = {
-              'projX': ['notebooks/*', 'notebooks/data/*']
+              'molpx': ['notebooks/*', 'notebooks/data/*']
           }
 )
 

@@ -3,7 +3,7 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-projX.visualize
+molpx.visualize
 ===============
 
 The core functionality is to link two interative figures, *fig1* and *fig2*, inside an ipython notebook, so that action *fig1* (e.g.a click of the mouse or a slide of a slidebar) will trigger an event in *fig2* (e.g. a frame update or point moved) and vice versa. Usually, these two figures contain representations from:
@@ -17,11 +17,11 @@ You are **strongly encouraged** to check nglview' `documentation <https://github
 .. autosummary::
    :toctree: autosummaries
 
-   projX.visualize.FES
-   projX.visualize.sample
-   projX.visualize.traj
+   molpx.visualize.FES
+   molpx.visualize.sample
+   molpx.visualize.traj
 
-.. automodule:: projX.visualize
+.. automodule:: molpx.visualize
    :members:
 
 

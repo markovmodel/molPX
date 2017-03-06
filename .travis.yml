@@ -12,7 +12,7 @@ env:
   global:
     - PATH=$HOME/miniconda/bin:$PATH
     - common_py_deps="conda-build=2.1.5"
-    - PACKAGENAME=projX
+    - PACKAGENAME=molpx
     #- ORGNAME=omnia
     - PYTHONHASHSEED=0
     - OMP_NUM_THREADS=2

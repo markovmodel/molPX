@@ -354,4 +354,4 @@ exclude_patterns = ['_build', '**.ipynb_checkpoints']
 
 # This is an ugly UGLY hack that I'll get rid of sometime soon
 import shutil
-shutil.copy('../../projX/notebooks/Projection_Explorer.ipynb', 'Projection_Explorer_Copy.ipynb')
+shutil.copy('../../molpx/notebooks/Projection_Explorer.ipynb', 'Projection_Explorer_Copy.ipynb')

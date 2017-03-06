@@ -3,7 +3,7 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-projX.generate
+molpx.generate
 ===============================================
 
 This module contains methods that generate the needed objects for :any:`visualize` of the methods to work.
@@ -11,9 +11,9 @@ This module contains methods that generate the needed objects for :any:`visualiz
 .. autosummary::
    :toctree: autosummaries
 
-   projX.generate.projection_paths
-   projX.generate.sample
+   molpx.generate.projection_paths
+   molpx.generate.sample
 
-.. automodule:: projX.generate
+.. automodule:: molpx.generate
    :members:
 

@@ -1,2 +1,2 @@
 include versioneer.py
-include projX/_version.py
+include molpx/_version.py

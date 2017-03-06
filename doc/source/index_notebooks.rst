@@ -5,12 +5,12 @@
 
 Example Notebook
 ==================
-You can find this notebook in the ``projX/notebooks/`` directory and execute it yourself.
+You can find this notebook in the ``molpx/notebooks/`` directory and execute it yourself.
 
 Unfortunately for this html documentation, ``nglview``‘s output, i.e. the pictures of molecular structures,
 cannot be stored currently in the notebook file. In short: this html-notebook is lacking the most visually
-appealing part of projX. Please check the :doc:`Youtube video </about>`  or the :doc:`gif animation </index>`
-to see `projX` in action.
+appealing part of molpx. Please check the :doc:`Youtube video </about>`  or the :doc:`gif animation </index>`
+to see `molpx` in action.
 
 Click on the sections below to navigate to though the notebook:
 

@@ -5,11 +5,11 @@
 
 Welcome to Projection Explorer's Documentation!
 ===============================================
-Projection Explorer (projX) is a python module that provides **interactive visualization of projected coordinates
-of molecular dynamics (MD) trajectories** inside a jupyter notebook.
+The Molecular Projection Explorer, ``molpx``, is a python module that provides **interactive visualization of
+projected coordinates of molecular dynamics (MD) trajectories** inside a jupyter notebook.
 
 Projection Explorer uses the incredibly useful  `nglview IPython/Jupyter widget <https://github.com/arose/nglview>`_.
-Other libraries heavily used are  `mdtraj <http://mdtraj.org/>`_ and `PyEMMA <http://www.emma-project.org/latest/>`_, a library into which projX will utimately be merged into.
+Other libraries heavily used are  `mdtraj <http://mdtraj.org/>`_ and `PyEMMA <http://www.emma-project.org/latest/>`_.
 At the moment, there is also an `sklearn <http://scikit-learn.org/stable/index.html>`_  dependency that might disappear in the future.
 
 .. image:: ../images/output.gif
@@ -23,14 +23,14 @@ At the moment the API consists of two subpackages:
    index_visualize
    index_generate
 
-The quickest way to see projX in action is through the 
+The quickest way to see molpx in action is through the
 
 .. toctree::
    :maxdepth: 1
 
    index_notebooks
 
-Find more about the people behind `projX` here:
+Find more about the people behind `molpx` here:
 
 .. toctree::
 
@@ -42,7 +42,7 @@ Find more about the people behind `projX` here:
 Download and Install
 =====================
 
-At the moment, cloning or downloading the `source from github <https://github.com/gph82/projection_explorer>`_ is the only option to get projX.
+At the moment, cloning or downloading the `source from github <https://github.com/gph82/projection_explorer>`_ is the only option to get molpx.
 After that, just cd to the directory ``projection explorer`` and issue
 
     >>> python setup.py install
@@ -50,7 +50,7 @@ After that, just cd to the directory ``projection explorer`` and issue
 Quick Start
 =============
 
-    >>> cd projX/notebooks
+    >>> cd molpx/notebooks
     >>> jupyter notebook Projection_Explorer.ipynb
 
 should put you in front of a jupyter notebook explaining the basic functionality.
@@ -77,17 +77,17 @@ Data Privacy Statement
 
 When you import this Python package, some of your metadata is sent to our servers. These are:
 
- * projX version
+ * molpx version
  * Python version
  * Operating System
  * Hostname/ mac address of the accessing computer
  * Time of retrieval
 
-It is very easy to disable this feature, even before you use install `projX` for the first time. Here's how
+It is very easy to disable this feature, even before you use install `molpx` for the first time. Here's how
 --------------------------------------------------------------------------------
 
- 1. Create a hidden folder `.projX` in your home folder
- 2. Create a file `projX_conf.py` inside of `.projX` with the following line:
+ 1. Create a hidden folder `.molpx` in your home folder
+ 2. Create a file `molpx_conf.py` inside of `.molpx` with the following line:
     `report_status = False`
  3. Restart your ipython/jupyter sessions
 
@@ -95,13 +95,13 @@ Hints:
 
 * You can check your report status anytime by typing this line in a (i)python terminal
 
-        >>> import projX
-        >>> projX._report_status()
+        >>> import molpx
+        >>> molpx._report_status()
 
 * If you don't know where your home folder is (for whatever reason), you can find it out by typing in a (i)python terminal
 
         >>> import os
-        >>> os.path.expanduser('~/.projX')
+        >>> os.path.expanduser('~/.molpx')
 
 
 Known Issues

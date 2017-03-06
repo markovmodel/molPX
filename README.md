@@ -1,11 +1,11 @@
-## projection_explorer (projX)
+## Molecular Projection Explorer (molpx)
 
-`projX` (projection explorer) is a jupyter API to visualize MD-trajectories interactively on any projection space inside a jupyter notebook.
+`molpx` (projection explorer) is a jupyter API to visualize MD-trajectories interactively on any projection space inside a jupyter notebook.
 
-It provides access to `projX.generate` and `projX.visualize`. The notebook `projX/notebooks/Projection_Explorer.ipynb` explains the general cases, but you can combine the methods freely.
+It provides access to `molpx.generate` and `molpx.visualize`. The notebook `molpx/notebooks/Projection_Explorer.ipynb` explains the general cases, but you can combine the methods freely.
 
 Projection Explorer uses the incredibly useful  [``nglview``] (https://github.com/arose/nglview) `IPython/Jupyter widget`.
-Other libraries heavily used are are [`mdtraj`] (http://mdtraj.org/) and [`PyEMMA`] (http://www.emma-project.org/latest/), a library into which `projX` will utimately be merged into. At the moment, there is also an [`sklearn`] (http://scikit-learn.org/stable/index.html)  dependency that might disappear in the future.
+Other libraries heavily used are are [`mdtraj`] (http://mdtraj.org/) and [`PyEMMA`] (http://www.emma-project.org/latest/), a library into which `molpx` will utimately be merged into. At the moment, there is also an [`sklearn`] (http://scikit-learn.org/stable/index.html)  dependency that might disappear in the future.
 
 ## Warnings:
 * This is currently under **heavy development** and the API might change rapidly, to the point 
@@ -46,16 +46,16 @@ your browser, e.g:
 
 When you import this Python package, some of your metadata is sent to our servers. These are:
 
-* projX version
+* molpx version
 * Python version
 * Operating System
 * Hostname/ mac address of the accessing computer
 * Time of retrieval
 
-### It is very easy to disable this feature, even before you use install `projX` for the first time. Here's how:
+### It is very easy to disable this feature, even before you use install `molpx` for the first time. Here's how:
 
- 1. Create a hidden folder `.projX` in your home folder 
- 2. Create a file `projX_conf.py` inside of `.projX` with the following line:
+ 1. Create a hidden folder `.molpx` in your home folder 
+ 2. Create a file `molpx_conf.py` inside of `.molpx` with the following line:
     `report_status = False`        
  3. Restart your ipython sessions
  
@@ -63,13 +63,13 @@ Hints:
 
 * You can check your report status anytime by typing this line in a (i)python terminal
 
-        >>> import projX
-        >>> projX._report_status()
+        >>> import molpx
+        >>> molpx._report_status()
     
 * If you don't know where your home folder is (for whatever reason), you can find it out by typing in a (i)python terminal
     
         >>> import os
-        >>> os.path.expanduser('~/.projX')
+        >>> os.path.expanduser('~/.molpx')
 
 ## Known Issues:
  

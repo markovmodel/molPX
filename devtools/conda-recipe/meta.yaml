@@ -1,5 +1,5 @@
 package:
-  name: projx
+  name: molpx
   # version number: [base tag]+[commits-upstream]_[git_hash]
   # eg. v2.0+0_g8824162
   version: 0
@@ -29,12 +29,12 @@ test:
     - pytest-cov
     - nbconvert
   imports:
-    - projX
+    - molpx
   commands:
-    - pytest --pyargs projX
+    - pytest --pyargs molpx
     - echo "c.ExecutePreprocessor.timeout = -1" > jupyter_nbconvert_config.py
-    - ls $(python -c "from __future__ import print_function; import pkg_resources; print(pkg_resources.resource_filename('projX', 'notebooks/'))")
-    - jupyter nbconvert --config jupyter_nbconvert_config.py --execute $(python -c "from __future__ import print_function; import pkg_resources; print(pkg_resources.resource_filename('projX', 'notebooks/Projection_Explorer.ipynb'))")
+    - ls $(python -c "from __future__ import print_function; import pkg_resources; print(pkg_resources.resource_filename('molpx', 'notebooks/'))")
+    - jupyter nbconvert --config jupyter_nbconvert_config.py --execute $(python -c "from __future__ import print_function; import pkg_resources; print(pkg_resources.resource_filename('molpx', 'notebooks/Projection_Explorer.ipynb'))")
 #about:
 #  home: http://emma-project.org
 #  license: GNU Lesser Public License v3+

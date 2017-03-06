@@ -83,17 +83,16 @@ def projection_paths(MD_trajectories, MD_top, projected_trajectories,
     paths_dict :
         dictionary of dictionaries containing the projection paths.
 
-        * ``paths_dict[idxs][type_of_path]``
+        * :obj:`paths_dict[idxs][type_of_path]`
 
             * idxs represent the index of the projected coordinate ([0], [1]...)
             * types of paths "min_rmsd" or "min_disp"
 
         * What the dictionary actually contains
 
-            * ``paths_dict[idxs][type_of_path]["proj"]`` : ndarray of shape (n_points, proj_dim) with the
-            coordinates of the projection along the path
+            * :obj:`paths_dict[idxs][type_of_path]["proj"]` : ndarray of shape (n_points, proj_dim) with the coordinates of the projection along the path
 
-            * paths_dict[idxs][type_of_path]["proj"] : geometries along the path
+            * :obj:`paths_dict[idxs][type_of_path]["geom"]` : :any:`mdtraj.Trajectory` geometries along the path
 
 
     idata :

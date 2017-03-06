@@ -4,7 +4,7 @@ __author__ = 'gph82'
 from setuptools import setup
 import versioneer
 
-setup(name='molpx',
+setup(name='molPX',
       version=versioneer.get_version(),
       cmdclass=versioneer.get_cmdclass(),
       packages=[
@@ -22,7 +22,7 @@ setup(name='molpx',
           'nbsphinx'
       ],
           package_data = {
-              'molpx': ['notebooks/*', 'notebooks/data/*']
+              'molPX': ['notebooks/*', 'notebooks/data/*']
           }
 )
 

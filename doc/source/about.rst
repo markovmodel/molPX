@@ -1,7 +1,7 @@
 About
 =========
 
-`molpx` has been developed mostly by `Dr. Guillermo Pérez-Hernández <http://www.mi.fu-berlin.de/en/math/groups/
+molPX has been developed mostly by `Dr. Guillermo Pérez-Hernández <http://www.mi.fu-berlin.de/en/math/groups/
 comp-mol-bio/staff/perez/index.html>`_
 in the group of `Prof. Dr. Frank Noé <http://www.mi.fu-berlin.de/en/math/groups/comp-mol-bio/index.html>`_, with
 occasional but priceless help from:
@@ -10,16 +10,16 @@ occasional but priceless help from:
   * `Fabian Paul <https://github.com/fabian-paul>`_, and
   * `Dr. Simon Olsson <https://github.com/psolsson>`_
 
-Beyond `molpx`'s own methods, this module connects two incredibly powerful and incredibly useful python modules:
+Beyond molPX's own methods, this module connects two incredibly powerful and incredibly useful python modules:
   * `mdtraj <http://mdtraj.org/>`_ for handling molecular structures inside python
   * `nglview IPython/Jupyter widget <https://github.com/arose/nglview>`_ for in-notebook molecular visualization.
 
 
-`molpx` is specially in debt to `Dr. Alexander Rose
+molPX is specially in debt to `Dr. Alexander Rose
 <https://github.com/arose>`_, who, apart from developing the impressive `nglview
-<https://github.com/arose/nglview>`_ (among other projects) provided the very first proof-of-concept for `molpx`.
+<https://github.com/arose/nglview>`_ (among other projects) provided the very first proof-of-concept for molPX.
 
-`molpx` was recently introduced to the community in a `PyEMMA <https://pyemma.org>`_ workshop in Berlin:
+molPX was recently introduced to the community in a `PyEMMA <https://pyemma.org>`_ workshop in Berlin:
 
  .. raw:: html
 

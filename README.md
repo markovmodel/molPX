@@ -1,8 +1,8 @@
 ## Molecular Projection Explorer (molPX)
 
-`molPX` (Molecular Projection Explorer) is a jupyter API to visualize MD-trajectories interactively on any projection space inside a jupyter notebook.
+molPX (Molecular Projection Explorer) is a jupyter API to visualize MD-trajectories interactively on any projection space inside a jupyter notebook.
 
-It provides access to `molpx.generate` and `molpx.visualize`. The notebook `molpx/notebooks/Projection_Explorer.ipynb` explains the general cases, but you can combine the methods freely.
+It provides access to the methods `molpx.generate` and `molpx.visualize`. The notebook `molpx/notebooks/Projection_Explorer.ipynb` explains the general cases, but you can combine the methods freely.
 
 Projection Explorer uses the incredibly useful  [``nglview``] (https://github.com/arose/nglview) `IPython/Jupyter widget`.
 Other libraries heavily used are [`mdtraj`] (http://mdtraj.org/) and [`PyEMMA`] (http://www.emma-project.org/latest/). At the moment, there is also an [`sklearn`] (http://scikit-learn.org/stable/index.html)  dependency that might disappear in the future.

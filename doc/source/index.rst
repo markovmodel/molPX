@@ -5,7 +5,7 @@
 
 Welcome to Projection Explorer's Documentation!
 ===============================================
-The Molecular Projection Explorer, ``molpx``, is a python module that provides **interactive visualization of
+The Molecular Projection Explorer, molPX, is a python module that provides **interactive visualization of
 projected coordinates of molecular dynamics (MD) trajectories** inside a jupyter notebook.
 
 Projection Explorer uses the incredibly useful  `nglview IPython/Jupyter widget <https://github.com/arose/nglview>`_.
@@ -23,7 +23,7 @@ At the moment the API consists of two subpackages:
    index_visualize
    index_generate
 
-The quickest way to see molpx in action is through the
+The quickest way to see molPX in action is through the
 
 .. toctree::
    :maxdepth: 1
@@ -84,7 +84,7 @@ When you import this Python package, some of your metadata is sent to our server
  * Time of retrieval
 
 It is very easy to disable this feature, even before you use install `molpx` for the first time. Here's how
---------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------
 
  1. Create a hidden folder `.molpx` in your home folder
  2. Create a file `conf_molpx.py` inside of `.molpx` with the following line:

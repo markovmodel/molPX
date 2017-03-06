@@ -228,7 +228,7 @@ class TestGetGoodStartingPoint(unittest.TestCase):
     def test_most_pop(self):
         start_idx = bmutils.get_good_starting_point(self.cl, self.geom_smpl, strategy="most_pop")
         #print(start_idx, self.cl.clustercenters[start_idx], np.sort(self.cl.clustercenters.squeeze()))
-        assert 13 <= self.cl.clustercenters[start_idx] <= 17, "The coordinate distribution was created with a max pop " \
+        assert 12 <= self.cl.clustercenters[start_idx] <= 18, "The coordinate distribution was created with a max pop " \
                                                               "around the value 15. The found starting point should be" \
                                                               "in this interval (see the setUp)"
 

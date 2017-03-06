@@ -9,7 +9,7 @@ source:
 
 build:
   number: 0 # remember to change this manually every build until automated
-  #  noarch_python: True
+  script: python -B setup.py install --single-version-externally-managed --record record.txt
 
 requirements:
   build:

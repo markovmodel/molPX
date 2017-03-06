@@ -8,7 +8,7 @@ source:
   path: ../..
 
 build:
-  number: 0.1.0 # remember to change this manually every build until automated
+  number: 0.0.0 # remember to change this manually every build until automated
   noarch_python: True
 
 requirements:

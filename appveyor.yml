@@ -11,9 +11,9 @@ environment:
     #- MINICONDA_PYTHON: "C:\\Miniconda"
     #  CONDA_PY: "27"
 
-    #- MINICONDA_PYTHON: "C:\\Miniconda-x64"
-    #  CONDA_PY: "27"
-    #  ARCH: "64"
+    - MINICONDA_PYTHON: "C:\\Miniconda-x64"
+      CONDA_PY: "27"
+      ARCH: "64"
 
     #- MINICONDA_PYTHON: "C:\\Miniconda3"
     #  CONDA_PY: "35"
@@ -45,7 +45,7 @@ build: false # Not a C# project, build stuff at the test step instead.
 
 # Running the tests has been disable for Windows
 test_script:
-  - conda build -q devtools/conda-recipe
+  - conda build -q devtools/conda-recipe -c bioconda
 
 #on_success:
 #  - devtools/ci/appveyor/after_success.bat

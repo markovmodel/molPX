@@ -2,13 +2,13 @@ package:
   name: molpx
   # version number: [base tag]+[commits-upstream]_[git_hash]
   # eg. v2.0+0_g8824162
-  version: 0
+  version: 0.1.0
   #{{ GIT_DESCRIBE_TAG[1:] + '+' +GIT_BUILD_STR}}
 source:
   path: ../..
 
 build:
-  number: 0 # remember to change this manually every build
+  number: 0.1.0 # remember to change this manually every build until automated
   noarch_python: True
 
 requirements:
@@ -19,13 +19,14 @@ requirements:
   run:
     - python
     - setuptools
-    - nglview >=0.6.2.1
+    - nglview >=0.6.2.2
     - pyemma
     - scikit-learn
     - notebook
+
 test:
   requires:
-    - pytest 
+    - pytest
     - pytest-cov
     - nbconvert
   imports:
@@ -35,9 +36,9 @@ test:
     - echo "c.ExecutePreprocessor.timeout = -1" > jupyter_nbconvert_config.py
     - ls $(python -c "from __future__ import print_function; import pkg_resources; print(pkg_resources.resource_filename('molpx', 'notebooks/'))")
     - jupyter nbconvert --config jupyter_nbconvert_config.py --execute $(python -c "from __future__ import print_function; import pkg_resources; print(pkg_resources.resource_filename('molpx', 'notebooks/Projection_Explorer.ipynb'))")
-#about:
-#  home: http://emma-project.org
-#  license: GNU Lesser Public License v3+
-#  summary: "EMMA: Emma's Markov Model Algorithms"
+about:
+  home: https://github.com/gph82/projection_explorer
+  license: GNU Lesser Public License v3+
+  summary: "molpx: molecular projection explorer"
 
 

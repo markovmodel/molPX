@@ -30,7 +30,7 @@ The quickest way to see molpx in action is through the
 
    index_notebooks
 
-Find more about the people behind `molpx` here:
+Find more about the people behind molPX here:
 
 .. toctree::
 
@@ -42,8 +42,8 @@ Find more about the people behind `molpx` here:
 Download and Install
 =====================
 
-At the moment, cloning or downloading the `source from github <https://github.com/gph82/projection_explorer>`_ is the only option to get molpx.
-After that, just cd to the directory ``projection explorer`` and issue
+At the moment, cloning or downloading the `source from github <https://github.com/markovmodel/molPX>`_
+is the only option to get molPX. After that, just cd to the directory `projection explorer` and issue
 
     >>> python setup.py install
 
@@ -77,7 +77,7 @@ Data Privacy Statement
 
 When you import this Python package, some of your metadata is sent to our servers. These are:
 
- * molpx version
+ * molPX version
  * Python version
  * Operating System
  * Hostname/ mac address of the accessing computer
@@ -87,7 +87,7 @@ It is very easy to disable this feature, even before you use install `molpx` for
 --------------------------------------------------------------------------------
 
  1. Create a hidden folder `.molpx` in your home folder
- 2. Create a file `molpx_conf.py` inside of `.molpx` with the following line:
+ 2. Create a file `conf_molpx.py` inside of `.molpx` with the following line:
     `report_status = False`
  3. Restart your ipython/jupyter sessions
 

@@ -1,22 +1,11 @@
-## Molecular Projection Explorer (molpx)
+## Molecular Projection Explorer (molPX)
 
-`molpx` (Molecular Projection Explorer) is a jupyter API to visualize MD-trajectories interactively on any projection space inside a jupyter notebook.
+`molPX` (Molecular Projection Explorer) is a jupyter API to visualize MD-trajectories interactively on any projection space inside a jupyter notebook.
 
 It provides access to `molpx.generate` and `molpx.visualize`. The notebook `molpx/notebooks/Projection_Explorer.ipynb` explains the general cases, but you can combine the methods freely.
 
 Projection Explorer uses the incredibly useful  [``nglview``] (https://github.com/arose/nglview) `IPython/Jupyter widget`.
-Other libraries heavily used are are [`mdtraj`] (http://mdtraj.org/) and [`PyEMMA`] (http://www.emma-project.org/latest/), a library into which `molpx` will utimately be merged into. At the moment, there is also an [`sklearn`] (http://scikit-learn.org/stable/index.html)  dependency that might disappear in the future.
-
-## Warnings:
-* This is currently under **heavy development** and the API might change rapidly, to the point 
-of even **changing its name** in its near future, so please stay tuned.
-
-* Until there is a proper release, consider this just a ipython repository that changes
-  rapidly.
-
-* The important methods (`bmutils`) have been tested for correctness, 
-the API methods has only been tested less thouroughly. Expect some instability
- 
+Other libraries heavily used are [`mdtraj`] (http://mdtraj.org/) and [`PyEMMA`] (http://www.emma-project.org/latest/). At the moment, there is also an [`sklearn`] (http://scikit-learn.org/stable/index.html)  dependency that might disappear in the future.
 
 ## Installation:
     
@@ -55,7 +44,7 @@ When you import this Python package, some of your metadata is sent to our server
 ### It is very easy to disable this feature, even before you use install `molpx` for the first time. Here's how:
 
  1. Create a hidden folder `.molpx` in your home folder 
- 2. Create a file `molpx_conf.py` inside of `.molpx` with the following line:
+ 2. Create a file `conf_molpx.py` inside of `.molpx` with the following line:
     `report_status = False`        
  3. Restart your ipython sessions
  

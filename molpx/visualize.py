@@ -191,7 +191,6 @@ def traj(MD_trajectories,
         traj_selection = [traj_selection]
     elif traj_selection is None:
         traj_selection = _np.arange(len(data))
-        print(traj_selection)
     assert _np.max(traj_selection) < len(data), "Selected up to traj. nr. %u via the parameter traj_selection, " \
                                                 "but only provided %u trajs"%(_np.max(traj_selection), len(data))
     assert active_traj in traj_selection, "Selected traj. nr. %u to be the active one, " \

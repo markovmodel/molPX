@@ -6,6 +6,26 @@ __author__ = 'gph82'
 from . import generate
 from . import visualize
 
+def _molpxdir(join=None):
+    r"""
+    return the directory molpx is installed
+
+    :param join: str, default is None
+        _datadir(join='myfile.dat') will return os.path.join(_datadir(),'myfile.dat')
+
+    :return: directory or filename where the data for the notebook lies
+    """
+
+    from os.path import join as pjoin, dirname
+    from inspect import getfile
+    import molpx
+
+    if join is None:
+        return dirname(getfile(molpx))
+    else:
+        assert isinstance(join,str), ("parameter join can only be a string", type(join))
+        return pjoin(dirname(getfile(molpx)), join)
+
 def _report_status():
     r"""
     returns a boolen whether molpx is allowed to send user metadata

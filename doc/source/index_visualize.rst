@@ -15,8 +15,9 @@ so that an action in *fig1* (e.g.a click of the mouse or a slide of a slidebar) 
 
 You are **strongly encouraged** to check nglview' `documentation <https://github.com/arose/nglview>`_, since its functionalities extend beyond the scope of this package and the molecular visualization universe is rich and complex (unlike this module).
 
+The three methods offered by this module are:
+
 .. autosummary::
-   :toctree: autosummaries
 
    molpx.visualize.FES
    molpx.visualize.sample

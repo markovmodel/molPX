@@ -3,8 +3,8 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to Projection Explorer's Documentation!
-===============================================
+Welcome to molPX: The Molecular Projection Explorer
+===================================================
 The Molecular Projection Explorer, molPX, is a python module that provides **interactive visualization of
 projected coordinates of molecular dynamics (MD) trajectories** inside a jupyter notebook.
 
@@ -34,9 +34,9 @@ Find more about the people behind molPX here:
 
 .. toctree::
 
-    About & YouTube Introduction <about>
+   About & YouTube Introduction <about>
 
-.. contents:: 
+.. contents::
    What you'll find on this page
 
 Download and Install

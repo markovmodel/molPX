@@ -22,7 +22,7 @@ setup(name='molPX',
           'nbsphinx'
       ],
           package_data = {
-              'molPX': ['notebooks/*', 'notebooks/data/*']
+              'molpx': ['notebooks/*', 'notebooks/data/*']
           }
 )
 

@@ -1,5 +1,8 @@
 ## Molecular Projection Explorer (molPX)
 
+[![Build Status](https://travis-ci.org/markovmodel/molPX.svg?branch=master)](https://travis-ci.org/markovmodel/molPX)
+[![Build Status](https://ci.appveyor.com/api/projects/status/396ej39s3fewhwy9/branch/master?svg=true)](https://ci.appveyor.com/api/projects/status/396ej39s3fewhwy9)
+
 molPX (Molecular Projection Explorer) is a jupyter API to visualize MD-trajectories interactively on any projection space inside a jupyter notebook.
 
 It provides access to the methods `molpx.generate` and `molpx.visualize`. The notebook `molpx/notebooks/Projection_Explorer.ipynb` explains the general cases, but you can combine the methods freely.

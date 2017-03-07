@@ -7,7 +7,8 @@ from pyemma.plots import plot_free_energy
 import numpy as _np
 from .bmutils import link_ax_w_pos_2_nglwidget as _link_ax_w_pos_2_nglwidget, \
     data_from_input as _data_from_input, \
-    extract_visual_fnamez as _extract_visual_fnamez
+    smooth_geom as _smooth_geom
+    #extract_visual_fnamez as _extract_visual_fnamez
 from . import generate
 
 from matplotlib import pylab as _plt
@@ -264,6 +265,7 @@ def traj(MD_trajectories,
 def sample(positions, geom,  ax,
            plot_path=False,
            clear_lines=True,
+           smooth = 0,
            widget=None,
            **link_ax2wdg_kwargs
                    ):
@@ -291,8 +293,12 @@ def sample(positions, geom,  ax,
     clear_lines : bool, default is True
         whether to clear all the lines that were previously drawn in :obj:`ax`
 
+    smooth : int, default is 0,
+        if smooth > 0, the shown geometries and paths will be smoothed out by 2*n frames.
+        See :any:`bmutils.smooth_geom` for more information
+
     widget : None or existing nglview widget
-        you can provide an already instantiated nglviewer widget here
+        you can provide an already instantiated nglviewer widget here (avanced use)
 
     link_ax2wdg_kwargs: dictionary of named arguments, optional
         named arguments for the function :obj:`_link_ax_w_pos_2_nglwidget`, which is the one that internally
@@ -305,6 +311,9 @@ def sample(positions, geom,  ax,
 
 
     """
+
+    if smooth > 0:
+        geom, positions = _smooth_geom(geom, smooth, geom_data=positions)
 
     # Create ngl_viewer widget
     if widget is None:
@@ -320,15 +329,17 @@ def sample(positions, geom,  ax,
 
     # Link the axes widget with the ngl widget
     ax_wdg = _link_ax_w_pos_2_nglwidget(ax,
-                               positions,
-                               iwd,
-                               **link_ax2wdg_kwargs
+                                        positions,
+                                        iwd,
+                                        radius=smooth,
+                                        **link_ax2wdg_kwargs
                                )
     # somehow returning the ax_wdg messes the displaying of both widgets
 
     return iwd
 
-def fnamez(fname,
+# Do I really need this? Don't think so
+def _fnamez(fname,
            path_type='min_rmsd',
            proj_type='TIC',
            only_selection=True,
@@ -373,7 +384,8 @@ def fnamez(fname,
 
     return iwd, project_dict
 
-def project_dict(project_dict,
+# Do I really need this? Don't think so
+def _project_dict(project_dict,
                  path_type='min_rmsd',
                  proj_type='TIC',
                  only_compact_path=True,

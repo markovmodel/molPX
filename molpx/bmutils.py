@@ -777,10 +777,11 @@ def extract_visual_fnamez(fnamez, path_type, keys=['x','y','h',
 
     return [data, selection]+[a[key] for key in keys]
 
-def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget, link_with_lines=True):
+def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget, link_with_lines=True, radius=0):
     r"""
     Initial idea for this function comes from @arose, the rest is @gph82
     """
+
 
     kdtree = _cKDTree(pos)
     assert nglwidget.trajectory_0.n_frames == pos.shape[0], \
@@ -792,6 +793,16 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget, link_with_lines=True):
         linev = ax.axvline(ax.get_xbound()[0], c="black", ls='--')
     dot, = ax.plot(pos[0,0],pos[0,1], 'o', c='red', ms=7)
 
+    dots = [dot]
+
+    if radius > 0:
+        print("plotting radius")
+        rad, = ax.plot(pos[0,0],pos[0,1], 'o', c='red', ms=(1+radius**2)*7, alpha=.25, markeredgecolor=None)
+        dots.append(rad)
+
+    for idot in dots:
+        print(idot, type(idot))
+
     nglwidget.isClick = False
 
     def onclick(event):
@@ -800,8 +811,10 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget, link_with_lines=True):
             lineh.set_ydata((event.ydata, event.ydata))
         data = [event.xdata, event.ydata]
         _, index = kdtree.query(x=data, k=1)
-        dot.set_xdata((x[index]))
-        dot.set_ydata((y[index]))
+        for idot in dots:
+            idot.set_xdata((x[index]))
+            idot.set_ydata((y[index]))
+
         nglwidget.isClick = True
         nglwidget.frame = index
 
@@ -813,12 +826,14 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget, link_with_lines=True):
         nglwidget.isClick = False
         _idx = change["new"]
         try:
-            dot.set_xdata((x[_idx]))
-            dot.set_ydata((y[_idx]))
+            for idot in dots:
+                idot.set_xdata((x[_idx]))
+                idot.set_ydata((y[_idx]))
             #print("caught index error with index %s (new=%s, old=%s)" % (_idx, change["new"], change["old"]))
         except IndexError as e:
-            dot.set_xdata((x[0]))
-            dot.set_ydata((y[0]))
+            for idot in dots:
+                idot.set_xdata((x[0]))
+                idot.set_ydata((y[0]))
             print("caught index error with index %s (new=%s, old=%s)" % (_idx, change["new"], change["old"]))
             pass
         #print("set xy = (%s, %s)" % (x[_idx], y[_idx]))
@@ -1043,3 +1058,107 @@ def fnamez2dict(fnamez, add_geometries=True):
         for path_type in ['min_rmsd', 'min_disp']:
             project_dict['geom_'+path_type]= _md.load(fnamez.replace('.npz','.%s.pdb'%path_type))
     return project_dict
+
+def runing_avg_idxs(l, n, symmetric=True, debug=False):
+    r"""
+    return the indices necessary for a running average of size 2n+1 of an array of length l
+
+    Parameters
+    ----------
+
+    l : int
+        lenght of input array
+
+    n : int
+        the averaging window will be of size 2n + 1
+
+    symmetric : bool, default is True
+        If False, the running average will be done with frame i and the n frames following it
+        # TODO implement
+    Returns
+    -------
+
+    frame_idx : 1D ndarray of length l-2n
+
+    frame_window : list of length l-2n 1D ndarrays each of size 2n+1
+        This list contains the frames idxs belonging to window [-n....i...n] for each i in :obj:`frame_idxs`
+    """
+
+    assert n*2 <= l, "Can't ask for a running average of 2*%u+1 with only %u frames. " \
+                     "Choose a smaller parameter n."%(n, l)
+
+    if not symmetric:
+        raise NotImplementedError("Sorry symmetric=False is not implemented yet")
+
+    idxs = _np.arange(l)
+    frame_idx= []
+    frame_window = []
+    for ii in idxs[n - 1 + 1 : l - n + 1]:
+        frame_idx.append(ii)
+        frame_window.append(idxs[ii - n:ii + n + 1])
+        if debug:
+            print(frame_idx[-1],frame_window[-1])
+
+    return _np.hstack(frame_idx), frame_window
+
+def smooth_geom(geom, n, geom_data=None, symmetric=True,):
+    r"""
+    return a smooth version of the input geometry by averaging over contiguous 2n+1 frames
+
+    Note: Averaging **will only result in smoothing** if *contiguous* actually means something, like in a
+        path-sampling, where the geometries in :obj:`geoms` are ordered in ascending order of a given projected
+        coordinate) or in a trajectory, where the geometries ocurred in sequence. Otherwise, smoothing will
+        *work* but will produce no meaningful results
+
+    Parameters
+    ----------
+    geom: :any:`mdtraj.Trajectory' object
+
+    n : int
+        Number of frames that will be averaged over
+
+    geom_data : nd.array of shape (geom.n_frames, N)
+        If there is data associated with the geometry, smooth also the data and return it
+
+    symmetric : bool, default is True
+        An average is made so that the geometry at frame i is the average of frames
+        :math: [i-n, i-n-1,.., i-1, i, i+1, .., i+n-1, i+n]
+
+    Returns
+    -------
+
+    geomout : :any:`mdtraj.Trajectory` object
+        A geometry with 2*n less frames containing the smoothed out positions of the atoms.
+
+    """
+
+    # Input checking here, otherwise we're seriously in trouble
+
+
+
+    # Get the indices necessary for the running average
+    frame_idxs, frame_windows = runing_avg_idxs(geom.n_frames, n, symmetric=symmetric)
+
+    if geom_data is not None:
+        assert isinstance(geom_data, _np.ndarray), "Parameter geom_data has to be " \
+                                                   "either None or a 2D ndarray. %s"%type(geom_data)
+        assert geom_data.ndim == 2,                "Parameter geom_data has to be either None or a 2D ndarray, " \
+                                                   "instead geom_data.ndim=%u"%geom_data.ndim
+        assert geom_data.shape[0] == geom.n_frames, "Mismatch between data length (%u) and geometry length (%u)"\
+                                                    %(geom_data.shape[0], geom.n_frames)
+        data_out = _np.zeros((len(frame_idxs), geom_data.shape[1]))
+
+
+    xyz = _np.zeros((len(frame_idxs), geom.n_atoms, 3))
+    for ii, idx in enumerate(frame_idxs):
+        #print(ii, idx, frame_windows[ii][n])
+        xyz[ii,:,:] = geom[frame_windows[ii]].superpose(geom, frame=frame_windows[ii][n]).xyz.mean(0)
+        if geom_data is not None:
+            data_out[ii,:] = geom_data[frame_windows[ii]].mean(0)
+
+    geom_out = _md.Trajectory(xyz, geom.top)
+
+    if geom_data is None:
+        return geom_out.superpose(geom_out)
+    else:
+        return geom_out, data_out

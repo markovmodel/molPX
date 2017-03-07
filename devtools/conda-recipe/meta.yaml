@@ -33,9 +33,10 @@ test:
     - molpx
   commands:
     - pytest --pyargs molpx
-    - echo "c.ExecutePreprocessor.timeout = -1" > jupyter_nbconvert_config.py
-    #- ls $(python -c "from __future__ import print_function; import pkg_resources; print(pkg_resources.resource_filename('molpx', 'notebooks/'))")
-    - jupyter nbconvert --config jupyter_nbconvert_config.py --execute $(python -c "from __future__ import print_function; import pkg_resources; print(pkg_resources.resource_filename('molpx', 'notebooks/Projection_Explorer.ipynb'))") --ExecutePreprocessor.kernel_name=python
+    - echo "import molpx" > jupyter_nbconvert_config.py
+    - echo "c.ExecutePreprocessor.timeout = -1" >> jupyter_nbconvert_config.py
+    - echo "c.NbConvertApp.notebooks = [molpx._molpxdir(join='notebooks/Projection_Explorer.ipynb')]" >> jupyter_nbconvert_config.py
+    - jupyter nbconvert --config jupyter_nbconvert_config.py --ExecutePreprocessor.kernel_name=python --execute
 about:
   home: https://github.com/gph82/projection_explorer
   license: GNU Lesser Public License v3+

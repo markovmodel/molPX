@@ -358,3 +358,9 @@ exclude_patterns = ['_build', '**.ipynb_checkpoints']
 # This is an ugly UGLY hack that I'll get rid of sometime soon
 import shutil
 shutil.copy('../../molpx/notebooks/Projection_Explorer.ipynb', 'Projection_Explorer_Copy.ipynb')
+
+# Would force the Jupyter nb to be executed at the time of doc-construction, making sure all aoutputs are there
+# import os
+#os.system('jupyter nbextension enable --py --sys-prefix widgetsnbextension')
+#os.system('jupyter nbconvert --to notebook --execute ../../molpx/notebooks/Projection_Explorer.ipynb \
+#--output-dir=\'.\' --output=\'Projection_Explorer_Copy.ipynb\' --allow-errors')

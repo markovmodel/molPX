@@ -42,8 +42,8 @@ def get_config():
     cfg.VCS = "git"
     cfg.style = "pep440"
     cfg.tag_prefix = "v"
-    cfg.parentdir_prefix = "conf_molpx"
-    cfg.versionfile_source = "conf_molpx/_version.py"
+    cfg.parentdir_prefix = "molpx"
+    cfg.versionfile_source = "molpx/_version.py"
     cfg.verbose = False
     return cfg
 

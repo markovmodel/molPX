@@ -65,7 +65,7 @@ def projection_paths(MD_trajectories, MD_top, projected_trajectories,
         This will play a role particularly if :obj:`projected_trajectories` is already strided (because the user is
         holding it in memory) but the MD-data on disk has not been strided.
 
-    histore_aware : bool, default is True
+    history_aware : bool, default is True
         The path-searching algorigthm the can minimize distances between adjacent points along the path or minimize
         the distance between each point and the mean value of all the other up to that point. Use this parameter
         to avoid a situation in which the path gets "derailed" because an outlier is chosen at a given point.
@@ -264,7 +264,7 @@ def sample(MD_trajectories, MD_top, projected_trajectories,
         the trajectory files. The higher this number, the *smoother* the minRMSD projection path. Also, the longer
         it takes for the path to be computed
 
-    n_geoms_samples : int, default is 1
+    n_geom_samples : int, default is 1
         This is a trade-off parameter between how smooth the transitons between geometries can be and how long it takes
         to generate the sample
 

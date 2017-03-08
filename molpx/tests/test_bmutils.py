@@ -121,7 +121,7 @@ class TestBmutils(unittest.TestCase):
         cl = bmutils.regspace_cluster_to_target(self.data_for_cluster, 3, n_try_max=10, delta=0)
         cat_idxs, cat_cont = bmutils.catalogues(cl, sort_by=0)
 
-        # This test is extra, since this is a pure pyemma functions
+        # This test is extra, since this is a pure pyemma function
         assert np.allclose(cat_idxs[0], [[0, 0], [0, 1], [0, 2],
                                          [3, 0], [3, 2], [3, 4]
                                          ])
@@ -315,6 +315,102 @@ class TestPaths(unittest.TestCase):
     def test_closest_all_coords_history(self):
         path = bmutils.min_disp_path(self.start, self.path_of_candidates, history_aware=True)
         assert np.allclose(path, [0, 1, 2, 2]), path
+
+class TestSmoothingFunctions(unittest.TestCase):
+
+    def setUp(self):
+        # The setup creates the typical, "geometries-sampled along cluster-scenario"
+        traj = md.load(os.path.join(pyemma.__path__[0], 'coordinates/tests/data/bpti_ca.pdb'))
+        traj = traj.atom_slice([0, 1])  # create a trajectory with four atoms
+        # Create a fake bi-modal trajectory with a compact and an open structure
+        ixyz = np.array([[10.,  20.,  30.],
+                         [100., 200., 300.],
+                         ])
+        xyz =[ixyz+np.ones((2,3))*ii for ii in range(10)] # Easy way to generate an easy to average geometry
+        self.traj = md.Trajectory(xyz, traj.top)
+        pass
+
+    def tearDown(self):
+        pass
+
+    def test_running_avg_idxs_none(self):
+        idxs, windows = bmutils.running_avg_idxs(10, 0)
+        # If the running average is with radius zero, it's just a normal average
+        assert np.allclose([0,1,2,3,4,5,6,7,8,9], idxs)
+        assert np.all(np.allclose(ii,jj) for ii, jj in zip(([0,1,2,3,4,5,6,7,8,9], windows)))
+
+    def test_running_avg_idxs_one(self):
+        idxs, windows = bmutils.running_avg_idxs(10, 1)
+        assert np.allclose([1,2,3,4,5,6,7,8], idxs) # we've lost first and last frame
+        # The '#' marks where the average is centered on:      #
+        assert np.all(np.allclose(ii,jj) for ii, jj in zip([[0,1,2],
+                                                            [1,2,3],
+                                                            [2,3,4],
+                                                            [3,4,5],
+                                                            [5,6,7],
+                                                            [6,7,8],
+                                                            [7,8,9]],
+                                                           windows))
+
+    def test_running_avg_idxs_two(self):
+        idxs, windows = bmutils.running_avg_idxs(10, 2)
+        assert np.allclose([2, 3, 4, 5, 6, 7], idxs)  # we've lost 2 first and last frames
+        # The '#' marks where the average is centered on:           #
+        assert np.all(np.allclose(ii, jj) for ii, jj in zip([[0, 1, 2, 3, 4],
+                                                             [1, 2, 3, 4, 5],
+                                                             [2, 3, 4, 5, 6],
+                                                             [3, 5, 6, 7, 8],
+                                                             [4, 6, 7, 8, 9]],
+                                                            windows))
+
+    def test_running_avg_idxs_too_large_window(self):
+        try:
+            idxs, windows = bmutils.running_avg_idxs(10, 5)
+        except AssertionError:
+            pass
+
+
+    def test_smooth_geom_it_just_runs_and_gives_correct_output_type(self):
+
+        # No data
+        assert isinstance(bmutils.smooth_geom(self.traj, 0),                  md.Trajectory)
+        assert isinstance(bmutils.smooth_geom(self.traj, 0, superpose=False), md.Trajectory)
+
+        # One frame, no data
+        geom = bmutils.smooth_geom(self.traj, 1, superpose=False)
+        assert isinstance(geom, md.Trajectory)
+
+        # One frame, data (fake data, but data)
+        geom, xyz = bmutils.smooth_geom(self.traj, 1, geom_data=self.traj.xyz.mean(-1))
+        assert isinstance(geom, md.Trajectory)
+        assert isinstance(xyz, np.ndarray)
+
+    # The running average is equal the center of the window bc the window is linear around its center
+    def test_smooth_geom_right_output_linear(self):
+
+        # IDK how to compare superimposed geoms consistently (easily)
+        geom = bmutils.smooth_geom(self.traj, 0, superpose=False)
+        assert np.allclose(geom.xyz, self.traj.xyz), (geom.xyz, self.traj.xyz)
+
+        # Weak but easy to write tests
+        geom = bmutils.smooth_geom(self.traj, 1, superpose=False)
+        assert np.allclose(geom.xyz, self.traj[1:-1].xyz), (geom.xyz, self.traj[1:-1].xyz)
+
+        # Weak but easy to write tests
+        geom = bmutils.smooth_geom(self.traj, 2, superpose=False)
+        assert np.allclose(geom.xyz, self.traj[2:-2].xyz), (geom.xyz, self.traj[1:-1].xyz)
+
+        # Weak but easy to write tests with data
+        geom, xyz = bmutils.smooth_geom(self.traj, 2, superpose=False, geom_data=self.traj.xyz.mean(-1))
+        assert np.allclose(geom.xyz, self.traj[2:-2].xyz), (geom.xyz, self.traj[1:-1].xyz)
+        assert np.allclose(self.traj.xyz.mean(-1)[2:-2], xyz)
+
+    def test_smooth_geom_righ_output_square(self):
+        # TODO FINISH THIS TESTS
+        # This geometry is harder to do
+        xyz = [self.traj.xyz[0] + np.ones((2, 3)) * ii**2 for ii in range(10)]
+        self.traj = md.Trajectory(xyz, self.traj.top)
+        print(self.traj.xyz)
 
 if __name__ == '__main__':
     unittest.main()

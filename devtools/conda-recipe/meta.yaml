@@ -2,8 +2,7 @@ package:
   name: molpx
   # version number: [base tag]+[commits-upstream]_[git_hash]
   # eg. v2.0+0_g8824162
-  version: 0.1.0
-  #{{ GIT_DESCRIBE_TAG[1:] + '+' +GIT_BUILD_STR}}
+  version: {{ GIT_DESCRIBE_TAG[1:] + '+' +GIT_BUILD_STR}}
 source:
   path: ../..
 
@@ -26,17 +25,15 @@ requirements:
 
 test:
   requires:
+    - pip
     - pytest
     - pytest-cov
-    - nbconvert
   imports:
     - molpx
   commands:
-    - pytest --pyargs molpx
-    - echo "import molpx" > jupyter_nbconvert_config.py
-    - echo "c.ExecutePreprocessor.timeout = -1" >> jupyter_nbconvert_config.py
-    - echo "c.NbConvertApp.notebooks = [molpx._molpxdir(join='notebooks/Projection_Explorer.ipynb')]" >> jupyter_nbconvert_config.py
-    - jupyter nbconvert --config jupyter_nbconvert_config.py --ExecutePreprocessor.kernel_name=python --execute
+    - pip install nbval
+    - pytest --pyargs molpx --cov=molpx --cov-report=xml --nbval-lax
+    - python -c "import shutil, os; shutil.copy('coverage.xml', os.path.expanduser('~'))"
 about:
   home: https://github.com/gph82/projection_explorer
   license: GNU Lesser Public License v3+

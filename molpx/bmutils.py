@@ -790,30 +790,38 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget, link_with_lines=True, radius=0
 
     if link_with_lines:
         lineh = ax.axhline(ax.get_ybound()[0], c="black", ls='--')
+        setattr(lineh, 'whatisthis', 'lineh')
         linev = ax.axvline(ax.get_xbound()[0], c="black", ls='--')
-    dot, = ax.plot(pos[0,0],pos[0,1], 'o', c='red', ms=7)
+        setattr(linev, 'whatisthis', 'linev')
+        showclick_objs=[lineh, linev]
 
-    dots = [dot]
+    dot = ax.plot(pos[0,0],pos[0,1], 'o', c='red', ms=7)[0]
+    setattr(dot,'whatisthis','dot')
+    closest_to_click_obj = [dot]
 
     if radius > 0:
-        print("plotting radius")
-        rad, = ax.plot(pos[0,0],pos[0,1], 'o', c='red', ms=(1+radius**2)*7, alpha=.25, markeredgecolor=None)
-        dots.append(rad)
-
-    for idot in dots:
-        print(idot, type(idot))
+        rad = ax.plot(pos[0,0],pos[0,1], 'o',
+                      ms=(1+radius**2)*7,
+                      c='red', alpha=.25, markeredgecolor=None)[0]
+        setattr(rad, 'whatisthis', 'dot')
+        closest_to_click_obj.append(rad)
+        rlinev = ax.axvline(ax.get_xbound()[0],
+                            lw=2*radius*7,
+                            c="red", ls='-',
+                            alpha=.25)
+        setattr(rlinev, 'whatisthis','linev')
+        closest_to_click_obj.append(rlinev)
 
     nglwidget.isClick = False
-
     def onclick(event):
         if link_with_lines:
-            linev.set_xdata((event.xdata, event.xdata))
-            lineh.set_ydata((event.ydata, event.ydata))
+            for iline in showclick_objs:
+                update2Dlines(iline,event.xdata, event.ydata)
+
         data = [event.xdata, event.ydata]
         _, index = kdtree.query(x=data, k=1)
-        for idot in dots:
-            idot.set_xdata((x[index]))
-            idot.set_ydata((y[index]))
+        for idot in closest_to_click_obj:
+            update2Dlines(idot,x[index],y[index])
 
         nglwidget.isClick = True
         nglwidget.frame = index
@@ -826,14 +834,12 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget, link_with_lines=True, radius=0
         nglwidget.isClick = False
         _idx = change["new"]
         try:
-            for idot in dots:
-                idot.set_xdata((x[_idx]))
-                idot.set_ydata((y[_idx]))
+            for idot in closest_to_click_obj:
+                update2Dlines(idot, x[_idx], y[_idx])
             #print("caught index error with index %s (new=%s, old=%s)" % (_idx, change["new"], change["old"]))
         except IndexError as e:
-            for idot in dots:
-                idot.set_xdata((x[0]))
-                idot.set_ydata((y[0]))
+            for idot in closest_to_click_obj:
+                update2Dlines(idot, x[0], y[0])
             print("caught index error with index %s (new=%s, old=%s)" % (_idx, change["new"], change["old"]))
             pass
         #print("set xy = (%s, %s)" % (x[_idx], y[_idx]))
@@ -846,6 +852,31 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget, link_with_lines=True, radius=0
     nglwidget.observe(my_observer, "frame", "change")
 
     return axes_widget
+
+def update2Dlines(iline, x, y):
+    r"""
+    provide a common interface to update objects on the plot
+    :param iline:
+    :param x:
+    :param y:
+    :return:
+    """
+    # TODO FIND OUT A CLEANER WAY TO DO THIS (dict or class)
+
+    if not hasattr(iline,'whatisthis'):
+        raise AttributeError("This method will only work if iline has the attribute 'whatsthis'")
+    else:
+        # TODO find cleaner way of distinguishing these 2Dlines
+        if iline.whatisthis in ['dot']:
+            iline.set_xdata((x))
+            iline.set_ydata((y))
+        elif iline.whatisthis in ['lineh']:
+            iline.set_ydata((y,y))
+        elif iline.whatisthis in ['linev']:
+            iline.set_xdata((x,x))
+        else:
+            # TODO: FIND OUT WNY EXCEPTIONS ARE NOT BEING RAISED
+            raise TypeError("what is this type of 2Dline?")
 
 def myflush(pipe, istr='#', size=1e4):
     pipe.write(''.join([istr+'\n\n' for ii in range(int(size))]))

@@ -309,7 +309,6 @@ def sample(positions, geom,  ax,
 
     iwd : :obj:`nglview.NGLWidget`
 
-
     """
 
     if smooth > 0:

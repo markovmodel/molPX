@@ -8,7 +8,6 @@ import numpy as _np
 from .bmutils import link_ax_w_pos_2_nglwidget as _link_ax_w_pos_2_nglwidget, \
     data_from_input as _data_from_input, \
     smooth_geom as _smooth_geom
-    #extract_visual_fnamez as _extract_visual_fnamez
 from . import generate
 
 from matplotlib import pylab as _plt
@@ -262,13 +261,13 @@ def traj(MD_trajectories,
     return _plt.gca(), _plt.gcf(), widget, geoms
 
 
-def sample(positions, geom,  ax,
+def sample(positions, geom, ax,
            plot_path=False,
            clear_lines=True,
-           smooth = 0,
+           n_smooth = 0,
            widget=None,
            **link_ax2wdg_kwargs
-                   ):
+           ):
 
     r"""
     Visualize the geometries in :obj:`geom` according to the data in :obj:`positions` on an existing matplotlib axes :obj:`ax`
@@ -293,8 +292,8 @@ def sample(positions, geom,  ax,
     clear_lines : bool, default is True
         whether to clear all the lines that were previously drawn in :obj:`ax`
 
-    smooth : int, default is 0,
-        if smooth > 0, the shown geometries and paths will be smoothed out by 2*n frames.
+    n_smooth : int, default is 0,
+        if n_smooth > 0, the shown geometries and paths will be smoothed out by 2*n frames.
         See :any:`bmutils.smooth_geom` for more information
 
     widget : None or existing nglview widget
@@ -311,8 +310,12 @@ def sample(positions, geom,  ax,
 
     """
 
-    if smooth > 0:
-        geom, positions = _smooth_geom(geom, smooth, geom_data=positions)
+    if n_smooth > 0:
+        geom, positions = _smooth_geom(geom, n_smooth, geom_data=positions)
+        mean_smooth_radius = _np.diff(positions, axis=0).mean(0) * n_smooth
+        band_width = 2 * mean_smooth_radius
+    else:
+        band_width = None
 
     # Create ngl_viewer widget
     if widget is None:
@@ -330,9 +333,9 @@ def sample(positions, geom,  ax,
     ax_wdg = _link_ax_w_pos_2_nglwidget(ax,
                                         positions,
                                         iwd,
-                                        radius=smooth,
+                                        band_width=band_width,
                                         **link_ax2wdg_kwargs
-                               )
+                                        )
     # somehow returning the ax_wdg messes the displaying of both widgets
 
     return iwd

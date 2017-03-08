@@ -24,6 +24,8 @@ requirements:
     - notebook
 
 test:
+  source_files:
+    - .coveragerc
   requires:
     - pip
     - pytest
@@ -32,7 +34,7 @@ test:
     - molpx
   commands:
     - pip install nbval
-    - pytest --pyargs molpx --cov=molpx --cov-report=xml --nbval-lax
+    - pytest -vv --pyargs molpx --cov=molpx --cov-report=xml --nbval-lax --current-env
     - python -c "import shutil, os; shutil.copy('coverage.xml', os.path.expanduser('~'))"
 about:
   home: https://github.com/gph82/projection_explorer

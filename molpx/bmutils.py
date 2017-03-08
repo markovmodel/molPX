@@ -1179,7 +1179,7 @@ def fnamez2dict(fnamez, add_geometries=True):
             project_dict['geom_'+path_type]= _md.load(fnamez.replace('.npz','.%s.pdb'%path_type))
     return project_dict
 
-def runing_avg_idxs(l, n, symmetric=True, debug=False):
+def running_avg_idxs(l, n, symmetric=True, debug=False):
     r"""
     return the indices necessary for a running average of size 2n+1 of an array of length l
 
@@ -1204,24 +1204,24 @@ def runing_avg_idxs(l, n, symmetric=True, debug=False):
         This list contains the frames idxs belonging to window [-n....i...n] for each i in :obj:`frame_idxs`
     """
 
-    assert n*2 <= l, "Can't ask for a running average of 2*%u+1 with only %u frames. " \
-                     "Choose a smaller parameter n."%(n, l)
-
     if not symmetric:
+        # TODO
         raise NotImplementedError("Sorry symmetric=False is not implemented yet")
+
+    assert n*2 < l, "Can't ask for a symmetric running average of 2*%u+1 with only %u frames. " \
+                    "Choose a smaller parameter n."%(n, l)
 
     idxs = _np.arange(l)
     frame_idx= []
     frame_window = []
-    for ii in idxs[n - 1 + 1 : l - n + 1]:
+    for ii in idxs[n - 1 + 1 : l - n]:
         frame_idx.append(ii)
         frame_window.append(idxs[ii - n:ii + n + 1])
         if debug:
             print(frame_idx[-1],frame_window[-1])
-
     return _np.hstack(frame_idx), frame_window
 
-def smooth_geom(geom, n, geom_data=None, symmetric=True,):
+def smooth_geom(geom, n, geom_data=None, superpose=True, symmetric=True):
     r"""
     return a smooth version of the input geometry by averaging over contiguous 2n+1 frames
 
@@ -1240,6 +1240,9 @@ def smooth_geom(geom, n, geom_data=None, symmetric=True,):
     geom_data : nd.array of shape (geom.n_frames, N)
         If there is data associated with the geometry, smooth also the data and return it
 
+    superpose : bool, default is True
+        superpose geometries in the same window before averaging
+
     symmetric : bool, default is True
         An average is made so that the geometry at frame i is the average of frames
         :math: [i-n, i-n-1,.., i-1, i, i+1, .., i+n-1, i+n]
@@ -1247,9 +1250,9 @@ def smooth_geom(geom, n, geom_data=None, symmetric=True,):
     Returns
     -------
 
-    geomout : :any:`mdtraj.Trajectory` object
+    geom_out : :any:`mdtraj.Trajectory` object
         A geometry with 2*n less frames containing the smoothed out positions of the atoms.
-
+        Note: you might need to re-orient this averaged geometry again
     """
 
     # Input checking here, otherwise we're seriously in trouble
@@ -1257,7 +1260,7 @@ def smooth_geom(geom, n, geom_data=None, symmetric=True,):
 
 
     # Get the indices necessary for the running average
-    frame_idxs, frame_windows = runing_avg_idxs(geom.n_frames, n, symmetric=symmetric)
+    frame_idxs, frame_windows = running_avg_idxs(geom.n_frames, n, symmetric=symmetric)
 
     if geom_data is not None:
         assert isinstance(geom_data, _np.ndarray), "Parameter geom_data has to be " \
@@ -1272,13 +1275,17 @@ def smooth_geom(geom, n, geom_data=None, symmetric=True,):
     xyz = _np.zeros((len(frame_idxs), geom.n_atoms, 3))
     for ii, idx in enumerate(frame_idxs):
         #print(ii, idx, frame_windows[ii][n])
-        xyz[ii,:,:] = geom[frame_windows[ii]].superpose(geom, frame=frame_windows[ii][n]).xyz.mean(0)
+        if superpose:
+            xyz[ii,:,:] = geom[frame_windows[ii]].superpose(geom, frame=frame_windows[ii][n]).xyz.mean(0)
+        else:
+            xyz[ii, :, :] = geom[frame_windows[ii]].xyz.mean(0)
+
         if geom_data is not None:
             data_out[ii,:] = geom_data[frame_windows[ii]].mean(0)
 
     geom_out = _md.Trajectory(xyz, geom.top)
 
     if geom_data is None:
-        return geom_out.superpose(geom_out)
+        return geom_out
     else:
         return geom_out, data_out

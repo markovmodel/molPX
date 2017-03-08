@@ -777,9 +777,14 @@ def extract_visual_fnamez(fnamez, path_type, keys=['x','y','h',
 
     return [data, selection]+[a[key] for key in keys]
 
-def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget, link_with_lines=True, radius=0):
+def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
+                              link_with_lines=True,
+                              band_width=None,
+                              radius=False):
     r"""
     Initial idea for this function comes from @arose, the rest is @gph82
+
+    band_width is in units of the axis of (it will be tranlated to pts internally)
     """
 
 
@@ -788,6 +793,7 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget, link_with_lines=True, radius=0
         ("Mismatching frame numbers %u vs %u"%( nglwidget.trajectory_0.n_frames, pos.shape[0]))
     x, y = pos.T
 
+    # Basic interactive objects
     if link_with_lines:
         lineh = ax.axhline(ax.get_ybound()[0], c="black", ls='--')
         setattr(lineh, 'whatisthis', 'lineh')
@@ -799,18 +805,38 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget, link_with_lines=True, radius=0
     setattr(dot,'whatisthis','dot')
     closest_to_click_obj = [dot]
 
-    if radius > 0:
-        rad = ax.plot(pos[0,0],pos[0,1], 'o',
-                      ms=(1+radius**2)*7,
-                      c='red', alpha=.25, markeredgecolor=None)[0]
-        setattr(rad, 'whatisthis', 'dot')
-        closest_to_click_obj.append(rad)
-        rlinev = ax.axvline(ax.get_xbound()[0],
-                            lw=2*radius*7,
-                            c="red", ls='-',
-                            alpha=.25)
-        setattr(rlinev, 'whatisthis','linev')
-        closest_to_click_obj.append(rlinev)
+    # Other objects, related to smoothing options
+    if band_width is not None:
+        #print("Band_width(x,y) is %s" % (band_width))
+        coord_idx= get_ascending_coord_idx(pos)
+        if coord_idx.ndim > 0:
+            print("More than one column is in ascending order:%g."
+                  "Band visuals might be wrong." % coord_idx)
+            coord_idx = coord_idx[0]
+
+        band_width_in_pts = int(_np.round(pts_per_axis_unit(ax)[coord_idx] * band_width[coord_idx]))
+        #print("Band_width in %s is %s pts"%('xy'[coord_idx], band_width_in_pts))
+
+        if radius:
+            rad = ax.plot(pos[0, 0], pos[0, 1], 'o',
+                          ms=_np.round(band_width_in_pts),
+                          c='green', alpha=.25, markeredgecolor='None')[0]
+            setattr(rad, 'whatisthis', 'dot')
+            closest_to_click_obj.append(rad)
+        else:
+            band_call = [ax.axvline, ax.axhline][coord_idx]
+            band_init = [ax.get_xbound, ax.get_ybound][coord_idx]
+            band_type = ['linev',  'lineh'][coord_idx]
+            band = band_call(band_init()[0],
+                             lw=band_width_in_pts,
+                             c="green", ls='-',
+                             alpha=.25)
+            setattr(band, 'whatisthis', band_type)
+            closest_to_click_obj.append(band)
+
+
+
+
 
     nglwidget.isClick = False
     def onclick(event):
@@ -853,13 +879,76 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget, link_with_lines=True, radius=0
 
     return axes_widget
 
+def get_ascending_coord_idx(pos, fail_if_empty=False):
+    r"""
+    return the indices of the columns of :obj:`pos` that's sorted in assecing order
+
+    Parameters
+    ----------
+
+    pos : 2D ndarray of shape(N,M)
+        the array for which the ascending column is wanted
+
+    fail_if_empty : bool, default is True
+        If no column is found, fail
+
+    Returns
+    -------
+
+    idxs : 1D ndarray
+        indices of the columns the values of which are sorted in ascending order
+    """
+
+    idxs = _np.argwhere(_np.all(_np.diff(pos,axis=0)>0, axis=0)).squeeze()
+    if isinstance(idxs, (int, _np.int16, _np.int32)):
+        idxs = _np.array(idxs)
+    elif idxs == [] and fail_if_empty:
+        raise ValueError('No column was found in ascending order')
+    return idxs
+
+def pts_per_axis_unit(mplax, pt_per_inch=72):
+    r"""
+    Return how many pt per axis unit of a given maptplotlib axis a figure has
+
+    Parameters
+    ----------
+
+    mplax : :obj:`matplotlib.axes._subplots.AxesSubplot`
+
+    pt_per_inch : how many points are in an inch (this number should not change)
+
+    Returns
+    --------
+
+    pt_per_xunit, pt_per_yunit
+
+    """
+
+    # matplotlib voodoo
+    # Get boundinx box
+    bbox = mplax.get_window_extent().transformed(mplax.get_figure().dpi_scale_trans.inverted())
+
+    span_inch = _np.array([bbox.width, bbox.height], ndmin=2).T
+
+    span_units = [mplax.get_xlim(), mplax.get_ylim()]
+    span_units = _np.diff(span_units, axis=1)
+
+    inch_per_unit = span_inch / span_units
+    return inch_per_unit * pt_per_inch
+
 def update2Dlines(iline, x, y):
     r"""
-    provide a common interface to update objects on the plot
-    :param iline:
-    :param x:
-    :param y:
-    :return:
+    provide a common interface to update objects on the plot to a new position (x,y) depending
+    on whether they are hlines, vlines, dots etc
+
+    Parameters
+    ----------
+
+    iline: :obj:`matplotlib.lines.Line2D` object
+
+    x : float with new position
+
+    y : float with new position
     """
     # TODO FIND OUT A CLEANER WAY TO DO THIS (dict or class)
 

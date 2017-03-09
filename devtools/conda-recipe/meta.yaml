@@ -21,8 +21,6 @@ requirements:
     - pyemma
     - scikit-learn
     - notebook
-    # avoid installing mkl (130mb download)
-    - nomkl
 
 test:
   source_files:

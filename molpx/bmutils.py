@@ -416,21 +416,46 @@ def get_good_starting_point(cl, geom_samples, cl_order=None, strategy='smallest_
     r""" provided a pyemma-cl object and a list of geometries, return the index of
     the clustercenter that's most suited to start a minimally diffusing path.
 
-    cl: pyemma clustering object
-    geom_samples: list of md.Trajectory objects corresponding to each clustercenter
-    cl_order: None or iterable of integers
-        Typically, the ordering of the list  "geom_samples" has meaning, i.e., the sampled-geometries are listed
-        in ascending order of a given coordinate. MOST OF THE TIME, THIS WILL NOT BE THE CASE of the centers
-        in the cl object, which is arbitrary. cl_order represents this reordering, such that geom_samples[cl_order] will
-         reorder the list to represent the order of the clusterscenters:
-         geom_samples[cl_order][ii] contains geometries sampled for the ii-th clustercenter
+    Parameters
+    ----------
+    cl : :obj:`pyemma.coordinates` clustering object
 
-    returns:
-    start_idx: int
-        Index referring to the list of md.trajectories in geom_samples that best satisfies the "strategy" criterion
+    geom_samples : list of :obj:`mdtraj.Trajectory` objects corresponding to each clustercenter in :obj:`cl`
 
-    Tested: true
-    #TODO DOCUMENT
+    cl_order : None or iterable of integers
+        The order of the list :obj:`geom_samples` may or may not correspond to the order of :obj:`cl`.
+        Very often, :obj:`geom_samples` is sorted in ascending order of a given coordinate while the
+        clustercenters in :obj:`cl` are not. :obj:`cl_order` represents this reordering,
+        so that :obj:`geom_samples[cl_order]` reproduces the order of the clusterscenters, so that finally:
+        :obj:`geom_samples[cl_order][i]` contains geometries sampled for the :obj:`i`-th clustercenter
+
+    strategy : str, default is 'smallest_Rgyr'
+         Which property gets optimized
+            * *smallest_Rgyr*:
+              look for the geometries with smallest radius of gyration(:any:`mdtraj.compute_rg`),
+              regardless of the population
+
+            * *most_pop*:
+              look for the clustercenter that's most populated, regardless of the associated geometries
+
+            * *most_pop_x_smallest_Rgyr*:
+              Mix both criteria. Weight Rgyr values with population to avoid highly compact but
+              rarely populated structures
+
+            * *bimodal_compact*:
+              assume the distribution of clustercenters is bimodal, then locate its
+              centers and choose the one with smaller Rgyr
+
+            * *bimodal_open*:
+              assume the distribution of clustercenters is bimodal, then locate its
+              centers and choose the one with larger Rgyr
+
+    Returns
+    -------
+    start_idx : int, ndex of list :obj:`geom_samples`
+        The :obj:`mdtraj.Trajectory` in :obj:`geom_samples[start_idx]` satisfies best the :obj:`strategy`
+        criterion
+
     """
     if cl_order is None:
         cl_order = _np.arange(cl.n_clusters)

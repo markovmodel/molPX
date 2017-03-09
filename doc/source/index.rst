@@ -25,6 +25,13 @@ At the moment the API consists of two subpackages:
    index_visualize
    index_generate
 
+Most of the heavy lifting is done by the methods inside:
+
+.. toctree::
+    :maxdepth: 1
+
+    index_bmutils
+
 **TL;DR**: see molPX in action through the
 
 .. toctree::

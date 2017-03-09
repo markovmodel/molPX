@@ -12,14 +12,13 @@ try:
 except ImportError:
     from sklearn.mixture import GMM as _GMM
 
-from pyemma.util.linalg import eig_corr
-from pyemma.coordinates import source as _source, \
+from pyemma.coordinates import \
     cluster_regspace as _cluster_regspace, \
     save_traj as _save_traj
+
 from pyemma.coordinates.data.feature_reader import  FeatureReader as _FeatureReader
 from pyemma.util.discrete_trajectories import index_states as _index_states
 from scipy.spatial import cKDTree as _cKDTree
-#from myMDvisuals import customvmd
 
 def re_warp(array_in, lengths):
     """Return iterable ::py:obj:array_in as a list of arrays, each
@@ -495,41 +494,6 @@ def minimize_rmsd2ref_in_sample(sample, ref):
 
     return out_geoms.superpose(ref)
 
-def _src_in_this_proj(proj, mdtraj_dir,
-                      dirstartswith='DESRES-Trajectory_',
-                      strfile_fmt = '%s-%u-protein',
-                      ext='dcd',
-                     starting_idx = 0, ## to deal with some dir-structure, unclean solution by now,
-                     struct = None,
-                     ):
-    xtcs = []
-    ii = starting_idx
-
-    tocheck = os.path.join(mdtraj_dir, dirstartswith+proj+'*')
-    assert len(glob(tocheck)) != 0,("globbing for %s yields an empty list"%tocheck)
-    tocheck = sorted(glob(tocheck))
-    if isinstance(tocheck, str):
-        tocheck = [tocheck]
-    for __, idir in enumerate(tocheck):
-        if not idir.endswith('tar.gz'):
-            subdir = os.path.join(idir,strfile_fmt%(proj, ii))
-            these_trajs = os.path.join(subdir,'*'+ext)
-            assert len(glob(these_trajs)) != 0,("globbing for %s yields an empty list"%these_trajs)
-            these_trajs = sorted(glob(these_trajs))
-            xtcs.append(these_trajs)
-            if struct is None:
-                struct = '%s-%u-protein.pdb'%(proj,ii)
-            elif isinstance(struct, str):
-                struct = os.path.join(subdir,struct)
-                struct = sorted(glob(struct))
-            if isinstance(struct,list):
-                struct=struct[0]
-            ii += 1
-
-    src = _source(xtcs, top=struct)
-
-    return src, xtcs
-
 def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
                               link_with_lines=True,
                               band_width=None,
@@ -587,10 +551,6 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
             setattr(band, 'whatisthis', band_type)
             closest_to_click_obj.append(band)
 
-
-
-
-
     nglwidget.isClick = False
     def onclick(event):
         if link_with_lines:
@@ -634,7 +594,7 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
 
 def get_ascending_coord_idx(pos, fail_if_empty=False):
     r"""
-    return the indices of the columns of :obj:`pos` that's sorted in assecing order
+    return the indices of the columns of :obj:`pos` that's sorted in ascending order
 
     Parameters
     ----------
@@ -678,7 +638,7 @@ def pts_per_axis_unit(mplax, pt_per_inch=72):
     """
 
     # matplotlib voodoo
-    # Get boundinx box
+    # Get bounding box
     bbox = mplax.get_window_extent().transformed(mplax.get_figure().dpi_scale_trans.inverted())
 
     span_inch = _np.array([bbox.width, bbox.height], ndmin=2).T
@@ -702,6 +662,8 @@ def update2Dlines(iline, x, y):
     x : float with new position
 
     y : float with new position
+
+    tested:False
     """
     # TODO FIND OUT A CLEANER WAY TO DO THIS (dict or class)
 

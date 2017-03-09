@@ -1,3 +1,26 @@
+from __future__ import print_function
+import numpy as _np
+import mdtraj as _md
+from matplotlib import pyplot as _plt
+from matplotlib.widgets import AxesWidget as _AxesWidget
+from glob import glob
+import os
+import tempfile
+
+try:
+    from sklearn.mixture import GaussianMixture as _GMM
+except ImportError:
+    from sklearn.mixture import GMM as _GMM
+
+from pyemma.util.linalg import eig_corr
+from pyemma.coordinates import source as _source, \
+    cluster_regspace as _cluster_regspace, \
+    save_traj as _save_traj
+from pyemma.coordinates.data.feature_reader import  FeatureReader as _FeatureReader
+from pyemma.util.discrete_trajectories import index_states as _index_states
+from scipy.spatial import cKDTree as _cKDTree
+#from myMDvisuals import customvmd
+
 def _dictionarize_list(list, input_dict, output_dict = None):
     if output_dict is None:
         output_dict = {}
@@ -413,6 +436,41 @@ def _vmd_stage(background='white',
     mystr += '\n'
 
     return mystr
+
+def _src_in_this_proj(proj, mdtraj_dir,
+                      dirstartswith='DESRES-Trajectory_',
+                      strfile_fmt = '%s-%u-protein',
+                      ext='dcd',
+                     starting_idx = 0, ## to deal with some dir-structure, unclean solution by now,
+                     struct = None,
+                     ):
+    xtcs = []
+    ii = starting_idx
+
+    tocheck = os.path.join(mdtraj_dir, dirstartswith+proj+'*')
+    assert len(glob(tocheck)) != 0,("globbing for %s yields an empty list"%tocheck)
+    tocheck = sorted(glob(tocheck))
+    if isinstance(tocheck, str):
+        tocheck = [tocheck]
+    for __, idir in enumerate(tocheck):
+        if not idir.endswith('tar.gz'):
+            subdir = os.path.join(idir,strfile_fmt%(proj, ii))
+            these_trajs = os.path.join(subdir,'*'+ext)
+            assert len(glob(these_trajs)) != 0,("globbing for %s yields an empty list"%these_trajs)
+            these_trajs = sorted(glob(these_trajs))
+            xtcs.append(these_trajs)
+            if struct is None:
+                struct = '%s-%u-protein.pdb'%(proj,ii)
+            elif isinstance(struct, str):
+                struct = os.path.join(subdir,struct)
+                struct = sorted(glob(struct))
+            if isinstance(struct,list):
+                struct=struct[0]
+            ii += 1
+
+    src = _source(xtcs, top=struct)
+
+    return src, xtcs
 
 def _myflush(pipe, istr='#', size=1e4):
     pipe.write(''.join([istr+'\n\n' for ii in range(int(size))]))

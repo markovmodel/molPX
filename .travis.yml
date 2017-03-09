@@ -27,7 +27,7 @@ before_install:
 - conda config --set always_yes true
 - conda config --add channels omnia
 #- conda config --add channels conda-forge
-- conda config --add channels bioconda
+#- conda config --add channels bioconda
 - conda install -q $common_py_deps
 
 script:

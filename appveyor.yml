@@ -45,7 +45,7 @@ build: false # Not a C# project, build stuff at the test step instead.
 
 # Running the tests has been disable for Windows
 test_script:
-  - conda build -q devtools/conda-recipe -c bioconda
+  - conda build -q devtools/conda-recipe #-c bioconda
 
 #on_success:
 #  - devtools/ci/appveyor/after_success.bat

@@ -87,7 +87,7 @@ def _version_check(current, testing=False):
             """
             # TODO add loggers
 
-    return threading.Thread(target=_impl if _report_status() and not else lambda: '')
+    return threading.Thread(target=_impl if _report_status() and not testing else lambda: '')
 
 from ._version import get_versions
 __version__ = get_versions()['version']

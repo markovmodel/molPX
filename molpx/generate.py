@@ -6,17 +6,17 @@ __author__ = 'gph82'
 
 from pyemma.coordinates import source as _source
 import numpy as _np
-from .bmutils import regspace_cluster_to_target as _cluster_to_target, \
-    catalogues as _catalogues, \
-    re_warp as _re_warp, \
-    get_good_starting_point as _get_good_starting_point, \
-    visual_path as _visual_path, \
-    data_from_input as _data_from_input, \
-    minimize_rmsd2ref_in_sample as _minimize_rmsd2ref_in_sample, \
-    save_traj_wrapper as _save_traj_wrapper
-
+from .bmutils import (regspace_cluster_to_target as _cluster_to_target,
+                      catalogues as _catalogues,
+                      re_warp as _re_warp,
+                      get_good_starting_point as _get_good_starting_point,
+                      visual_path as _visual_path,
+                      data_from_input as _data_from_input,
+                      minimize_rmsd2ref_in_sample as _minimize_rmsd2ref_in_sample,
+                      save_traj_wrapper as _save_traj_wrapper)
 from collections import defaultdict as _defdict
 import mdtraj as _md
+
 
 def projection_paths(MD_trajectories, MD_top, projected_trajectories,
                    n_projs=1, proj_dim=2, proj_idxs=None,

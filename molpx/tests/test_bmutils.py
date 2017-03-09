@@ -86,7 +86,7 @@ class TestBmutils(unittest.TestCase):
         n_target = 15
         data = [np.random.randn(100, 1), np.random.randn(100,1)+10]
         cl = bmutils.regspace_cluster_to_target(data, n_target, n_try_max=10, delta=0)
-        assert cl.n_clusters >= n_target-1 and cl.n_clusters <= n_target+1
+        assert n_target - 1 <= cl.n_clusters <= n_target + 1
 
     def test_catalogues(self):
         cl = bmutils.regspace_cluster_to_target(self.data_for_cluster, 3, n_try_max=10, delta=0)

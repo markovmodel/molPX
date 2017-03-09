@@ -32,7 +32,7 @@ test:
   imports:
     - molpx
   commands:
-    - pip install nbval
+    - pip install git+https://github.com/vidartf/nbval@coverage
     - pytest -vv --pyargs molpx --cov=molpx --cov-report=xml --nbval-lax --current-env
     - python -c "import shutil, os; shutil.copy('coverage.xml', os.path.expanduser('~'))"
 about:

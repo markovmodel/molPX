@@ -155,7 +155,9 @@ def min_rmsd_path(start, path_of_candidates, selection=None, history_aware=False
      d_j = |path_of_candidates[1][j] - path_of_candidates[2][k]|,...
      are minimized
 
-    Parameters:
+    Parameters
+    ----------
+
     start : md.Trajectory object
        starting point, has to be have one frame only
 

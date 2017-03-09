@@ -9,7 +9,7 @@ import shutil
 from molpx import bmutils
 import mdtraj as md
 
-class TestBmutils(unittest.TestCase):
+class TestReadingInput(unittest.TestCase):
 
     def setUp(self):
         self.MD_trajectory = os.path.join(pyemma.__path__[0],'coordinates/tests/data/bpti_mini.xtc')
@@ -25,21 +25,6 @@ class TestBmutils(unittest.TestCase):
         print(self.tempdir)
         np.save(self.projected_file,self.Y)
         np.savetxt(self.projected_file.replace('.npy','.dat'),self.Y)
-
-        self.data_for_cluster = [np.array([[1, 3],
-                                           [2, 3],
-                                           [3, 3]]),
-                                 np.array([[17,1]]),
-                                 np.array([[11, 2],
-                                           [12, 2],
-                                           [13, 3]]),
-                                 np.array([[1,  3],
-                                           [11, 2],
-                                           [2,  3],
-                                           [12, 2],
-                                           [3,  3],
-                                           [13, 2]])
-                                 ]
 
     def tearDown(self):
         shutil.rmtree(self.tempdir)
@@ -81,6 +66,24 @@ class TestBmutils(unittest.TestCase):
                                       self.projected_file.replace('.npy','.dat'),
                                       self.Y])
         assert np.all([np.allclose(self.Y, iY) for iY in Ys])
+
+class TestClusteringAndCatalogues():
+
+    def setUp(self):
+        self.data_for_cluster = [np.array([[1, 3],
+                                           [2, 3],
+                                           [3, 3]]),
+                                 np.array([[17, 1]]),
+                                 np.array([[11, 2],
+                                           [12, 2],
+                                           [13, 3]]),
+                                 np.array([[1, 3],
+                                           [11, 2],
+                                           [2, 3],
+                                           [12, 2],
+                                           [3, 3],
+                                           [13, 2]])
+                                 ]
 
     def test_cluster_to_target(self):
         n_target = 15
@@ -179,20 +182,6 @@ class TestBmutils(unittest.TestCase):
                                          [12, 2],
                                          [13, 2]])
 
-    def test_find_centers_GMM(self):
-        # Two 1D gaussians, one centered at 5 the other at 10
-
-        data = [np.random.randn(100, 1)+5, np.random.randn(100,1)+10]
-        data = np.vstack(data)
-        grid = np.arange(0,20)
-        # This is the super easy test (array is ordered, index and value are the same)
-        idxs, igmm = bmutils.find_centers_gmm(data, grid)
-        assert np.allclose(np.sort(idxs), [5,10])
-
-        # Works also with arrays that do not necessarily contain the centers or are unsorted
-        grid = [-25, 10, 1, 4, -100, 10]
-        idxs, igmm = bmutils.find_centers_gmm(data, grid)
-        assert np.allclose(np.sort(idxs), [1, 3])
 
 class TestGetGoodStartingPoint(unittest.TestCase):
 
@@ -219,6 +208,22 @@ class TestGetGoodStartingPoint(unittest.TestCase):
         self.cat_smpl = self.cl.sample_indexes_by_cluster(np.arange(self.cl.n_clusters), n_geom_samples)
         self.geom_smpl = self.traj[np.vstack(self.cat_smpl)[:,1]]
         self.geom_smpl = bmutils.re_warp(self.geom_smpl, [n_geom_samples]*self.cl.n_clusters)
+
+    # This test doesn't exactly belong here but this is the best class for now
+    def test_find_centers_GMM(self):
+        # Two 1D gaussians, one centered at 5 the other at 10
+
+        data = [np.random.randn(100, 1) + 5, np.random.randn(100, 1) + 10]
+        data = np.vstack(data)
+        grid = np.arange(0, 20)
+        # This is the super easy test (array is ordered, index and value are the same)
+        idxs, igmm = bmutils.find_centers_gmm(data, grid)
+        assert np.allclose(np.sort(idxs), [5, 10])
+
+        # Works also with arrays that do not necessarily contain the centers or are unsorted
+        grid = [-25, 10, 1, 4, -100, 10]
+        idxs, igmm = bmutils.find_centers_gmm(data, grid)
+        assert np.allclose(np.sort(idxs), [1, 3])
 
     def test_smallest_rgyr(self):
         start_idx = bmutils.get_good_starting_point(self.cl, self.geom_smpl)
@@ -273,7 +278,7 @@ class TestGetGoodStartingPoint(unittest.TestCase):
 
     # The rest of strategies do not need a test, since ordering does not play a role in them
 
-class TestPaths(unittest.TestCase):
+class TestMinDispPaths(unittest.TestCase):
 
     def setUp(self):
         self.start = np.array([0, 0, 0])
@@ -315,6 +320,33 @@ class TestPaths(unittest.TestCase):
     def test_closest_all_coords_history(self):
         path = bmutils.min_disp_path(self.start, self.path_of_candidates, history_aware=True)
         assert np.allclose(path, [0, 1, 2, 2]), path
+
+class TestMinRmsdPaths(unittest.TestCase):
+
+    def setUp(self):
+        self.topology = os.path.join(pyemma.__path__[0],'coordinates/tests/data/bpti_ca.pdb')
+        self.reftraj = md.load(self.topology)
+        pass
+
+    def test_basic(self):
+        n_cands = 20
+        path_length = 50
+        # Create a path of candidates that's just perturbed versions of the same geometry
+        xyz = [np.reshape([self.reftraj.xyz[0]+np.random.randn(self.reftraj.n_atoms,3) for ii in range(n_cands)],
+                          (n_cands, self.reftraj.n_atoms,3)) for jj in range(path_length)]
+
+        # Now "bury" the true geometry somewhere in these candidates
+        frames_where_actual_geometry_is =  np.random.randint(0, high=n_cands, size=path_length)
+        for pp, ff in enumerate(frames_where_actual_geometry_is):
+            xyz[pp][ff,:,:] = self.reftraj.xyz
+        # Create the path of candidates as mdtraj objects
+        path_of_candidates = [md.Trajectory(ixyz, topology=self.reftraj.top) for ixyz in xyz]
+
+        # Let mirmsd_path find these frames for you
+        infferred_frames = bmutils.min_rmsd_path(self.reftraj, path_of_candidates)
+
+        assert np.allclose(frames_where_actual_geometry_is, infferred_frames)
+
 
 class TestSmoothingFunctions(unittest.TestCase):
 

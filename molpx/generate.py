@@ -169,19 +169,19 @@ def projection_paths(MD_trajectories, MD_top, projected_trajectories,
                                                   )
 
             # Of all the sampled geometries that share this starting point of "coord"
-            # pick the one that's closest to zero in all remaining coordinates
+            # pick the one that's closest to zero in the other coordinates
             istart_Y = _np.vstack([idata[ii][jj] for ii,jj in cat_smpl[istart_idx]])
-            istart_Y[:,coord] = 0
+            istart_Y = _np.delete(istart_Y, coord, axis=1)
             istart_frame = _np.sum(istart_Y**2,1).argmin()
 
-            selection = geom_smpl[0].top.select(minRMSD_selection)
-            # Create a path minimising minRMSD between frames
+            # Starting from the sampled geometries,
+            # create a path minimising minRMSD between frames.
             path_smpl, __ = _visual_path(cat_smpl, geom_smpl,
-                                        start_frame=istart_frame,
-                                        path_type='min_rmsd',
-                                        start_pos=istart_idx,
-                                        history_aware=history_aware,
-                                        selection=selection)
+                                         start_pos=istart_idx,
+                                         start_frame=istart_frame,
+                                         path_type='min_rmsd',
+                                         history_aware=history_aware,
+                                         selection=geom_smpl[0].top.select(minRMSD_selection))
 
             y = _np.vstack([idata[ii][jj] for ii,jj in path_smpl])
             y[:,coord] = 0
@@ -192,6 +192,7 @@ def projection_paths(MD_trajectories, MD_top, projected_trajectories,
             #                                                                  args.proj_dim),
             #      flush=True)
 
+            # Store the results of the minRMSD sampling with this strategy in a dictionary
             path_sample[strategy] = path_smpl
             path_rmsd[strategy] = path_diffusion
             start_idx[strategy] = istart_idx

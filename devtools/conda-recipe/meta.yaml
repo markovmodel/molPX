@@ -8,13 +8,12 @@ source:
 
 build:
   number: 0 # remember to change this manually every build until automated
-  script: python -B setup.py install --single-version-externally-managed --record record.txt
+  script: python setup.py install --single-version-externally-managed --record record.txt
 
 requirements:
   build:
     - python
     - setuptools
-    - wheel
   run:
     - python
     - setuptools

@@ -13,7 +13,7 @@ from . import visualize
 
 def _molpxdir(join=None):
     r"""
-    return the directory molpx is installed
+    return the directory where molpx is installed
 
     :param join: str, default is None
         _datadir(join='myfile.dat') will return os.path.join(_datadir(),'myfile.dat')
@@ -30,6 +30,22 @@ def _molpxdir(join=None):
     else:
         assert isinstance(join,str), ("parameter join can only be a string", type(join))
         return pjoin(dirname(getfile(molpx)), join)
+
+def example_notebook(extra_flags_as_one_string=None):
+    r"""
+    Open the example notebook in the default browser.
+    The ipython terminal provides stays active while the notebook is still active
+    """
+    import molpx
+    from IPython.terminal.interactiveshell import TerminalInteractiveShell
+
+    cmd = 'jupyter notebook %s'%_molpxdir('notebooks/Projection_Explorer.ipynb')
+    if isinstance(extra_flags_as_one_string,str):
+        cmd ='%s %s'%(cmd,extra_flags_as_one_string)
+
+    eshell = TerminalInteractiveShell()
+
+    return eshell.system_raw(cmd)
 
 def _report_status():
     r"""

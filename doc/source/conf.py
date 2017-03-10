@@ -27,6 +27,9 @@ class Mock(MagicMock):
     def __getattr__(cls, name):
         return MagicMock()
 
+    def __getattribute__(self, item):
+        return MagicMock()
+
 MOCK_MODULES = ['mdtraj',
                 'pyemma',
                 'pyemma.coordinates',

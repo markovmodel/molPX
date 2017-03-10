@@ -67,7 +67,7 @@ class TestReadingInput(unittest.TestCase):
                                       self.Y])
         assert np.all([np.allclose(self.Y, iY) for iY in Ys])
 
-class TestClusteringAndCatalogues():
+class TestClusteringAndCatalogues(unittest.TestCase):
 
     def setUp(self):
         self.data_for_cluster = [np.array([[1, 3],

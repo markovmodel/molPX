@@ -31,31 +31,24 @@ class Mock(MagicMock):
         return MagicMock()
 
 MOCK_MODULES = ['mdtraj',
-                'pyemma',
                 'pyemma.coordinates',
                 'pyemma.plots',
-                'pyemma.util',
                 'pyemma.util.linalg',
                 'pyemma.util.discrete_trajectories',
-                'pyemma.coordinates.data',
                 'pyemma.coordinates.data.feature_reader',
                 'nglview',
                 'matplotlib',
                 'matplotlib.widgets',
-                'sklearn',
                 'sklearn.mixture',
-                'scipy',
+                'scipy.spatial',
+                'six.moves.urllib.request',
                 'numpy',
                 ]
 
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
-
 sys.path.append(os.path.abspath('../../'))
-print(sys.path)
-
 import molpx
-
 version = molpx.__version__
 
 # -- General configuration ------------------------------------------------

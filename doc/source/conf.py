@@ -34,11 +34,20 @@ MOCK_MODULES = ['mdtraj',
                 'pyemma',
                 'pyemma.coordinates',
                 'pyemma.plots',
+                'pyemma.util',
+                'pyemma.util.linalg',
+                'pyemma.util.discrete_trajectories',
+                'pyemma.coordinates.data',
+                'pyemma.coordinates.data.feature_reader',
                 'nglview',
                 'matplotlib',
+                'matplotlib.widgets',
+                'sklearn',
+                'sklearn.mixture',
                 'scipy',
                 'numpy',
                 ]
+
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
 

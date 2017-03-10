@@ -30,8 +30,8 @@ def re_warp(array_in, lengths):
     array_in: any iterable
         Iterable to be re_warped
 
-    lenghts : iterable of integers
-        Lenghts of the individual elements of the returned array
+    lengths : iterable of integers
+        Lengths of the individual elements of the returned array
 
 
     Returns
@@ -442,7 +442,7 @@ def data_from_input(projected_data):
     if isinstance(projected_data, str) or isinstance(projected_data, _np.ndarray):
         projected_data = [projected_data]
     elif not isinstance(projected_data, list):
-        raise ValueError("Data type not understood %"%type(projected_data))
+        raise ValueError("Data type not understood %s" % type(projected_data))
 
     if isinstance(projected_data[0],str):
         if projected_data[0].endswith('npy'):

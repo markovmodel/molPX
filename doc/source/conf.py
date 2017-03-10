@@ -20,8 +20,10 @@
 import os
 import sys
 sys.path.insert(0, os.path.abspath('.')) # brute force
+sys.path.insert(0, os.path.abspath('../')) # brute force
 sys.path.insert(0, os.path.abspath('../../'))
 sys.path.insert(0, os.path.abspath('../../molpx'))
+
 
 print(sys.path)
 # -- General configuration ------------------------------------------------

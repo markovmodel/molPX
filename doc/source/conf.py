@@ -50,7 +50,7 @@ sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 sys.path.append(os.path.abspath('../../'))
 import molpx
 version = molpx.__version__
-
+release = molpx.__version__
 # -- General configuration ------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.

@@ -50,7 +50,6 @@ def _version_check(current, testing=False):
     """
 
     import platform
-    import six
     import os
     from six.moves.urllib.request import urlopen, Request
     from contextlib import closing
@@ -64,13 +63,11 @@ def _version_check(current, testing=False):
     def _impl():
         try:
             r = Request('http://emma-project.org/versions.json',
-                        headers={'User-Agent': 'conf_molpx-{conf_molpx_version}-Py-{python_version}-{platform}-{addr}'
-                        .format(conf_molpx=current, python_version=platform.python_version(),
+                        headers={'User-Agent': 'molpx-{molpx_version}-Py-{python_version}-{platform}-{addr}'
+                        .format(molpx_version=current, python_version=platform.python_version(),
                                 platform=platform.platform(terse=True), addr=uuid.getnode())} if not testing else {})
-            encoding_args = {} if six.PY2 else {'encoding': 'ascii'}
-            with closing(urlopen(r, timeout=30)) as response:
+            with closing(urlopen(r, timeout=30)):
                 pass
-                #payload = str(response.read(), **encoding_args)
             """
             versions = json.loads(payload)
             latest_json = tuple(filter(lambda x: x['latest'], versions))[0]['version']
@@ -90,7 +87,8 @@ def _version_check(current, testing=False):
             """
             # TODO add loggers
 
-    return threading.Thread(target=_impl if _report_status() else lambda: '')
+    return threading.Thread(target=_impl if _report_status() and not testing else lambda: '')
+
 from ._version import get_versions
 __version__ = get_versions()['version']
 del get_versions
@@ -98,4 +96,3 @@ del get_versions
 
 # start check in background
 _version_check(__version__).start()
-

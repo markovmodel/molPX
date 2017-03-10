@@ -6,17 +6,17 @@ __author__ = 'gph82'
 
 from pyemma.coordinates import source as _source
 import numpy as _np
-from .bmutils import regspace_cluster_to_target as _cluster_to_target, \
-    catalogues as _catalogues, \
-    re_warp as _re_warp, \
-    get_good_starting_point as _get_good_starting_point, \
-    visual_path as _visual_path, \
-    data_from_input as _data_from_input, \
-    minimize_rmsd2ref_in_sample as _minimize_rmsd2ref_in_sample, \
-    save_traj_wrapper as _save_traj_wrapper
-
+from .bmutils import (regspace_cluster_to_target as _cluster_to_target,
+                      catalogues as _catalogues,
+                      re_warp as _re_warp,
+                      get_good_starting_point as _get_good_starting_point,
+                      visual_path as _visual_path,
+                      data_from_input as _data_from_input,
+                      minimize_rmsd2ref_in_sample as _minimize_rmsd2ref_in_sample,
+                      save_traj_wrapper as _save_traj_wrapper)
 from collections import defaultdict as _defdict
 import mdtraj as _md
+
 
 def projection_paths(MD_trajectories, MD_top, projected_trajectories,
                    n_projs=1, proj_dim=2, proj_idxs=None,
@@ -65,7 +65,7 @@ def projection_paths(MD_trajectories, MD_top, projected_trajectories,
         This will play a role particularly if :obj:`projected_trajectories` is already strided (because the user is
         holding it in memory) but the MD-data on disk has not been strided.
 
-    histore_aware : bool, default is True
+    history_aware : bool, default is True
         The path-searching algorigthm the can minimize distances between adjacent points along the path or minimize
         the distance between each point and the mean value of all the other up to that point. Use this parameter
         to avoid a situation in which the path gets "derailed" because an outlier is chosen at a given point.
@@ -264,7 +264,7 @@ def sample(MD_trajectories, MD_top, projected_trajectories,
         the trajectory files. The higher this number, the *smoother* the minRMSD projection path. Also, the longer
         it takes for the path to be computed
 
-    n_geoms_samples : int, default is 1
+    n_geom_samples : int, default is 1
         This is a trade-off parameter between how smooth the transitons between geometries can be and how long it takes
         to generate the sample
 

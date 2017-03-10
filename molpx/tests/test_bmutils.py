@@ -328,7 +328,7 @@ class TestMinRmsdPaths(unittest.TestCase):
         self.reftraj = md.load(self.topology)
         pass
 
-    def test_basic(self):
+    def test_find_buried_best_candidate(self):
         n_cands = 20
         path_length = 50
         # Create a path of candidates that's just perturbed versions of the same geometry
@@ -343,9 +343,76 @@ class TestMinRmsdPaths(unittest.TestCase):
         path_of_candidates = [md.Trajectory(ixyz, topology=self.reftraj.top) for ixyz in xyz]
 
         # Let mirmsd_path find these frames for you
-        infferred_frames = bmutils.min_rmsd_path(self.reftraj, path_of_candidates)
+        inferred_frames = bmutils.min_rmsd_path(self.reftraj, path_of_candidates)
 
-        assert np.allclose(frames_where_actual_geometry_is, infferred_frames)
+        assert np.allclose(frames_where_actual_geometry_is, inferred_frames)
+
+    def test_find_buried_best_candidate_with_selection(self):
+        r"""
+
+        This test is tricky to understand:
+            in the list with candidates, all geoms are random except two:
+                - A copy of the reference with a small selection of perturbed atoms
+                    => because the randomization is small, this frame will always be found if no selection is given
+                    to minrmsd_path
+                - A random geometry with a small selection if untouched atoms
+                    ==> when this selection is given, minrsmd_path will find this frame although the rest of the
+                    frame is noise
+
+        """
+        n_cands = 20
+        path_length = 50
+        selection = np.array([0, 1, 2, 3])
+
+        # Create a path of candidates that's just noise
+        xyz = [np.reshape([np.random.randn(self.reftraj.n_atoms, 3) for ii in range(n_cands)],
+                          (n_cands, self.reftraj.n_atoms, 3)) for jj in range(path_length)]
+
+        # Create selection-perturbed versions of the reference
+        ref_w_sel_perturbed = []
+        for jj in range(path_length):
+            ixyz = np.copy(self.reftraj.xyz[0]) # copy, otherwise we're overwriting the original coords
+            ixyz[selection, :] += np.random.randn(len(selection), 3)
+            ref_w_sel_perturbed.append(ixyz)
+
+        # Bury ref_w_sel_perturbed somewhere in the random candidates
+        frames_ref_w_sel_perturbed =  np.random.randint(0, high=n_cands, size=path_length)
+        for pp, ff in enumerate(frames_ref_w_sel_perturbed):
+            xyz[pp][ff,:,:] = ref_w_sel_perturbed[pp]
+
+        # Create the path of candidates as mdtraj objects
+        path_of_candidates = [md.Trajectory(ixyz, topology=self.reftraj.top) for ixyz in xyz]
+
+        # PRE-TEST
+        # as long as the perturbation is small,
+        # minrmsd_path will find these ref_w_sel_perturbed frames among the noise no problem
+        inferred_frames = bmutils.min_rmsd_path(self.reftraj, path_of_candidates)
+        assert np.allclose(frames_ref_w_sel_perturbed, inferred_frames)
+
+        # create a second batch of frames where everything is random EXCEPT THE SELECTION, thus a search limited
+        #  to the selection should ignore it and still find it
+        frames_random_w_sel_untouched = np.random.randint(0, high=n_cands, size=path_length)
+
+        # Likely some frames overlap, since the chances to find at least one overlap is path_len/n_cands > 1)
+        for ii in np.argwhere([fi == fj for fi, fj in zip(frames_ref_w_sel_perturbed,
+                                                          frames_random_w_sel_untouched)]):
+            frames_random_w_sel_untouched[ii] -= 1
+        assert not np.any([fi == fj for fi, fj in zip(frames_ref_w_sel_perturbed,
+                                                      frames_random_w_sel_untouched)])
+
+        # In the random frames, insert the intouched selection
+        for pp, ff in enumerate(frames_random_w_sel_untouched):
+            xyz[pp][ff,selection,:] = np.copy(self.reftraj.xyz[0,selection, :])
+        path_of_candidates = [md.Trajectory(ixyz, topology=self.reftraj.top) for ixyz in xyz]
+
+        # This shoul still be OK
+        inferred_frames = bmutils.min_rmsd_path(self.reftraj, path_of_candidates)
+        assert np.allclose(frames_ref_w_sel_perturbed, inferred_frames)
+        # This should fail
+        assert not np.any([fi == fj for fi, fj in zip(frames_random_w_sel_untouched, inferred_frames)])
+        # This should be OK because we're only looking at the selection
+        inferred_frames = bmutils.min_rmsd_path(self.reftraj, path_of_candidates, selection=selection,)
+        assert np.allclose(frames_random_w_sel_untouched, inferred_frames)
 
 
 class TestSmoothingFunctions(unittest.TestCase):

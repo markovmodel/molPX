@@ -27,7 +27,15 @@ class Mock(MagicMock):
     def __getattr__(cls, name):
         return MagicMock()
 
-MOCK_MODULES = ['mdtraj', 'pyemma', 'matplotlib', 'scipy', 'numpy', 'pandas']
+MOCK_MODULES = ['mdtraj',
+                'pyemma',
+                'pyemma.coordinates',
+                'pyemma.plots',
+                'nglview',
+                'matplotlib',
+                'scipy',
+                'numpy',
+                ]
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
 

@@ -255,10 +255,10 @@ class TestGetGoodStartingPoint(unittest.TestCase):
         start_idx = bmutils.get_good_starting_point(self.cl, self.geom_smpl, strategy="bimodal_open")
         # print(self.cl.clustercenters[start_idx])
         #print(np.sort(self.cl.clustercenters.squeeze()))
-        assert 13 <= self.cl.clustercenters[start_idx] <= 17, "The coordinate distribution was created with pop " \
+        assert 12 <= self.cl.clustercenters[start_idx] <= 18, "The coordinate distribution was created with pop " \
                                                             "maxima the values 1 (compact) and 15 (open)." \
                                                             " The found OPEN starting " \
-                                                            "point should be in the interval [13,16] approx (see setUp)"
+                                                            "point should be in the interval [12,18] approx (see setUp)"
 
     def test_most_pop_ordering(self):
         order = np.random.permutation(np.arange(self.cl.n_clusters))
@@ -397,6 +397,9 @@ class TestMinRmsdPaths(unittest.TestCase):
         for ii in np.argwhere([fi == fj for fi, fj in zip(frames_ref_w_sel_perturbed,
                                                           frames_random_w_sel_untouched)]):
             frames_random_w_sel_untouched[ii] -= 1
+            if frames_random_w_sel_untouched[ii] == -1:
+                frames_random_w_sel_untouched[ii] = n_cands-1
+
         assert not np.any([fi == fj for fi, fj in zip(frames_ref_w_sel_perturbed,
                                                       frames_random_w_sel_untouched)])
 
@@ -405,14 +408,19 @@ class TestMinRmsdPaths(unittest.TestCase):
             xyz[pp][ff,selection,:] = np.copy(self.reftraj.xyz[0,selection, :])
         path_of_candidates = [md.Trajectory(ixyz, topology=self.reftraj.top) for ixyz in xyz]
 
-        # This shoul still be OK
+        # This should still be OK, because
+        # even if the selected atoms have been perturbed, the comparsion [ref+sel_per] vs [random] is robust
         inferred_frames = bmutils.min_rmsd_path(self.reftraj, path_of_candidates)
-        assert np.allclose(frames_ref_w_sel_perturbed, inferred_frames)
+        assert np.allclose(frames_ref_w_sel_perturbed, inferred_frames), ("min_rmsd_path wasn't able to distinguish slightly perturbed geometries "
+                                                                          "from totally random geometries")
         # This should fail
         assert not np.any([fi == fj for fi, fj in zip(frames_random_w_sel_untouched, inferred_frames)])
         # This should be OK because we're only looking at the selection
-        inferred_frames = bmutils.min_rmsd_path(self.reftraj, path_of_candidates, selection=selection,)
-        assert np.allclose(frames_random_w_sel_untouched, inferred_frames)
+        inferred_frames = bmutils.min_rmsd_path(self.reftraj, path_of_candidates, selection=selection)
+        assert np.allclose(frames_random_w_sel_untouched, inferred_frames), ("Even when limiting the selection for minRMSD computation to "
+                                                                             "the selected atoms, min_rmsd_path wasn't able to find the"
+                                                                             "random frames with the selected atoms as reference buried"
+                                                                             "in totally random coordinates:\n %s \nvs\n%s"%(frames_random_w_sel_untouched, inferred_frames))
 
 
 class TestSmoothingFunctions(unittest.TestCase):

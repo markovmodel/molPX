@@ -255,10 +255,10 @@ class TestGetGoodStartingPoint(unittest.TestCase):
         start_idx = bmutils.get_good_starting_point(self.cl, self.geom_smpl, strategy="bimodal_open")
         # print(self.cl.clustercenters[start_idx])
         #print(np.sort(self.cl.clustercenters.squeeze()))
-        assert 13 <= self.cl.clustercenters[start_idx] <= 17, "The coordinate distribution was created with pop " \
+        assert 12 <= self.cl.clustercenters[start_idx] <= 18, "The coordinate distribution was created with pop " \
                                                             "maxima the values 1 (compact) and 15 (open)." \
                                                             " The found OPEN starting " \
-                                                            "point should be in the interval [13,16] approx (see setUp)"
+                                                            "point should be in the interval [12,18] approx (see setUp)"
 
     def test_most_pop_ordering(self):
         order = np.random.permutation(np.arange(self.cl.n_clusters))

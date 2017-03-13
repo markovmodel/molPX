@@ -19,11 +19,38 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('.')) # brute force
-sys.path.insert(0, os.path.abspath('../../'))
-sys.path.insert(0, os.path.abspath('../../molpx'))
 
-print(sys.path)
+from unittest.mock import MagicMock
+
+class Mock(MagicMock):
+    @classmethod
+    def __getattr__(cls, name):
+        return MagicMock()
+
+    def __getattribute__(self, item):
+        return MagicMock()
+
+MOCK_MODULES = ['mdtraj',
+                'pyemma.coordinates',
+                'pyemma.plots',
+                'pyemma.util.linalg',
+                'pyemma.util.discrete_trajectories',
+                'pyemma.coordinates.data.feature_reader',
+                'nglview',
+                'matplotlib',
+                'matplotlib.widgets',
+                'sklearn.mixture',
+                'scipy.spatial',
+                'six.moves.urllib.request',
+                'numpy',
+                ]
+
+sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
+
+sys.path.append(os.path.abspath('../../'))
+import molpx
+version = molpx.__version__
+release = molpx.__version__
 # -- General configuration ------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.

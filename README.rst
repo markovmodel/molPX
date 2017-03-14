@@ -2,6 +2,12 @@
 Welcome to molPX: The Molecular Projection Explorer
 ###################################################
 .. image::
+   https://zenodo.org/badge/76460348.svg
+   :target: https://zenodo.org/badge/latestdoi/76460348
+   :height: 20
+   :alt: DOI
+
+.. image::
    https://travis-ci.org/markovmodel/molPX.svg?branch=master
    :height: 10
    :target: https://travis-ci.org/markovmodel/molPX

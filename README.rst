@@ -13,6 +13,12 @@ Welcome to molPX: The Molecular Projection Explorer
    :target: https://ci.appveyor.com/project/gph82/molpx
    :alt: Appveyor build status
 
+.. image::
+   https://codecov.io/gh/markovmodel/molPX/branch/master/graph/badge.svg
+   :height: 20
+   :target: https://codecov.io/gh/markovmodel/molPX
+   :alt: Codecov
+
 The Molecular Projection Explorer, molPX, is a python module that provides **interactive visualization of
 projected coordinates of molecular dynamics (MD) trajectories** inside a `Jupyter notebook <http://jupyter.org/>`_.
 

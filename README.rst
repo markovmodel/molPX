@@ -85,7 +85,7 @@ Documentation
 You can find the latest documentation online `here <https://molpx.readthedocs.io/>`_
 You can build a local copy of the html documentation by issuing
 
-    >>> cd docs
+    >>> cd doc
     >>> make html
 
 This will generate `molPX/docs/build/html/index.html` with the html documentation.

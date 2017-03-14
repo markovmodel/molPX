@@ -11,9 +11,9 @@ environment:
     #- MINICONDA_PYTHON: "C:\\Miniconda"
     #  CONDA_PY: "27"
 
-    - MINICONDA_PYTHON: "C:\\Miniconda-x64"
-      CONDA_PY: "27"
-      ARCH: "64"
+    #- MINICONDA_PYTHON: "C:\\Miniconda-x64"
+    #  CONDA_PY: "27"
+    #  ARCH: "64"
 
     #- MINICONDA_PYTHON: "C:\\Miniconda3"
     #  CONDA_PY: "35"

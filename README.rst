@@ -76,7 +76,7 @@ These commands should put you in front of a jupyter notebook explaining the basi
 Documentation
 ==============
 
-You can find the latest documentation online `here <https://readthedocs.org/projects/molpx/>`_.
+You can find the latest documentation online `here <https://molpx.readthedocs.io/>`_
 You can build a local copy of the html documentation by issuing
 
     >>> cd docs

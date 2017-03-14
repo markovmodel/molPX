@@ -18,6 +18,11 @@ setup(name='molPX',
       install_requires=[
           'nglview>=0.6.2.2',
           'pyemma',
+          # fake requiring these here, see issue #16
+          'numpy',     
+          'cython>=0.19',
+          'ipywidgets',
+          # end fake require
           'scikit-learn',
           'notebook',
           'mdtraj',

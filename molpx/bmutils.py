@@ -508,8 +508,14 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
     r"""
     Initial idea for this function comes from @arose, the rest is @gph82
 
-    band_width is in units of the axis of (it will be tranlated to pts internally)
+    Paramters
+    ---------
+    band_with : None or float,
+        band_width is in units of the axis of (it will be tranlated to pts internally)
 
+    link_with_lines : Boolean or str
+        If True, a crosshair will show where the mouse-click ocurred. If 'h' or 'v', only the horizontal or
+        vertical line of the crosshair will be shown, respectively. If False, no crosshair will appear
     directionality str or None, default is None
         If not None, directionality can be either 'a2w' or 'w2a', meaning that connectivity
          between axis and widget will be only established as
@@ -520,18 +526,23 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
     assert directionality in [None, 'a2w', 'w2a'], "The directionality has to be either None or a2w', 'w2a', " \
                                                    "not %s"%directionality
 
+    assert link_with_lines in [True, False, 'h','v'], "The link_with_lines parameter has to be either [True, False, 'h','v'], " \
+                                                   "not %s"%link_with_lines
     kdtree = _cKDTree(pos)
     assert nglwidget.trajectory_0.n_frames == pos.shape[0], \
         ("Mismatching frame numbers %u vs %u"%( nglwidget.trajectory_0.n_frames, pos.shape[0]))
     x, y = pos.T
 
     # Basic interactive objects
-    if link_with_lines:
+    showclick_objs = []
+    if link_with_lines in [True, 'h']:
         lineh = ax.axhline(ax.get_ybound()[0], c="black", ls='--')
         setattr(lineh, 'whatisthis', 'lineh')
+        showclick_objs.append(lineh)
+    if link_with_lines in [True, 'v']:
         linev = ax.axvline(ax.get_xbound()[0], c="black", ls='--')
         setattr(linev, 'whatisthis', 'linev')
-        showclick_objs=[lineh, linev]
+        showclick_objs.append(linev)
 
     dot = ax.plot(pos[0,0],pos[0,1], 'o', c='red', ms=7)[0]
     setattr(dot,'whatisthis','dot')

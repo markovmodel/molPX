@@ -13,7 +13,7 @@ from .bmutils import link_ax_w_pos_2_nglwidget as _link_ax_w_pos_2_nglwidget, \
 
 from . import generate
 
-from matplotlib import pylab as _plt
+from matplotlib import pylab as _plt, rcParams as _rcParams
 import nglview as _nglview
 import mdtraj as _md
 
@@ -99,7 +99,7 @@ def traj(MD_trajectories,
          panel_height = 1,
          sharey_traj=True,
          dt = 1.0,
-         tunits = 'ns',
+         tunits = 'frames',
          traj_selection = None,
          projection = None,
          ):
@@ -154,7 +154,7 @@ def traj(MD_trajectories,
     dt : float, default is 1.0
         Physical time-unit equivalent to one frame of the :obj:`projected_trajectories`
 
-    tunits : str, default is 'ns'
+    tunits : str, default is 'frames'
         Name of the physical time unit provided in :obj:`dt`
 
     traj_selection : None, int, iterable of ints, default is None
@@ -189,8 +189,8 @@ def traj(MD_trajectories,
 
 
     """
-    assert len(proj_idxs) == 2
-
+    if isinstance(proj_idxs, int):
+        proj_idxs = [proj_idxs]
 
     # Parse input
     data = [iY[:,proj_idxs] for iY in _data_from_input(projected_trajectories)]
@@ -233,7 +233,7 @@ def traj(MD_trajectories,
     # For later axes-cosmetics
     tmax, tmin = _np.max([time[-1] for time in times]), _np.min([time[0] for time in times])
     ylims = _np.zeros((2,2))
-    for ii in range(2):
+    for ii in proj_idxs:
         ylims[0, ii] = _np.min([idata[:,ii].min() for idata in data])
         ylims[1, ii] = _np.max([idata[:,ii].max() for idata in data])
     ylabels = ['$\mathregular{proj_%u}$'%ii for ii in proj_idxs]
@@ -247,7 +247,7 @@ def traj(MD_trajectories,
                                     active_traj)
 
 
-    myfig, myax = _plt.subplots(len(traj_selection)*2,1, sharex=True, figsize=(7, len(data)*2*panel_height))
+    myfig, myax = _plt.subplots(len(traj_selection)*len(proj_idxs),1, sharex=True, figsize=(7, len(data)*len(proj_idxs)*panel_height), squeeze=False)
     myax = myax.reshape(len(traj_selection), -1)
 
     # Initialize some things
@@ -267,13 +267,19 @@ def traj(MD_trajectories,
                 iax.plot(time, idata)
             # Active trajectory, distinguish between projection and feature
             else:
-                if projections_plotted in [0,1]: #projection
+                if projections_plotted < len(proj_idxs): #projection
                     iax.plot(time, idata)
-                    widget = sample(data_sample, geoms.superpose(geoms[0]), iax, clear_lines=False, widget=widget)
+                    widget = sample(data_sample, geoms.superpose(geoms[0]), iax,
+                                    clear_lines=False, widget=widget,
+                                    link_with_lines='v')
                     projections_plotted += 1
                 else: #feature
                     feature_axis.append(jj)
-                    iax.plot(time, out_feats[ii])
+                    fdata_sample = _np.vstack((time, out_feats[ii])).T
+                    widget = sample(fdata_sample, geoms.superpose(geoms[0]), iax,
+                                    clear_lines=False, widget=widget,
+                                    link_with_lines=False)
+                    iax.plot(time,out_feats[ii], zorder=0)
                     # matplotlib mysteries
                     #iax.legend('%4.2f'%most_corr_vals[ii]) # doesn't work
                     #iax.legend('a') # works
@@ -284,7 +290,7 @@ def traj(MD_trajectories,
             if jj not in feature_axis:
                 iax.set_ylabel(ylabels[ii])
             else:
-                iax.set_ylabel('\n'.join(_re_warp(most_corr_labels[ii], 10)))
+                iax.set_ylabel('\n'.join(_re_warp(most_corr_labels[ii], 16)), fontsize=int(_rcParams['font.size']/2))
             iax.set_xlim([tmin, tmax])
             if sharey_traj:
                 if jj not in feature_axis:
@@ -294,6 +300,10 @@ def traj(MD_trajectories,
     iax.set_xlabel(tunits)
 
     if plot_FES:
+        if len(proj_idxs)<2:
+            raise NotImplementedError('Can only plot 2D FES if more than one projection idxs has been '
+                                      'specificed, but only got %s. \n In the future a 1D histogramm will '
+                                      'be shown.'%proj_idxs)
         h, (x, y) = _np.histogramdd(_np.vstack(data), bins=50)
         irange = _np.hstack((x[[0,-1]], y[[0,-1]]))
         _plt.figure()

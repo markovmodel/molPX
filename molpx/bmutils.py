@@ -17,6 +17,7 @@ from pyemma.coordinates import \
     save_traj as _save_traj
 
 from pyemma.coordinates.data.feature_reader import  FeatureReader as _FeatureReader
+from pyemma.coordinates.transform import TICA as _TICA, PCA as _PCA
 from pyemma.util.discrete_trajectories import index_states as _index_states
 from scipy.spatial import cKDTree as _cKDTree
 
@@ -797,3 +798,80 @@ def smooth_geom(geom, n, geom_data=None, superpose=True, symmetric=True):
         return geom_out
     else:
         return geom_out, data_out
+
+def most_corr_info(correlation_input, geoms=None, proj_idxs=None, feat_name=None):
+    r"""
+    return information about the most correlated features from a `:obj:pyemma.coodrinates.transformer` object
+
+    Paramters
+    ---------
+
+    correlation_input : anything
+        Something that could, in principle, be a :obj:`pyemma.coordinates.transformer,
+        like a TICA or PCA object
+        (this method will be extended to interpret other inputs, so for now this parameter is pretty flexible)
+
+    geoms: None or obj:`md.Trajectory`, default is None
+        The values of the most correlated features will be returned for the geometires in this object
+
+    proj_idxs: None, or int, or iterable of integers, default is None
+        The indices of the projections for which the most correlated feture will be returned
+        If none it will default to the dimension of the correlation_input object
+
+    feat_name : None or str, default is None
+        The prefix with which to prepend the labels of the most correlated features. If left to None, the feature
+        description found in :obj:`correlation_input` will be used (if available)
+
+    Returns
+    -------
+
+    most_corr_idxs : list of ints
+        List of with the index of the feature that most correlates with the projected coordinates, for each
+        coordinate specified in :obj:`proj_idxs`
+
+    most_corr_vals : list of floats
+        List with the correlation values [-1,1] belonging to the feature indices in :obj:`most_corr_idxs'
+
+    most_corr_labels :  list of strings
+        The labels of the most correlated features. If a string was parsed as prefix in :obj:`feat_name`, these
+        labels will be ['feat_name_%u'%i for i in most_corr_idxs']. Otherwise it will be the full feature
+        description found in :obj:`pyemma.coordinates.
+
+    most_corr_feats : list of ndarrays
+        If :obj:`geom` was given, this will contain the most correlated feature evaluated for every frame for
+        every projection in :obj:`proj_idxs`. Otherwise this will just be an empty list
+
+
+    tested: false
+    """
+    #TODO: TEST
+    #TODO: extend to other inputs
+
+    most_corr_idxs = []
+    most_corr_vals = []
+    most_corr_feats =  []
+    most_corr_labels = []
+
+
+    if isinstance(proj_idxs, int):
+        proj_idxs = [proj_idxs]
+
+    if isinstance(correlation_input, (_TICA, _PCA)):
+
+        if proj_idxs is None:
+            proj_idxs = _np.arange(correlation_input.dim)
+
+        for ii in proj_idxs:
+            icorr = correlation_input.feature_TIC_correlation[:, ii]
+            most_corr_idxs.append(_np.abs(icorr).argmax())
+            most_corr_vals.append(icorr[most_corr_idxs[-1]])
+            if geoms is not None:
+                most_corr_feats.append(correlation_input.data_producer.featurizer.transform(geoms)[:, most_corr_idxs[-1]])
+
+            if isinstance(feat_name, str):
+                istr = '$\mathregular{%s_{%%u}}$'%(feat_name, most_corr_idxs[-1])
+            elif feat_name is None:
+                istr = correlation_input.data_producer.featurizer.describe()[most_corr_idxs[-1]]
+            most_corr_labels.append(istr)
+
+    return most_corr_idxs, most_corr_vals, most_corr_labels, most_corr_feats

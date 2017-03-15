@@ -7,7 +7,10 @@ from pyemma.plots import plot_free_energy
 import numpy as _np
 from .bmutils import link_ax_w_pos_2_nglwidget as _link_ax_w_pos_2_nglwidget, \
     data_from_input as _data_from_input, \
-    smooth_geom as _smooth_geom
+    smooth_geom as _smooth_geom,\
+    most_corr_info as _try_to_get_most_corr_feat, \
+    re_warp as _re_warp
+
 from . import generate
 
 from matplotlib import pylab as _plt
@@ -98,6 +101,7 @@ def traj(MD_trajectories,
          dt = 1.0,
          tunits = 'ns',
          traj_selection = None,
+         projection = None,
          ):
     r"""Link one or many :obj:`projected trajectories`, [Y_0(t), Y_1(t)...], with the :obj:`MD_trajectories` that
     originated them.
@@ -156,6 +160,17 @@ def traj(MD_trajectories,
     traj_selection : None, int, iterable of ints, default is None
         Don't plot all trajectories but only few of them. The default None implies that all trajs will be plotted.
         Note: the data used for the FES will always include all trajectories, regardless of this value
+
+    projection : object that generated the projection, default is None
+        The projected coordinates may come from a variety of sources. When working with :ref:`pyemma` a number of objects
+        might have generated this projection, like a
+        * :obj:`pyemma.coordinates.transform.TICA` or a
+        * :obj:`pyemma.coordinates.transform.PCA` or a
+
+        Pass this object along and observe and the features that are most correlated with the projections
+        will be plotted for the active trajectory, allowing the user to establish a visual connection between the
+        projected coordinate and the original features (distances, angles, contacts etc)
+
 
     Returns
     ---------
@@ -223,10 +238,22 @@ def traj(MD_trajectories,
         ylims[1, ii] = _np.max([idata[:,ii].max() for idata in data])
     ylabels = ['$\mathregular{proj_%u}$'%ii for ii in proj_idxs]
 
+    # Do we have usable projection information?
+    __, most_corr_vals, most_corr_labels, out_feats = _try_to_get_most_corr_feat(projection, geoms=geoms, proj_idxs=proj_idxs)
+    if out_feats != []:
+        # Then extend the trajectory selection to include the active trajectory twice
+        traj_selection = _np.insert(traj_selection,
+                                    _np.argwhere([active_traj==ii for ii in traj_selection]).squeeze(),
+                                    active_traj)
+
 
     myfig, myax = _plt.subplots(len(traj_selection)*2,1, sharex=True, figsize=(7, len(data)*2*panel_height))
     myax = myax.reshape(len(traj_selection), -1)
+
+    # Initialize some things
     widget = None
+    projections_plotted = 0
+    feature_axis = []
     for jj, time, jdata, jax in zip(traj_selection,
                                     [times[jj] for jj in traj_selection],
                                     [data[jj] for jj in traj_selection],
@@ -234,17 +261,36 @@ def traj(MD_trajectories,
 
         for ii, (idata, iax) in enumerate(zip(jdata.T, jax)):
             data_sample =_np.vstack((time, idata)).T
-            iax.plot(time, idata)
-            if jj == active_traj:
-                widget = sample(data_sample, geoms.superpose(geoms[0]), iax, clear_lines=False, widget=widget)
 
-            # Axis-Cosmetics
+            # Inactive trajectories, act normal
+            if jj != active_traj:
+                iax.plot(time, idata)
+            # Active trajectory, distinguish between projection and feature
+            else:
+                if projections_plotted in [0,1]: #projection
+                    iax.plot(time, idata)
+                    widget = sample(data_sample, geoms.superpose(geoms[0]), iax, clear_lines=False, widget=widget)
+                    projections_plotted += 1
+                else: #feature
+                    feature_axis.append(jj)
+                    iax.plot(time, out_feats[ii])
+                    # matplotlib mysteries
+                    #iax.legend('%4.2f'%most_corr_vals[ii]) # doesn't work
+                    #iax.legend('a') # works
+
+            # Axis-specific Cosmetics
             if ii == 0:
                 iax.set_title('traj %u'%jj)
-            iax.set_ylabel(ylabels[ii])
+            if jj not in feature_axis:
+                iax.set_ylabel(ylabels[ii])
+            else:
+                iax.set_ylabel('\n'.join(_re_warp(most_corr_labels[ii], 10)))
             iax.set_xlim([tmin, tmax])
             if sharey_traj:
-                iax.set_ylim(ylims[:,ii]+[-1,1]*_np.diff(ylims[:,ii])*.1)
+                if jj not in feature_axis:
+                    iax.set_ylim(ylims[:,ii]+[-1,1]*_np.diff(ylims[:,ii])*.1)
+
+    # General cosmetics
     iax.set_xlabel(tunits)
 
     if plot_FES:

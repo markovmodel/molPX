@@ -503,13 +503,22 @@ def minimize_rmsd2ref_in_sample(sample, ref):
 def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
                               link_with_lines=True,
                               band_width=None,
-                              radius=False):
+                              radius=False,
+                              directionality=None):
     r"""
     Initial idea for this function comes from @arose, the rest is @gph82
 
     band_width is in units of the axis of (it will be tranlated to pts internally)
+
+    directionality str or None, default is None
+        If not None, directionality can be either 'a2w' or 'w2a', meaning that connectivity
+         between axis and widget will be only established as
+         * 'a2w' : action in axis   triggers action in widget, but not the other way around
+         * 'w2a' : action in widget triggers action in axis, but not the other way around
     """
 
+    assert directionality in [None, 'a2w', 'w2a'], "The directionality has to be either None or a2w', 'w2a', " \
+                                                   "not %s"%directionality
 
     kdtree = _cKDTree(pos)
     assert nglwidget.trajectory_0.n_frames == pos.shape[0], \
@@ -591,10 +600,12 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
 
     # Connect axes to widget
     axes_widget = _AxesWidget(ax)
-    axes_widget.connect_event('button_release_event', onclick)
+    if directionality in [None, 'a2w']:
+        axes_widget.connect_event('button_release_event', onclick)
 
     # Connect widget to axes
-    nglwidget.observe(my_observer, "frame", "change")
+    if directionality in [None, 'w2a']:
+        nglwidget.observe(my_observer, "frame", "change")
 
     return axes_widget
 

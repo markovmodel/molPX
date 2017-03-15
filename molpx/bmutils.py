@@ -30,14 +30,17 @@ def re_warp(array_in, lengths):
     array_in: any iterable
         Iterable to be re_warped
 
-    lengths : iterable of integers
-        Lengths of the individual elements of the returned array
-
+    lengths : int or iterable of integers
+        Lengths of the individual elements of the returned array. If only one int is parsed, all lengths will
+        be that int
 
     Returns
     -------
     warped: list
     """
+
+    if isinstance(lengths, int):
+        lengths = [lengths] * int(_np.ceil(len(array_in) / lengths))
 
     warped = []
     idxi = 0

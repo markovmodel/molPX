@@ -874,7 +874,6 @@ def most_corr_info(correlation_input, geoms=None, proj_idxs=None, feat_name=None
     most_corr_feats =  []
     most_corr_labels = []
 
-
     if isinstance(proj_idxs, int):
         proj_idxs = [proj_idxs]
 
@@ -882,6 +881,10 @@ def most_corr_info(correlation_input, geoms=None, proj_idxs=None, feat_name=None
 
         if proj_idxs is None:
             proj_idxs = _np.arange(correlation_input.dim)
+
+        if _np.max(proj_idxs) > correlation_input.dim:
+            raise ValueError("Cannot ask for projection index %u if the "
+                             "transformation only has %u projections"%(_np.max(proj_idxs), correlation_input.dim))
 
         for ii in proj_idxs:
             icorr = correlation_input.feature_TIC_correlation[:, ii]

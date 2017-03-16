@@ -1,7 +1,7 @@
 ###################################################
 Welcome to molPX: The Molecular Projection Explorer
 ###################################################
-|DOI| |travis-build| |appveyor-build| |coverage| |docs-build| 
+|DOI| |travis_build| |appveyor_build| |coverage| |docs_build|
 
 The Molecular Projection Explorer, molPX, is a python module that provides **interactive visualization of
 projected coordinates of molecular dynamics (MD) trajectories** inside a `Jupyter notebook <http://jupyter.org/>`_.
@@ -38,6 +38,7 @@ the `conda command <https://conda.io/docs/intro.html>`_:
 and jump to the Quick Start section of this document. Otherwise, check out our more exhaustive
 
 * :doc:`Installation Guide </INSTALL>`
+
 
 
 Quick Start
@@ -144,13 +145,13 @@ Known Issues
    :height: 20
    :alt: DOI
 
-.. |travis-build| image::
+.. |travis_build| image::
    https://travis-ci.org/markovmodel/molPX.svg?branch=master
    :height: 10
    :target: https://travis-ci.org/markovmodel/molPX
    :alt: Travis build status
 
-.. |appveyor-build| image::
+.. |appveyor_build| image::
    https://ci.appveyor.com/api/projects/status/396ej39s3fewhwy9/branch/master?svg=true
    :height: 10
    :target: https://ci.appveyor.com/project/gph82/molpx
@@ -162,7 +163,7 @@ Known Issues
    :target: https://codecov.io/gh/markovmodel/molPX
    :alt: Codecov
 
-.. |docs-build| image::
+.. |docs_build| image::
    https://readthedocs.org/projects/molpx/badge/?version=latest
    :alt: Documentation Status
    :height: 20

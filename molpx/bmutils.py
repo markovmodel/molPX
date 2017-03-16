@@ -501,7 +501,7 @@ def minimize_rmsd2ref_in_sample(sample, ref):
     return out_geoms.superpose(ref)
 
 def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
-                              link_with_lines=True,
+                              crosshairs=True,
                               band_width=None,
                               radius=False,
                               directionality=None):
@@ -513,7 +513,7 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
     band_with : None or float,
         band_width is in units of the axis of (it will be tranlated to pts internally)
 
-    link_with_lines : Boolean or str
+    crosshairs : Boolean or str
         If True, a crosshair will show where the mouse-click ocurred. If 'h' or 'v', only the horizontal or
         vertical line of the crosshair will be shown, respectively. If False, no crosshair will appear
     directionality str or None, default is None
@@ -523,11 +523,11 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
          * 'w2a' : action in widget triggers action in axis, but not the other way around
     """
 
-    assert directionality in [None, 'a2w', 'w2a'], "The directionality has to be either None or a2w', 'w2a', " \
+    assert directionality in [None, 'a2w', 'w2a'], "The directionality parameter has to be in [None, 'a2w', 'w2a'] " \
                                                    "not %s"%directionality
 
-    assert link_with_lines in [True, False, 'h','v'], "The link_with_lines parameter has to be either [True, False, 'h','v'], " \
-                                                   "not %s"%link_with_lines
+    assert crosshairs in [True, False, 'h', 'v'], "The crosshairs parameter has to be in [True, False, 'h','v'], " \
+                                                   "not %s" % crosshairs
     kdtree = _cKDTree(pos)
     assert nglwidget.trajectory_0.n_frames == pos.shape[0], \
         ("Mismatching frame numbers %u vs %u"%( nglwidget.trajectory_0.n_frames, pos.shape[0]))
@@ -535,11 +535,11 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
 
     # Basic interactive objects
     showclick_objs = []
-    if link_with_lines in [True, 'h']:
+    if crosshairs in [True, 'h']:
         lineh = ax.axhline(ax.get_ybound()[0], c="black", ls='--')
         setattr(lineh, 'whatisthis', 'lineh')
         showclick_objs.append(lineh)
-    if link_with_lines in [True, 'v']:
+    if crosshairs in [True, 'v']:
         linev = ax.axvline(ax.get_xbound()[0], c="black", ls='--')
         setattr(linev, 'whatisthis', 'linev')
         showclick_objs.append(linev)
@@ -579,7 +579,7 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
 
     nglwidget.isClick = False
     def onclick(event):
-        if link_with_lines:
+        if crosshairs:
             for iline in showclick_objs:
                 update2Dlines(iline,event.xdata, event.ydata)
 

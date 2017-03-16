@@ -8,8 +8,10 @@ import numpy as _np
 from .bmutils import link_ax_w_pos_2_nglwidget as _link_ax_w_pos_2_nglwidget, \
     data_from_input as _data_from_input, \
     smooth_geom as _smooth_geom,\
-    most_corr_info as _try_to_get_most_corr_feat, \
-    re_warp as _re_warp
+    most_corr_info as _most_corr_info, \
+    re_warp as _re_warp, \
+    add_atom_idxs_widget as _add_atom_idxs_widget, \
+    matplotlib_colors_no_blue as _bmcolors
 
 from . import generate
 
@@ -102,6 +104,7 @@ def traj(MD_trajectories,
          tunits = 'frames',
          traj_selection = None,
          projection = None,
+         n_feats = 1,
          ):
     r"""Link one or many :obj:`projected trajectories`, [Y_0(t), Y_1(t)...], with the :obj:`MD_trajectories` that
     originated them.
@@ -171,6 +174,10 @@ def traj(MD_trajectories,
         will be plotted for the active trajectory, allowing the user to establish a visual connection between the
         projected coordinate and the original features (distances, angles, contacts etc)
 
+    n_feats : int, default is 1
+        If a :obj:`projection` is passed along, the first n_feats features that most correlate the
+        the projected trajectories will be represented, both in form of trajectories feat vs t as well as in
+        the nglwidget
 
     Returns
     ---------
@@ -189,6 +196,8 @@ def traj(MD_trajectories,
 
 
     """
+
+
     if isinstance(proj_idxs, int):
         proj_idxs = [proj_idxs]
 
@@ -209,7 +218,6 @@ def traj(MD_trajectories,
                                                 "but only provided %u trajs"%(_np.max(traj_selection), len(data))
     assert active_traj in traj_selection, "Selected traj. nr. %u to be the active one, " \
                                           "but it is not contained in traj_selection: %s"%(active_traj, traj_selection)
-
     if isinstance(MD_trajectories[active_traj], _md.Trajectory):
         geoms = MD_trajectories[active_traj][::proj_stride]
     else: # let mdtraj fail
@@ -232,20 +240,22 @@ def traj(MD_trajectories,
 
     # For later axes-cosmetics
     tmax, tmin = _np.max([time[-1] for time in times]), _np.min([time[0] for time in times])
-    ylims = _np.zeros((2,2))
-    for ii in proj_idxs:
+    ylims = _np.zeros((2, len(proj_idxs)))
+    for ii, __ in enumerate(proj_idxs):
         ylims[0, ii] = _np.min([idata[:,ii].min() for idata in data])
         ylims[1, ii] = _np.max([idata[:,ii].max() for idata in data])
     ylabels = ['$\mathregular{proj_%u}$'%ii for ii in proj_idxs]
 
     # Do we have usable projection information?
-    __, most_corr_vals, most_corr_labels, out_feats = _try_to_get_most_corr_feat(projection, geoms=geoms, proj_idxs=proj_idxs)
+    __, most_corr_vals, most_corr_labels, out_feats, most_corr_atom_idxs = _most_corr_info(projection, geoms=geoms, proj_idxs=proj_idxs, n_args=n_feats)
     if out_feats != []:
         # Then extend the trajectory selection to include the active trajectory twice
         traj_selection = _np.insert(traj_selection,
                                     _np.argwhere([active_traj==ii for ii in traj_selection]).squeeze(),
-                                    active_traj)
-
+                                    [active_traj] * n_feats)
+    else:
+        # squash whatever input we had if the projection-info input wasn't actually usable
+        n_feats = 0
 
     myfig, myax = _plt.subplots(len(traj_selection)*len(proj_idxs),1, sharex=True, figsize=(7, len(data)*len(proj_idxs)*panel_height), squeeze=False)
     myax = myax.reshape(len(traj_selection), -1)
@@ -253,12 +263,10 @@ def traj(MD_trajectories,
     # Initialize some things
     widget = None
     projections_plotted = 0
-    feature_axis = []
-    for jj, time, jdata, jax in zip(traj_selection,
-                                    [times[jj] for jj in traj_selection],
-                                    [data[jj] for jj in traj_selection],
-                                    myax):
-
+    for kk, (jj, time, jdata, jax) in enumerate(zip(traj_selection,
+                                                    [times[jj] for jj in traj_selection],
+                                                    [data[jj] for jj in traj_selection],
+                                                    myax)):
         for ii, (idata, iax) in enumerate(zip(jdata.T, jax)):
             data_sample =_np.vstack((time, idata)).T
 
@@ -271,33 +279,58 @@ def traj(MD_trajectories,
                     iax.plot(time, idata)
                     widget = sample(data_sample, geoms.superpose(geoms[0]), iax,
                                     clear_lines=False, widget=widget,
-                                    link_with_lines='v')
+                                    crosshairs='v')
                     projections_plotted += 1
-                else: #feature
-                    feature_axis.append(jj)
-                    fdata_sample = _np.vstack((time, out_feats[ii])).T
-                    widget = sample(fdata_sample, geoms.superpose(geoms[0]), iax,
-                                    clear_lines=False, widget=widget,
-                                    link_with_lines=False)
-                    iax.plot(time,out_feats[ii], zorder=0)
-                    # matplotlib mysteries
-                    #iax.legend('%4.2f'%most_corr_vals[ii]) # doesn't work
-                    #iax.legend('a') # works
+                    time_feat = time
+                    # TODO find out why this is needed
 
-            # Axis-specific Cosmetics
-            if ii == 0:
-                iax.set_title('traj %u'%jj)
-            if jj not in feature_axis:
-                iax.set_ylabel(ylabels[ii])
-            else:
-                iax.set_ylabel('\n'.join(_re_warp(most_corr_labels[ii], 16)), fontsize=int(_rcParams['font.size']/2))
+            # Axis-Cosmetics
+            iax.set_ylabel(ylabels[ii])
             iax.set_xlim([tmin, tmax])
+            iax2 = iax.twinx()
+            iax2.set_yticklabels('')
+            iax2.set_ylabel('traj %u'%jj, rotation =-90, va='bottom', ha='center')
             if sharey_traj:
-                if jj not in feature_axis:
-                    iax.set_ylim(ylims[:,ii]+[-1,1]*_np.diff(ylims[:,ii])*.1)
+                iax.set_ylim(ylims[:,ii]+[-1,1]*_np.diff(ylims[:,ii])*.1)
 
-    # General cosmetics
+    # Last of axis cosmetics
     iax.set_xlabel(tunits)
+
+    # Now let's go to the feature axes
+    # Some bookkeping about axis and features
+    first_empty_axis = _np.argwhere(traj_selection==active_traj)[0]*len(proj_idxs)+len(proj_idxs)
+    last_empty_axis = first_empty_axis+ len(proj_idxs) * n_feats
+    rows, cols = _np.unravel_index(_np.arange(first_empty_axis,last_empty_axis), myax.shape)
+    colors = _bmcolors()
+    smallfontsize = int(_rcParams['font.size']/2)
+    for kk, (ir, ic)  in enumerate(zip(rows, cols)):
+        # Determine axis
+        iax = myax[ir, ic]
+        # Grab the right properties
+        iproj, ifeat = _np.unravel_index(kk, (len(proj_idxs), n_feats))
+        ifeat_val = out_feats[iproj][:, ifeat]
+        ilabel = most_corr_labels[iproj][ifeat]
+        icol = colors[iproj]
+        # Plot
+        lines = iax.plot(time_feat, ifeat_val, color=icol)[0]
+        #Cosmetics
+        iax.set_ylabel('\n'.join(_re_warp(ilabel, 16)), fontsize=smallfontsize)
+        iax.set_ylim([ifeat_val.min(),
+                      ifeat_val.max(),
+                      ] + [-1, 1] * _np.diff(ylims[:, ii]) * .05)
+
+        # Link widget
+        fdata_sample = _np.vstack((time_feat, ifeat_val)).T
+        widget = sample(fdata_sample, geoms.superpose(geoms[0]), iax,
+                        clear_lines=False, widget=widget,
+                        crosshairs=False, directionality='w2a')
+
+        # Add the correlation vanlue
+        iax.legend([lines],['Corr(feat|%s)=%2.1f' % (ylabels[iproj], most_corr_vals[iproj][ifeat])],
+                   fontsize=smallfontsize, loc='best', frameon=False)
+
+        # Add visualization (let the method decide if it's possible or not)
+        widget = _add_atom_idxs_widget([most_corr_atom_idxs[iproj][ifeat]], widget, color_list=[icol])
 
     if plot_FES:
         if len(proj_idxs)<2:

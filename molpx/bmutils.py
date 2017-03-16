@@ -17,6 +17,20 @@ from pyemma.coordinates.transform import TICA as _TICA, PCA as _PCA
 from pyemma.util.discrete_trajectories import index_states as _index_states
 from scipy.spatial import cKDTree as _cKDTree
 
+def matplotlib_colors_no_blue():
+    # Until we get the colorcyle thing working, this is a workaround:
+    # http://stackoverflow.com/questions/13831549/get-matplotlib-color-cycle-state
+    cc = ['green',
+          'red',
+          'cyan',
+          'magenta',
+          'yellow',
+          'black',
+          'white']
+    for ii in range(3):
+        cc += cc # this grows quickly
+    return cc
+
 def re_warp(array_in, lengths):
     """Return iterable ::py:obj:array_in as a list of arrays, each
      one with the length specified in lengths
@@ -817,7 +831,7 @@ def smooth_geom(geom, n, geom_data=None, superpose=True, symmetric=True):
     else:
         return geom_out, data_out
 
-def most_corr_info(correlation_input, geoms=None, proj_idxs=None, feat_name=None):
+def most_corr_info(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_args=1):
     r"""
     return information about the most correlated features from a `:obj:pyemma.coodrinates.transformer` object
 
@@ -840,17 +854,19 @@ def most_corr_info(correlation_input, geoms=None, proj_idxs=None, feat_name=None
         The prefix with which to prepend the labels of the most correlated features. If left to None, the feature
         description found in :obj:`correlation_input` will be used (if available)
 
+    n_args : int, default is 1
+        Number of argmax correlation to return for each feature.
     Returns
     -------
 
-    most_corr_idxs : list of ints
-        List of with the index of the feature that most correlates with the projected coordinates, for each
+    most_corr_idxs : list of lists of integers
+        List of lists with the first :obj:`n_args` indices of the features that most correlate with the projected coordinates, for each
         coordinate specified in :obj:`proj_idxs`
 
-    most_corr_vals : list of floats
-        List with the correlation values [-1,1] belonging to the feature indices in :obj:`most_corr_idxs'
+    most_corr_vals : list of lists of floats
+        List with lists of correlation values (e [-1,1]) belonging to the feature indices in :obj:`most_corr_idxs'
 
-    most_corr_labels :  list of strings
+    most_corr_labels :  list lists of strings
         The labels of the most correlated features. If a string was parsed as prefix in :obj:`feat_name`, these
         labels will be ['feat_name_%u'%i for i in most_corr_idxs']. Otherwise it will be the full feature
         description found in :obj:`pyemma.coordinates.
@@ -859,16 +875,23 @@ def most_corr_info(correlation_input, geoms=None, proj_idxs=None, feat_name=None
         If :obj:`geom` was given, this will contain the most correlated feature evaluated for every frame for
         every projection in :obj:`proj_idxs`. Otherwise this will just be an empty list
 
+    most_corr_atom_idxs : list of lists of integers
+        In many cases, the most correlated feature can be represented visually by the atoms involved in defining it, e.g
+            * two atoms for a distance
+            * three for an angle
+            * four for a dihedral
+            * etc.
+        If possible, most_corr_info will try to return these indices to be used later for visualization
 
-    tested: false
+
     """
-    #TODO: TEST
     #TODO: extend to other inputs
 
     most_corr_idxs = []
     most_corr_vals = []
     most_corr_feats =  []
     most_corr_labels = []
+    most_corr_atom_idxs = []
 
     if isinstance(proj_idxs, int):
         proj_idxs = [proj_idxs]
@@ -884,15 +907,85 @@ def most_corr_info(correlation_input, geoms=None, proj_idxs=None, feat_name=None
 
         for ii in proj_idxs:
             icorr = correlation_input.feature_TIC_correlation[:, ii]
-            most_corr_idxs.append(_np.abs(icorr).argmax())
-            most_corr_vals.append(icorr[most_corr_idxs[-1]])
+            most_corr_idxs.append(_np.abs(icorr).argsort()[::-1][:n_args])
+            most_corr_vals.append([icorr[jj] for jj in most_corr_idxs[-1]])
             if geoms is not None:
                 most_corr_feats.append(correlation_input.data_producer.featurizer.transform(geoms)[:, most_corr_idxs[-1]])
 
             if isinstance(feat_name, str):
                 istr = '$\mathregular{%s_{%%u}}$'%(feat_name, most_corr_idxs[-1])
             elif feat_name is None:
-                istr = correlation_input.data_producer.featurizer.describe()[most_corr_idxs[-1]]
+                istr = [correlation_input.data_producer.featurizer.describe()[jj] for jj in most_corr_idxs[-1]]
             most_corr_labels.append(istr)
 
-    return most_corr_idxs, most_corr_vals, most_corr_labels, most_corr_feats
+            if len(correlation_input.data_producer.featurizer.active_features) > 1:
+                pass
+                # TODO write a warning
+            else:
+                ifeat = correlation_input.data_producer.featurizer.active_features[0]
+                most_corr_atom_idxs.append(atom_idxs_from_feature(ifeat)[most_corr_idxs[-1]])
+
+    return most_corr_idxs, most_corr_vals, most_corr_labels, most_corr_feats, most_corr_atom_idxs
+
+def atom_idxs_from_feature(ifeat):
+    r"""
+    Return the atom_indices that best represent this input feature
+
+    Parameters
+    ----------
+
+    ifeat : input feature, :any:`pyemma.coordinates.featurizer` object
+
+    Returns
+    -------
+
+    atom_indices : list with the atoms indices representative of this feature, whatever the feature
+    """
+    from pyemma.coordinates.data.featurization.distances import DistanceFeature as _DF
+    if isinstance(ifeat, _DF):
+        return ifeat.distance_indexes
+    else:
+        # TODO write a warning?
+        return ifeat.distance_indexes
+
+def add_atom_idxs_widget(atom_idxs, widget, color_list=None):
+    r"""
+    provided a list of atom_idxs and a widget, try to represent them as well as possible in the widget
+    The user should not need to provide anything other than the atom indxs and the method decides how
+    best to represent them. Currently, that means:
+     * pairs of atoms are represented as distances
+     * everything else is ignored
+
+    Parameters
+    ----------
+
+    atom_idxs : list of iterables of integers. If [], the method won't do anything
+
+    widget : nglview widget on which to represent stuff
+
+    color_list: list, default is None
+        list of colors to provide the representations with. The default None yields blue.
+        In principle, len(atom_idxs) should be == len(color_list),
+        but if your list is short it will just default to the last color. This way, color_list=['black'] will paint
+        all black regardless len(atom_idxs)
+
+    Returns
+    -------
+    widget : Input widget with the representations add
+
+    """
+
+    if color_list is None:
+        color_list = ['blue']*len(atom_idxs)
+    elif isinstance(color_list, list) and len(color_list)<len(atom_idxs):
+        color_list += [color_list[-1]]*(len(atom_idxs)-len(color_list))
+
+    if atom_idxs != []:
+        for iidxs, color in zip(atom_idxs, color_list):
+            if len(iidxs==2):
+                widget.add_distance(atom_pair=[[ii for ii in iidxs]], # yes it has to be this way for now
+                 color=color,
+                 #label_color='black',
+                 label_size=0)
+    return widget
+

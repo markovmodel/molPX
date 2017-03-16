@@ -946,7 +946,7 @@ def atom_idxs_from_feature(ifeat):
         return ifeat.distance_indexes
     else:
         # TODO write a warning?
-        return ifeat.distance_indexes
+        return []
 
 def add_atom_idxs_widget(atom_idxs, widget, color_list=None):
     r"""

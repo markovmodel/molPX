@@ -1,29 +1,7 @@
 ###################################################
 Welcome to molPX: The Molecular Projection Explorer
 ###################################################
-.. image::
-   https://zenodo.org/badge/76460348.svg
-   :target: https://zenodo.org/badge/latestdoi/76460348
-   :height: 20
-   :alt: DOI
-
-.. image::
-   https://travis-ci.org/markovmodel/molPX.svg?branch=master
-   :height: 10
-   :target: https://travis-ci.org/markovmodel/molPX
-   :alt: Travis build status
-
-.. image::
-   https://ci.appveyor.com/api/projects/status/396ej39s3fewhwy9/branch/master?svg=true
-   :height: 10
-   :target: https://ci.appveyor.com/project/gph82/molpx
-   :alt: Appveyor build status
-
-.. image::
-   https://codecov.io/gh/markovmodel/molPX/branch/master/graph/badge.svg
-   :height: 20
-   :target: https://codecov.io/gh/markovmodel/molPX
-   :alt: Codecov
+|DOI| |travis-build| |appveyor-build| |coverage| |docs-build| 
 
 The Molecular Projection Explorer, molPX, is a python module that provides **interactive visualization of
 projected coordinates of molecular dynamics (MD) trajectories** inside a `Jupyter notebook <http://jupyter.org/>`_.
@@ -143,3 +121,35 @@ Known Issues
  * Note that molPX only works with ``nglview`` versions >=0.6.2.1.
 
  * The interplay between some modules (nglview, nbextensions, ipywidgets) might limit you to use python3.X on some platforms. Sorry about that.
+
+
+.. |DOI| image::
+   https://zenodo.org/badge/76460348.svg
+   :target: https://zenodo.org/badge/latestdoi/76460348
+   :height: 20
+   :alt: DOI
+
+.. |travis-build| image::
+   https://travis-ci.org/markovmodel/molPX.svg?branch=master
+   :height: 10
+   :target: https://travis-ci.org/markovmodel/molPX
+   :alt: Travis build status
+
+.. |appveyor-build| image::
+   https://ci.appveyor.com/api/projects/status/396ej39s3fewhwy9/branch/master?svg=true
+   :height: 10
+   :target: https://ci.appveyor.com/project/gph82/molpx
+   :alt: Appveyor build status
+
+.. |coverage| image::
+   https://codecov.io/gh/markovmodel/molPX/branch/master/graph/badge.svg
+   :height: 20
+   :target: https://codecov.io/gh/markovmodel/molPX
+   :alt: Codecov
+
+.. |docs-build| image::
+   https://readthedocs.org/projects/molpx/badge/?version=latest
+   :alt: Documentation Status
+   :height: 20
+   :target: http://molpx.readthedocs.io/en/latest/?badge=latest
+   

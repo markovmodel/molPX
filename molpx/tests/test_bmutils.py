@@ -13,16 +13,15 @@ class TestReadingInput(unittest.TestCase):
 
     def setUp(self):
         self.MD_trajectory = os.path.join(pyemma.__path__[0],'coordinates/tests/data/bpti_mini.xtc')
-        self.topology = os.path.join(pyemma.__path__[0],'coordinates/tests/data/bpti_ca.pdb')
+        self.MD_topology = os.path.join(pyemma.__path__[0], 'coordinates/tests/data/bpti_ca.pdb')
         self.tempdir = tempfile.mkdtemp('test_molpx')
         self.projected_file = os.path.join(self.tempdir,'Y.npy')
-        feat = pyemma.coordinates.featurizer(self.topology)
-        feat.add_all()
-        source = pyemma.coordinates.source(self.MD_trajectory, features=feat)
-        tica = pyemma.coordinates.tica(source,lag=1, dim=2)
-        self.Y = tica.get_output()[0]
+        self.feat = pyemma.coordinates.featurizer(self.MD_topology)
+        self.feat.add_all()
+        source = pyemma.coordinates.source(self.MD_trajectory, features=self.feat)
+        self.tica = pyemma.coordinates.tica(source,lag=1, dim=2)
+        self.Y = self.tica.get_output()[0]
         self.F = source.get_output()
-        print(self.tempdir)
         np.save(self.projected_file,self.Y)
         np.savetxt(self.projected_file.replace('.npy','.dat'),self.Y)
 
@@ -66,6 +65,81 @@ class TestReadingInput(unittest.TestCase):
                                       self.projected_file.replace('.npy','.dat'),
                                       self.Y])
         assert np.all([np.allclose(self.Y, iY) for iY in Ys])
+
+    def test_most_corr_info_works(self):
+        most_corr_idxs, most_corr_vals, most_corr_labels, most_corr_feats = bmutils.most_corr_info(self.tica)
+
+        ref_idxs = [np.abs(self.tica.feature_TIC_correlation[:, ii]).argmax() for ii in range(self.tica.dim)]
+
+        # Idxs are okay
+        assert np.allclose(ref_idxs, most_corr_idxs)
+
+        ref_corrs = [self.tica.feature_TIC_correlation[jj, ii] for jj, ii in zip(ref_idxs,range(self.tica.dim) )]
+        # Values are ok
+        assert np.allclose(ref_corrs, most_corr_vals)
+
+        # Labels are strings and are the right number
+        assert len(most_corr_labels) == len(ref_idxs)
+        assert [isinstance(istr, str) for istr in most_corr_labels]
+
+        # No geom was parsed, show the last onew should be empty
+        assert most_corr_feats == []
+
+    def test_most_corr_info_works_with_options(self):
+        geoms = md.load(self.MD_trajectory, top=self.MD_topology)
+
+
+        most_corr_idxs, most_corr_vals, most_corr_labels, most_corr_feats = \
+            bmutils.most_corr_info(self.tica, geoms=geoms)
+
+        ref_feats = self.feat.transform(geoms)
+
+        # Idxs are okay
+        ref_idxs = [np.abs(self.tica.feature_TIC_correlation[:, ii]).argmax() for ii in range(self.tica.dim)]
+        assert np.allclose(ref_idxs, most_corr_idxs)
+
+        # Corr values
+        ref_corrs = [self.tica.feature_TIC_correlation[jj, ii] for jj, ii in zip(ref_idxs, range(self.tica.dim))]
+        assert np.allclose(ref_corrs, most_corr_vals)
+
+
+
+    def test_most_corr_info_works_with_options_and_proj_idxs(self):
+        geoms = md.load(self.MD_trajectory, top=self.MD_topology)
+
+        proj_idxs = [1, 0] # the order shouldn't matter
+        most_corr_idxs, most_corr_vals, most_corr_labels, most_corr_feats = \
+            bmutils.most_corr_info(self.tica, geoms=geoms, proj_idxs=proj_idxs)
+
+        ref_feats = self.feat.transform(geoms)
+
+        # Idxs are okay
+        ref_idxs = [np.abs(self.tica.feature_TIC_correlation[:, ii]).argmax() for ii in proj_idxs]
+        assert np.allclose(ref_idxs, most_corr_idxs), (ref_idxs, most_corr_idxs)
+
+
+        # Corr values
+        ref_corrs = [self.tica.feature_TIC_correlation[jj, ii] for jj, ii in zip(ref_idxs, proj_idxs)]
+        assert np.allclose(ref_corrs, most_corr_vals)
+
+        # Labels are strings and are the right number
+        assert len(most_corr_labels) == len(ref_idxs)
+        assert [isinstance(istr, str) for istr in most_corr_labels]
+
+        # Feature values are ok
+        ref_feats = [ref_feats[:, ii] for ii in ref_idxs]
+        assert [np.allclose(imcf, rf) for imcf, rf in zip(most_corr_feats, ref_feats)]
+
+    def test_most_corr_info_wrong_proj_idxs(self):
+
+        proj_idxs = [1, 0, 10] # we don't have 10 TICs
+        try:
+            bmutils.most_corr_info(self.tica, proj_idxs=proj_idxs)
+        except(ValueError):
+            pass #this should given this type of error
+
+
+
 
 class TestClusteringAndCatalogues(unittest.TestCase):
 

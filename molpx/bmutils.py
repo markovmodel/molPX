@@ -17,6 +17,7 @@ from pyemma.coordinates import \
     save_traj as _save_traj
 
 from pyemma.coordinates.data.feature_reader import  FeatureReader as _FeatureReader
+from pyemma.coordinates.transform import TICA as _TICA, PCA as _PCA
 from pyemma.util.discrete_trajectories import index_states as _index_states
 from scipy.spatial import cKDTree as _cKDTree
 
@@ -30,14 +31,17 @@ def re_warp(array_in, lengths):
     array_in: any iterable
         Iterable to be re_warped
 
-    lengths : iterable of integers
-        Lengths of the individual elements of the returned array
-
+    lengths : int or iterable of integers
+        Lengths of the individual elements of the returned array. If only one int is parsed, all lengths will
+        be that int
 
     Returns
     -------
     warped: list
     """
+
+    if isinstance(lengths, int):
+        lengths = [lengths] * int(_np.ceil(len(array_in) / lengths))
 
     warped = []
     idxi = 0
@@ -497,28 +501,48 @@ def minimize_rmsd2ref_in_sample(sample, ref):
     return out_geoms.superpose(ref)
 
 def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
-                              link_with_lines=True,
+                              crosshairs=True,
                               band_width=None,
-                              radius=False):
+                              radius=False,
+                              directionality=None):
     r"""
     Initial idea for this function comes from @arose, the rest is @gph82
 
-    band_width is in units of the axis of (it will be tranlated to pts internally)
+    Paramters
+    ---------
+    band_with : None or float,
+        band_width is in units of the axis of (it will be tranlated to pts internally)
+
+    crosshairs : Boolean or str
+        If True, a crosshair will show where the mouse-click ocurred. If 'h' or 'v', only the horizontal or
+        vertical line of the crosshair will be shown, respectively. If False, no crosshair will appear
+    directionality str or None, default is None
+        If not None, directionality can be either 'a2w' or 'w2a', meaning that connectivity
+         between axis and widget will be only established as
+         * 'a2w' : action in axis   triggers action in widget, but not the other way around
+         * 'w2a' : action in widget triggers action in axis, but not the other way around
     """
 
+    assert directionality in [None, 'a2w', 'w2a'], "The directionality parameter has to be in [None, 'a2w', 'w2a'] " \
+                                                   "not %s"%directionality
 
+    assert crosshairs in [True, False, 'h', 'v'], "The crosshairs parameter has to be in [True, False, 'h','v'], " \
+                                                   "not %s" % crosshairs
     kdtree = _cKDTree(pos)
     assert nglwidget.trajectory_0.n_frames == pos.shape[0], \
         ("Mismatching frame numbers %u vs %u"%( nglwidget.trajectory_0.n_frames, pos.shape[0]))
     x, y = pos.T
 
     # Basic interactive objects
-    if link_with_lines:
+    showclick_objs = []
+    if crosshairs in [True, 'h']:
         lineh = ax.axhline(ax.get_ybound()[0], c="black", ls='--')
         setattr(lineh, 'whatisthis', 'lineh')
+        showclick_objs.append(lineh)
+    if crosshairs in [True, 'v']:
         linev = ax.axvline(ax.get_xbound()[0], c="black", ls='--')
         setattr(linev, 'whatisthis', 'linev')
-        showclick_objs=[lineh, linev]
+        showclick_objs.append(linev)
 
     dot = ax.plot(pos[0,0],pos[0,1], 'o', c='red', ms=7)[0]
     setattr(dot,'whatisthis','dot')
@@ -555,7 +579,7 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
 
     nglwidget.isClick = False
     def onclick(event):
-        if link_with_lines:
+        if crosshairs:
             for iline in showclick_objs:
                 update2Dlines(iline,event.xdata, event.ydata)
 
@@ -587,10 +611,12 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
 
     # Connect axes to widget
     axes_widget = _AxesWidget(ax)
-    axes_widget.connect_event('button_release_event', onclick)
+    if directionality in [None, 'a2w']:
+        axes_widget.connect_event('button_release_event', onclick)
 
     # Connect widget to axes
-    nglwidget.observe(my_observer, "frame", "change")
+    if directionality in [None, 'w2a']:
+        nglwidget.observe(my_observer, "frame", "change")
 
     return axes_widget
 
@@ -794,3 +820,83 @@ def smooth_geom(geom, n, geom_data=None, superpose=True, symmetric=True):
         return geom_out
     else:
         return geom_out, data_out
+
+def most_corr_info(correlation_input, geoms=None, proj_idxs=None, feat_name=None):
+    r"""
+    return information about the most correlated features from a `:obj:pyemma.coodrinates.transformer` object
+
+    Paramters
+    ---------
+
+    correlation_input : anything
+        Something that could, in principle, be a :obj:`pyemma.coordinates.transformer,
+        like a TICA or PCA object
+        (this method will be extended to interpret other inputs, so for now this parameter is pretty flexible)
+
+    geoms: None or obj:`md.Trajectory`, default is None
+        The values of the most correlated features will be returned for the geometires in this object
+
+    proj_idxs: None, or int, or iterable of integers, default is None
+        The indices of the projections for which the most correlated feture will be returned
+        If none it will default to the dimension of the correlation_input object
+
+    feat_name : None or str, default is None
+        The prefix with which to prepend the labels of the most correlated features. If left to None, the feature
+        description found in :obj:`correlation_input` will be used (if available)
+
+    Returns
+    -------
+
+    most_corr_idxs : list of ints
+        List of with the index of the feature that most correlates with the projected coordinates, for each
+        coordinate specified in :obj:`proj_idxs`
+
+    most_corr_vals : list of floats
+        List with the correlation values [-1,1] belonging to the feature indices in :obj:`most_corr_idxs'
+
+    most_corr_labels :  list of strings
+        The labels of the most correlated features. If a string was parsed as prefix in :obj:`feat_name`, these
+        labels will be ['feat_name_%u'%i for i in most_corr_idxs']. Otherwise it will be the full feature
+        description found in :obj:`pyemma.coordinates.
+
+    most_corr_feats : list of ndarrays
+        If :obj:`geom` was given, this will contain the most correlated feature evaluated for every frame for
+        every projection in :obj:`proj_idxs`. Otherwise this will just be an empty list
+
+
+    tested: false
+    """
+    #TODO: TEST
+    #TODO: extend to other inputs
+
+    most_corr_idxs = []
+    most_corr_vals = []
+    most_corr_feats =  []
+    most_corr_labels = []
+
+    if isinstance(proj_idxs, int):
+        proj_idxs = [proj_idxs]
+
+    if isinstance(correlation_input, (_TICA, _PCA)):
+
+        if proj_idxs is None:
+            proj_idxs = _np.arange(correlation_input.dim)
+
+        if _np.max(proj_idxs) > correlation_input.dim:
+            raise ValueError("Cannot ask for projection index %u if the "
+                             "transformation only has %u projections"%(_np.max(proj_idxs), correlation_input.dim))
+
+        for ii in proj_idxs:
+            icorr = correlation_input.feature_TIC_correlation[:, ii]
+            most_corr_idxs.append(_np.abs(icorr).argmax())
+            most_corr_vals.append(icorr[most_corr_idxs[-1]])
+            if geoms is not None:
+                most_corr_feats.append(correlation_input.data_producer.featurizer.transform(geoms)[:, most_corr_idxs[-1]])
+
+            if isinstance(feat_name, str):
+                istr = '$\mathregular{%s_{%%u}}$'%(feat_name, most_corr_idxs[-1])
+            elif feat_name is None:
+                istr = correlation_input.data_producer.featurizer.describe()[most_corr_idxs[-1]]
+            most_corr_labels.append(istr)
+
+    return most_corr_idxs, most_corr_vals, most_corr_labels, most_corr_feats

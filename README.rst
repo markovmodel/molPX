@@ -29,19 +29,16 @@ Find more about the people behind molPX here:
 Download and Install
 =====================
 
-At the moment, the easiest way is to get molPX is from `PyPI - the Python Package Index
-<https://pypi.python.org/pypi/molPX/>`_ using `pip <https://packaging.python.org/installing/>`_ by typing this command
-from the terminal:
+If you can't wait to play around with molPX, and you have the `Anaconda scientifc python distribution
+<https://www.continuum.io/downloads>`_ (which we strongly recommend), the easiest way to get molPX is to issue
+the `conda command <https://conda.io/docs/intro.html>`_:
 
-    >>> pip install molpx
+   >>> conda install molPX -c omnia
 
-You can also clone or download the `source from github <https://github.com/markovmodel/molPX>`_.
-After that, just cd to the download directory (and untar/unzip if necessary) and:
+and jump to the Quick Start section of this document. Otherwise, check out our more exhaustive
 
-    >>> cd molPX
-    >>> python setup.py install
+* :doc:`Installation Guide </INSTALL>`
 
-See the "Known Issues" below if you get a ``SandboxViolation`` error.
 
 Quick Start
 =============
@@ -55,23 +52,40 @@ Import ``molpx`` and let the example notebook guide you
     >>> import molpx
     >>> molpx.example_notebook()
 
-These commands should put you in front of a jupyter notebook explaining the basic functionality of molPX
+Voilà: you should be looking at a jupyter notebook explaining the basic functionality of molPX
 
 Documentation
 ==============
 
 You can find the latest documentation online `here <https://molpx.readthedocs.io/>`_
-You can build a local copy of the html documentation by issuing
+You can build a local copy of the html documentation by navigating to the molPX installation
+directory and issuing:
 
     >>> cd doc
     >>> make html
 
-This will generate `molPX/docs/build/html/index.html` with the html documentation.
+This will generate `molPX/docs/build/html/index.html` with the html documentation. If you are missing some of
+the requirements for the documentation , issue:
+
+    >>> pip install -r ./source/doc_requirements.txt
+
+If you don't know where molPX is installed, you can find out this way:
+
+    >>> ipython
+    >>> import molpx
+    >>> molpx._molpxdir()
+
+The output of the last command is one subdirectory of molPX's installation directory, so just copy it and issue:
+
+    >>> cd the-output-of-the-molpx._molpxdir-command
+    >>> cd ..
+
+and you are there !
 
 Warnings
 =========
 
- * molPX is currently under heavy development and the API might change rapidly.
+molPX is currently under heavy development and the API might change rapidly. Stay tuned.
 
 Data Privacy Statement
 ======================
@@ -86,6 +100,7 @@ When you import this Python package, some of your metadata is sent to our server
 
 How to disable this feature easily:
 -----------------------------------
+
 Even before you use molPX for the first time:
 
  1. Create a hidden folder `.molpx` in your home folder

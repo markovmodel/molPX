@@ -12,6 +12,7 @@
    molpx.generate  <index_generate>
    Example Jupyter Notebook <index_notebooks>
    About & YouTube Introduction <about>
+   Installation Guide <INSTALL>
 
 Indices and tables
 ==================

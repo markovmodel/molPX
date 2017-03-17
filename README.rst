@@ -58,7 +58,7 @@ Documentation
 ==============
 
 You can find the latest documentation online `here <https://molpx.readthedocs.io/>`_
-You can build a local copy of the html documentation by issuing navigating to the molPX installation
+You can build a local copy of the html documentation by navigating to the molPX installation
 directory and issuing:
 
     >>> cd doc
@@ -69,7 +69,7 @@ the requirements for the documentation , issue:
 
     >>> pip install -r ./source/doc_requirements.txt
 
-If you don't now where molPX is installed, you can find out this way:
+If you don't know where molPX is installed, you can find out this way:
 
     >>> ipython
     >>> import molpx

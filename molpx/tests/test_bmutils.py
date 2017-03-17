@@ -67,78 +67,73 @@ class TestReadingInput(unittest.TestCase):
         assert np.all([np.allclose(self.Y, iY) for iY in Ys])
 
     def test_most_corr_info_works(self):
-        most_corr_idxs, most_corr_vals, most_corr_labels, most_corr_feats = bmutils.most_corr_info(self.tica)
+        most_corr = bmutils.most_corr(self.tica)
 
         ref_idxs = [np.abs(self.tica.feature_TIC_correlation[:, ii]).argmax() for ii in range(self.tica.dim)]
 
+        # Since the results are always lists, that's how the comparsion will go
         # Idxs are okay
-        assert np.allclose(ref_idxs, most_corr_idxs)
+        assert np.all([ri == mci for ri, mci in zip(ref_idxs, most_corr['idxs'])])
 
         ref_corrs = [self.tica.feature_TIC_correlation[jj, ii] for jj, ii in zip(ref_idxs,range(self.tica.dim) )]
         # Values are ok
-        assert np.allclose(ref_corrs, most_corr_vals)
+        assert np.all([rv == mcv for rv, mcv in zip(ref_corrs, most_corr['vals'])])
 
         # Labels are strings and are the right number
-        assert len(most_corr_labels) == len(ref_idxs)
-        assert [isinstance(istr, str) for istr in most_corr_labels]
+        assert len(most_corr['labels']) == len(ref_idxs)
+        assert [isinstance(istr, str) for istr in most_corr['labels']]
 
         # No geom was parsed, show the last onew should be empty
-        assert most_corr_feats == []
+        assert most_corr['feats'] == []
 
     def test_most_corr_info_works_with_options(self):
         geoms = md.load(self.MD_trajectory, top=self.MD_topology)
-
-
-        most_corr_idxs, most_corr_vals, most_corr_labels, most_corr_feats = \
-            bmutils.most_corr_info(self.tica, geoms=geoms)
-
-        ref_feats = self.feat.transform(geoms)
+        most_corr = bmutils.most_corr(self.tica, geoms=geoms)
 
         # Idxs are okay
         ref_idxs = [np.abs(self.tica.feature_TIC_correlation[:, ii]).argmax() for ii in range(self.tica.dim)]
-        assert np.allclose(ref_idxs, most_corr_idxs)
+        assert np.all([ri == mci for ri, mci in zip(ref_idxs, most_corr['idxs'])])
 
         # Corr values
         ref_corrs = [self.tica.feature_TIC_correlation[jj, ii] for jj, ii in zip(ref_idxs, range(self.tica.dim))]
-        assert np.allclose(ref_corrs, most_corr_vals)
+        assert np.all([rv == mcv for rv, mcv in zip(ref_corrs, most_corr['vals'])])
 
-
+        # Check that we got the right most correlated feature trajectory
+        ref_feats = self.feat.transform(geoms)
+        ref_feats = [ref_feats[:, ii] for ii in ref_idxs]
+        assert np.all(np.allclose(rv, mcv) for rv, mcv in zip(ref_feats, np.squeeze(most_corr['feats'])))
 
     def test_most_corr_info_works_with_options_and_proj_idxs(self):
         geoms = md.load(self.MD_trajectory, top=self.MD_topology)
 
         proj_idxs = [1, 0] # the order shouldn't matter
-        most_corr_idxs, most_corr_vals, most_corr_labels, most_corr_feats = \
-            bmutils.most_corr_info(self.tica, geoms=geoms, proj_idxs=proj_idxs)
-
-        ref_feats = self.feat.transform(geoms)
+        corr_dict = bmutils.most_corr(self.tica, geoms=geoms, proj_idxs=proj_idxs)
 
         # Idxs are okay
         ref_idxs = [np.abs(self.tica.feature_TIC_correlation[:, ii]).argmax() for ii in proj_idxs]
-        assert np.allclose(ref_idxs, most_corr_idxs), (ref_idxs, most_corr_idxs)
+        assert np.all([ri == mci for ri, mci in zip(ref_idxs, corr_dict['idxs'])]), (ref_idxs, corr_dict["idxs"])
 
 
         # Corr values
         ref_corrs = [self.tica.feature_TIC_correlation[jj, ii] for jj, ii in zip(ref_idxs, proj_idxs)]
-        assert np.allclose(ref_corrs, most_corr_vals)
+        assert np.all([rv == mcv for rv, mcv in zip(ref_corrs, corr_dict['vals'])])
 
         # Labels are strings and are the right number
-        assert len(most_corr_labels) == len(ref_idxs)
-        assert [isinstance(istr, str) for istr in most_corr_labels]
+        assert len(corr_dict["labels"]) == len(ref_idxs)
+        assert [isinstance(istr, str) for istr in corr_dict["labels"]]
 
         # Feature values are ok
+        ref_feats = self.feat.transform(geoms)
         ref_feats = [ref_feats[:, ii] for ii in ref_idxs]
-        assert [np.allclose(imcf, rf) for imcf, rf in zip(most_corr_feats, ref_feats)]
+        assert np.all(np.allclose(rv, mcv) for rv, mcv in zip(ref_feats, np.squeeze(corr_dict['feats'])))
 
     def test_most_corr_info_wrong_proj_idxs(self):
 
         proj_idxs = [1, 0, 10] # we don't have 10 TICs
         try:
-            bmutils.most_corr_info(self.tica, proj_idxs=proj_idxs)
+            bmutils.most_corr(self.tica, proj_idxs=proj_idxs)
         except(ValueError):
             pass #this should given this type of error
-
-
 
 
 class TestClusteringAndCatalogues(unittest.TestCase):

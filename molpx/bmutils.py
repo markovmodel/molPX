@@ -831,7 +831,7 @@ def smooth_geom(geom, n, geom_data=None, superpose=True, symmetric=True):
     else:
         return geom_out, data_out
 
-def most_corr_info(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_args=1, proj_names='proj'):
+def most_corr(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_args=1, proj_names='proj'):
     r"""
     return information about the most correlated features from a `:obj:pyemma.coodrinates.transformer` object
 
@@ -856,32 +856,35 @@ def most_corr_info(correlation_input, geoms=None, proj_idxs=None, feat_name=None
 
     n_args : int, default is 1
         Number of argmax correlation to return for each feature.
+
     Returns
     -------
 
-    most_corr_idxs : list of lists of integers
+    a dictionary and the nglview widget
+    The dictionary has these keys:
+    idxs : list of lists of integers
         List of lists with the first :obj:`n_args` indices of the features that most correlate with the projected coordinates, for each
         coordinate specified in :obj:`proj_idxs`
 
-    most_corr_vals : list of lists of floats
+    vals : list of lists of floats
         List with lists of correlation values (e [-1,1]) belonging to the feature indices in :obj:`most_corr_idxs'
 
-    most_corr_labels :  list lists of strings
+    labels :  list lists of strings
         The labels of the most correlated features. If a string was parsed as prefix in :obj:`feat_name`, these
         labels will be ['feat_name_%u'%i for i in most_corr_idxs']. Otherwise it will be the full feature
         description found in :obj:`pyemma.coordinates.
 
-    most_corr_feats : list of ndarrays
+    feats : list of ndarrays
         If :obj:`geom` was given, this will contain the most correlated feature evaluated for every frame for
         every projection in :obj:`proj_idxs`. Otherwise this will just be an empty list
 
-    most_corr_atom_idxs : list of lists of integers
+    atom_idxs : list of lists of integers
         In many cases, the most correlated feature can be represented visually by the atoms involved in defining it, e.g
             * two atoms for a distance
             * three for an angle
             * four for a dihedral
             * etc.
-        If possible, most_corr_info will try to return these indices to be used later for visualization
+        If possible, most_corr will try to return these indices to be used later for visualization
 
     info : a list of dictionaries containing information as strings (for stdout printing use)
 
@@ -889,12 +892,14 @@ def most_corr_info(correlation_input, geoms=None, proj_idxs=None, feat_name=None
     #TODO: extend to other inputs
     #todo:document proj_names
     # TODO: CONSIDER PURE STRING WITH \N INSTEAD for output "lines"
+    # TODO: write a class instead of dictionary (easier refactoring)
 
     most_corr_idxs = []
     most_corr_vals = []
     most_corr_feats =  []
     most_corr_labels = []
     most_corr_atom_idxs = []
+    info = []
 
     if isinstance(proj_idxs, int):
         proj_idxs = [proj_idxs]
@@ -930,21 +935,22 @@ def most_corr_info(correlation_input, geoms=None, proj_idxs=None, feat_name=None
                 # TODO write a warning
             else:
                 ifeat = correlation_input.data_producer.featurizer.active_features[0]
-                #print(ifeat)
-                #print(atom_idxs_from_feature(ifeat))
-                #print(most_corr_idxs)
                 most_corr_atom_idxs.append(atom_idxs_from_feature(ifeat)[most_corr_idxs[-1]])
 
-    info = []
-    for ii, iproj in enumerate(proj_names):
-        info.append({"lines":[], "name":iproj})
-        for jj, jidx in enumerate(most_corr_idxs[ii]):
-            istr = 'Corr[%s|feat] = %2.1f for %-50s (feat nr. %u, atom idxs %s' % \
-                   (iproj, most_corr_vals[ii][jj], most_corr_labels[ii][jj], jidx, most_corr_atom_idxs[ii][jj])
-            info[-1]["lines"].append(istr)
-        info[-1]["lines"].append('')
+        for ii, iproj in enumerate(proj_names):
+            info.append({"lines":[], "name":iproj})
+            for jj, jidx in enumerate(most_corr_idxs[ii]):
+                istr = 'Corr[%s|feat] = %2.1f for %-30s (feat nr. %u, atom idxs %s' % \
+                       (iproj, most_corr_vals[ii][jj], most_corr_labels[ii][jj], jidx, most_corr_atom_idxs[ii][jj])
+                info[-1]["lines"].append(istr)
 
-    return most_corr_idxs, most_corr_vals, most_corr_labels, most_corr_feats, most_corr_atom_idxs, info
+    corr_dict = {'idxs': most_corr_idxs,
+                 'vals': most_corr_vals,
+                 'labels': most_corr_labels,
+                 'feats':  most_corr_feats,
+                 'atom_idxs': most_corr_atom_idxs,
+                 'info':info}
+    return corr_dict
 
 def atom_idxs_from_feature(ifeat):
     r"""
@@ -961,8 +967,12 @@ def atom_idxs_from_feature(ifeat):
     atom_indices : list with the atoms indices representative of this feature, whatever the feature
     """
     from pyemma.coordinates.data.featurization.distances import DistanceFeature as _DF
+    from pyemma.coordinates.data.featurization.misc import SelectionFeature as _SF
     if isinstance(ifeat, _DF):
         return ifeat.distance_indexes
+    elif isinstance(ifeat, _SF):
+        return _np.repeat(ifeat.indexes, 3)
+        pass
     else:
         # TODO write a warning?
         return []

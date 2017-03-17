@@ -831,7 +831,7 @@ def smooth_geom(geom, n, geom_data=None, superpose=True, symmetric=True):
     else:
         return geom_out, data_out
 
-def most_corr_info(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_args=1):
+def most_corr_info(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_args=1, proj_names='proj'):
     r"""
     return information about the most correlated features from a `:obj:pyemma.coodrinates.transformer` object
 
@@ -883,9 +883,12 @@ def most_corr_info(correlation_input, geoms=None, proj_idxs=None, feat_name=None
             * etc.
         If possible, most_corr_info will try to return these indices to be used later for visualization
 
+    info : a list of dictionaries containing information as strings (for stdout printing use)
 
     """
     #TODO: extend to other inputs
+    #todo:document proj_names
+    # TODO: CONSIDER PURE STRING WITH \N INSTEAD for output "lines"
 
     most_corr_idxs = []
     most_corr_vals = []
@@ -896,10 +899,14 @@ def most_corr_info(correlation_input, geoms=None, proj_idxs=None, feat_name=None
     if isinstance(proj_idxs, int):
         proj_idxs = [proj_idxs]
 
+
     if isinstance(correlation_input, (_TICA, _PCA)):
 
         if proj_idxs is None:
             proj_idxs = _np.arange(correlation_input.dim)
+
+        if isinstance(proj_names, str):
+            proj_names = ['%s_%u' % (proj_names, ii) for ii in proj_idxs]
 
         if _np.max(proj_idxs) > correlation_input.dim:
             raise ValueError("Cannot ask for projection index %u if the "
@@ -923,12 +930,21 @@ def most_corr_info(correlation_input, geoms=None, proj_idxs=None, feat_name=None
                 # TODO write a warning
             else:
                 ifeat = correlation_input.data_producer.featurizer.active_features[0]
-                print(ifeat)
-                print(atom_idxs_from_feature(ifeat))
-                print(most_corr_idxs)
+                #print(ifeat)
+                #print(atom_idxs_from_feature(ifeat))
+                #print(most_corr_idxs)
                 most_corr_atom_idxs.append(atom_idxs_from_feature(ifeat)[most_corr_idxs[-1]])
 
-    return most_corr_idxs, most_corr_vals, most_corr_labels, most_corr_feats, most_corr_atom_idxs
+    info = []
+    for ii, iproj in enumerate(proj_names):
+        info.append({"lines":[], "name":iproj})
+        for jj, jidx in enumerate(most_corr_idxs[ii]):
+            istr = 'Corr[%s|feat] = %2.1f for %-50s (feat nr. %u, atom idxs %s' % \
+                   (iproj, most_corr_vals[ii][jj], most_corr_labels[ii][jj], jidx, most_corr_atom_idxs[ii][jj])
+            info[-1]["lines"].append(istr)
+        info[-1]["lines"].append('')
+
+    return most_corr_idxs, most_corr_vals, most_corr_labels, most_corr_feats, most_corr_atom_idxs, info
 
 def atom_idxs_from_feature(ifeat):
     r"""

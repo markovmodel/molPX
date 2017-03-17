@@ -13,7 +13,6 @@ from . import generate
 from matplotlib import pylab as _plt
 import nglview as _nglview
 import mdtraj as _md
-from os.path import basename as _basename
 
 
 def FES(MD_trajectories, MD_top, projected_trajectory,

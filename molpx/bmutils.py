@@ -1,11 +1,7 @@
 from __future__ import print_function
 import numpy as _np
 import mdtraj as _md
-from matplotlib import pyplot as _plt
 from matplotlib.widgets import AxesWidget as _AxesWidget
-from glob import glob
-import os
-import tempfile
 
 try:
     from sklearn.mixture import GaussianMixture as _GMM

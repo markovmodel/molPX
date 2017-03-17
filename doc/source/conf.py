@@ -31,6 +31,7 @@ class Mock(MagicMock):
         return MagicMock()
 
 MOCK_MODULES = ['mdtraj',
+                'pyemma.coordinates.transform',
                 'pyemma.coordinates',
                 'pyemma.plots',
                 'pyemma.util.linalg',

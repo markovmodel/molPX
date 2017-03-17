@@ -348,7 +348,14 @@ def traj(MD_trajectories,
 
     return _plt.gca(), _plt.gcf(), widget, geoms
 
-def correlations(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_args=1, proj_name='proj'):
+def correlations(correlation_input,
+                 geoms=None,
+                 proj_idxs=None,
+                 feat_name=None,
+                 widget=None,
+                 color_list=None,
+                 n_feats=1,
+                 verbose=True):
     r"""
     Provide a visual and textual representation of the linear correlations between projected coordinates (PCA, TICA)
      and original features.
@@ -362,9 +369,30 @@ def correlations(correlation_input, geoms=None, proj_idxs=None, feat_name=None, 
         (this method will be extended to interpret other inputs, so for now this parameter is pretty flexible)
 
     geoms : None or obj:`md.Trajectory`, default is None
-        The values of the most correlated features will be returned for the geometires in this object
+        The values of the most correlated features will be returned for the geometires in this object. If widget is
+        left to its default, None, :obj:`correlations` will create a new widget and try to show the most correlated
+          features on top of the widget
 
     widget : None or nglview widget
+        Provide an already existing widget to visualize the correlations on top of. This is only for expert use,
+        because no checks are done to see if :obj:`correlation_input` and the geometry contained in the
+        widget **actually match**. Use with caution.
+
+        Note
+        ----
+            When objects :obj:`geoms` and :obj:`widget` are provided simultaneously, three things happen:
+             * no new widget will be instantiated
+             * the display of features will be on top of whatever geometry :obj:`widget` contains
+             * the value of the features is computed for the geometry of :obj:`geom`
+
+            Use with caution and clean bookkeeping!
+
+    color_list: list, default is None
+        list of colors to provide the representations with. The default None yields blue.
+        In principle, the list can contain one color for each projection (= as many colors as len(proj_idxs)
+        but if your list is short it will just default to the last color. This way, color_list=['black'] will paint
+        all black regardless len(proj_idxs)
+
 
     proj_idxs: None, or int, or iterable of integers, default is None
         The indices of the projections for which the most correlated feture will be returned
@@ -374,24 +402,46 @@ def correlations(correlation_input, geoms=None, proj_idxs=None, feat_name=None, 
         The prefix with which to prepend the labels of the most correlated features. If left to None, the feature
         description found in :obj:`correlation_input` will be used (if available)
 
-    n_args : int, default is 1
+    n_feats : int, default is 1
         Number of argmax correlation to return for each feature.
 
+    verbose : Bool, default is True
+        print to standard output
+
     :return:
+    most_corr_idxs, most_corr_vals, most_corr_labels, most_corr_feats, most_corr_atom_idxs, lines, widget, lines
     """
+    # todo document
+    # todo test
 
-    most_corr_idxs, most_corr_vals, most_corr_labels, most_corr_feats, most_corr_atom_idxs = \
-        _most_corr_info(correlation_input, geoms=geoms, proj_idxs=proj_idxs, feat_name=feat_name, n_args=n_args)
+    most_corr_idxs, most_corr_vals, most_corr_labels, most_corr_feats, most_corr_atom_idxs, lines = \
+        _most_corr_info(correlation_input, geoms=geoms, proj_idxs=proj_idxs, feat_name=feat_name, n_args=n_feats)
 
-    if isinstance(proj_idxs, int):
-        proj_idxs = [proj_idxs]
+    if verbose:
+        for line in lines:
+            print(line["name"])
+            for line in line["lines"]:
+                print(line)
 
-    if isinstance(proj_name, str):
-        proj_name = ['%s_%u'%(proj_name, ii) for ii in proj_idxs]
-    for ii, __ in enumerate(proj_idxs):
-        print(proj_name[ii])
-        for jj, jidx in most_corr_idxs[ii]:
-            print()
+    # Create ngl_viewer widget
+    if geoms is not None and widget is None:
+        widget = _nglview.show_mdtraj(geoms.superpose(geoms))
+    #else:
+    #    iwd = widget
+
+    if color_list is None:
+        color_list = ['blue']*len(most_corr_idxs)
+    elif isinstance(color_list, list) and len(color_list)<len(most_corr_idxs):
+        color_list += [color_list[-1]]*(len(proj_idxs)-len(color_list))
+
+    # Add the represenation
+    for idxs, icol in zip(most_corr_atom_idxs, color_list):
+        _add_atom_idxs_widget(idxs, widget, color_list=[icol])
+
+
+
+    return most_corr_idxs, most_corr_vals, most_corr_labels, most_corr_feats, most_corr_atom_idxs, lines, widget, lines
+
 
 def sample(positions, geom, ax,
            plot_path=False,

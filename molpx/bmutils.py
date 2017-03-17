@@ -835,7 +835,7 @@ def most_corr_info(correlation_input, geoms=None, proj_idxs=None, feat_name=None
     r"""
     return information about the most correlated features from a `:obj:pyemma.coodrinates.transformer` object
 
-    Paramters
+    Parameters
     ---------
 
     correlation_input : anything
@@ -843,7 +843,7 @@ def most_corr_info(correlation_input, geoms=None, proj_idxs=None, feat_name=None
         like a TICA or PCA object
         (this method will be extended to interpret other inputs, so for now this parameter is pretty flexible)
 
-    geoms: None or obj:`md.Trajectory`, default is None
+    geoms : None or obj:`md.Trajectory`, default is None
         The values of the most correlated features will be returned for the geometires in this object
 
     proj_idxs: None, or int, or iterable of integers, default is None
@@ -923,6 +923,9 @@ def most_corr_info(correlation_input, geoms=None, proj_idxs=None, feat_name=None
                 # TODO write a warning
             else:
                 ifeat = correlation_input.data_producer.featurizer.active_features[0]
+                print(ifeat)
+                print(atom_idxs_from_feature(ifeat))
+                print(most_corr_idxs)
                 most_corr_atom_idxs.append(atom_idxs_from_feature(ifeat)[most_corr_idxs[-1]])
 
     return most_corr_idxs, most_corr_vals, most_corr_labels, most_corr_feats, most_corr_atom_idxs

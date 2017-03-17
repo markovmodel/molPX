@@ -348,6 +348,50 @@ def traj(MD_trajectories,
 
     return _plt.gca(), _plt.gcf(), widget, geoms
 
+def correlations(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_args=1, proj_name='proj'):
+    r"""
+    Provide a visual and textual representation of the linear correlations between projected coordinates (PCA, TICA)
+     and original features.
+
+    Parameters
+    ---------
+
+    correlation_input : anything
+        Something that could, in principle, be a :obj:`pyemma.coordinates.transformer,
+        like a TICA or PCA object
+        (this method will be extended to interpret other inputs, so for now this parameter is pretty flexible)
+
+    geoms : None or obj:`md.Trajectory`, default is None
+        The values of the most correlated features will be returned for the geometires in this object
+
+    widget : None or nglview widget
+
+    proj_idxs: None, or int, or iterable of integers, default is None
+        The indices of the projections for which the most correlated feture will be returned
+        If none it will default to the dimension of the correlation_input object
+
+    feat_name : None or str, default is None
+        The prefix with which to prepend the labels of the most correlated features. If left to None, the feature
+        description found in :obj:`correlation_input` will be used (if available)
+
+    n_args : int, default is 1
+        Number of argmax correlation to return for each feature.
+
+    :return:
+    """
+
+    most_corr_idxs, most_corr_vals, most_corr_labels, most_corr_feats, most_corr_atom_idxs = \
+        _most_corr_info(correlation_input, geoms=geoms, proj_idxs=proj_idxs, feat_name=feat_name, n_args=n_args)
+
+    if isinstance(proj_idxs, int):
+        proj_idxs = [proj_idxs]
+
+    if isinstance(proj_name, str):
+        proj_name = ['%s_%u'%(proj_name, ii) for ii in proj_idxs]
+    for ii, __ in enumerate(proj_idxs):
+        print(proj_name[ii])
+        for jj, jidx in most_corr_idxs[ii]:
+            print()
 
 def sample(positions, geom, ax,
            plot_path=False,

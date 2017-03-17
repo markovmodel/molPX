@@ -8,7 +8,7 @@ import numpy as _np
 from .bmutils import link_ax_w_pos_2_nglwidget as _link_ax_w_pos_2_nglwidget, \
     data_from_input as _data_from_input, \
     smooth_geom as _smooth_geom,\
-    most_corr_info as _most_corr_info, \
+    most_corr as _most_corr_info, \
     re_warp as _re_warp, \
     add_atom_idxs_widget as _add_atom_idxs_widget, \
     matplotlib_colors_no_blue as _bmcolors
@@ -238,7 +238,7 @@ def traj(MD_trajectories,
         if ii == active_traj:
             geoms = geoms[::stride]
 
-    # For later axes-cosmetics
+    # For axes-cosmetics later on
     tmax, tmin = _np.max([time[-1] for time in times]), _np.min([time[0] for time in times])
     ylims = _np.zeros((2, len(proj_idxs)))
     for ii, __ in enumerate(proj_idxs):
@@ -247,8 +247,8 @@ def traj(MD_trajectories,
     ylabels = ['$\mathregular{proj_%u}$'%ii for ii in proj_idxs]
 
     # Do we have usable projection information?
-    __, most_corr_vals, most_corr_labels, out_feats, most_corr_atom_idxs = _most_corr_info(projection, geoms=geoms, proj_idxs=proj_idxs, n_args=n_feats)
-    if out_feats != []:
+    corr_dict = _most_corr_info(projection, geoms=geoms, proj_idxs=proj_idxs, n_args=n_feats)
+    if corr_dict["feats"] != []:
         # Then extend the trajectory selection to include the active trajectory twice
         traj_selection = _np.insert(traj_selection,
                                     _np.argwhere([active_traj==ii for ii in traj_selection]).squeeze(),
@@ -308,8 +308,8 @@ def traj(MD_trajectories,
         iax = myax[ir, ic]
         # Grab the right properties
         iproj, ifeat = _np.unravel_index(kk, (len(proj_idxs), n_feats))
-        ifeat_val = out_feats[iproj][:, ifeat]
-        ilabel = most_corr_labels[iproj][ifeat]
+        ifeat_val = corr_dict["feats"][iproj][:, ifeat]
+        ilabel = corr_dict["labels"][iproj][ifeat]
         icol = colors[iproj]
         # Plot
         lines = iax.plot(time_feat, ifeat_val, color=icol)[0]
@@ -325,12 +325,12 @@ def traj(MD_trajectories,
                         clear_lines=False, widget=widget,
                         crosshairs=False, directionality='w2a')
 
-        # Add the correlation vanlue
-        iax.legend([lines],['Corr(feat|%s)=%2.1f' % (ylabels[iproj], most_corr_vals[iproj][ifeat])],
+        # Add the correlation value
+        iax.legend([lines],['Corr(feat|%s)=%2.1f' % (ylabels[iproj], corr_dict["vals"][iproj][ifeat])],
                    fontsize=smallfontsize, loc='best', frameon=False)
 
         # Add visualization (let the method decide if it's possible or not)
-        widget = _add_atom_idxs_widget([most_corr_atom_idxs[iproj][ifeat]], widget, color_list=[icol])
+        widget = _add_atom_idxs_widget([corr_dict["atom_idxs"][iproj][ifeat]], widget, color_list=[icol])
 
     if plot_FES:
         if len(proj_idxs)<2:
@@ -353,9 +353,9 @@ def correlations(correlation_input,
                  proj_idxs=None,
                  feat_name=None,
                  widget=None,
-                 color_list=None,
+                 proj_color_list=None,
                  n_feats=1,
-                 verbose=True):
+                 verbose=False):
     r"""
     Provide a visual and textual representation of the linear correlations between projected coordinates (PCA, TICA)
      and original features.
@@ -387,10 +387,10 @@ def correlations(correlation_input,
 
             Use with caution and clean bookkeeping!
 
-    color_list: list, default is None
-        list of colors to provide the representations with. The default None yields blue.
+    proj_color_list: list, default is None
+        projection specific list of colors to provide the representations with. The default None yields blue.
         In principle, the list can contain one color for each projection (= as many colors as len(proj_idxs)
-        but if your list is short it will just default to the last color. This way, color_list=['black'] will paint
+        but if your list is short it will just default to the last color. This way, proj_color_list=['black'] will paint
         all black regardless len(proj_idxs)
 
 
@@ -414,33 +414,31 @@ def correlations(correlation_input,
     # todo document
     # todo test
 
-    most_corr_idxs, most_corr_vals, most_corr_labels, most_corr_feats, most_corr_atom_idxs, lines = \
-        _most_corr_info(correlation_input, geoms=geoms, proj_idxs=proj_idxs, feat_name=feat_name, n_args=n_feats)
-
-    if verbose:
-        for line in lines:
-            print(line["name"])
-            for line in line["lines"]:
-                print(line)
+    corr_dict = _most_corr_info(correlation_input, geoms=geoms, proj_idxs=proj_idxs, feat_name=feat_name, n_args=n_feats)
 
     # Create ngl_viewer widget
     if geoms is not None and widget is None:
         widget = _nglview.show_mdtraj(geoms.superpose(geoms))
-    #else:
-    #    iwd = widget
 
-    if color_list is None:
-        color_list = ['blue']*len(most_corr_idxs)
-    elif isinstance(color_list, list) and len(color_list)<len(most_corr_idxs):
-        color_list += [color_list[-1]]*(len(proj_idxs)-len(color_list))
+    if proj_color_list is None:
+        proj_color_list = ['blue'] * len(corr_dict["idxs"])
+    elif isinstance(proj_color_list, list) and len(proj_color_list)<len(corr_dict["idxs"]):
+        proj_color_list += [proj_color_list[-1]] * (len(proj_idxs) - len(proj_color_list))
 
     # Add the represenation
-    for idxs, icol in zip(most_corr_atom_idxs, color_list):
-        _add_atom_idxs_widget(idxs, widget, color_list=[icol])
+    if widget is not None:
+        for idxs, icol in zip(corr_dict["atom_idxs"], proj_color_list):
+            _add_atom_idxs_widget(idxs, widget, color_list=[icol])
 
+    if verbose:
+        for ii, line in enumerate(corr_dict["info"]):
+            print('%s is most correlated with '%(line["name"] ))
+            for line in line["lines"]:
+                if widget is not None:
+                    line += ' (in %s in the widget)'%(proj_color_list[ii])
+                print(line)
 
-
-    return most_corr_idxs, most_corr_vals, most_corr_labels, most_corr_feats, most_corr_atom_idxs, lines, widget, lines
+    return corr_dict, widget
 
 
 def sample(positions, geom, ax,

@@ -1,7 +1,7 @@
 ###################################################
 Welcome to molPX: The Molecular Projection Explorer
 ###################################################
-|DOI| |travis-build| |appveyor-build| |coverage| |docs-build| 
+|DOI| |travis_build| |appveyor_build| |coverage| |docs_build|
 
 The Molecular Projection Explorer, molPX, is a python module that provides **interactive visualization of
 projected coordinates of molecular dynamics (MD) trajectories** inside a `Jupyter notebook <http://jupyter.org/>`_.
@@ -110,6 +110,11 @@ Even before you use molPX for the first time:
 
 Hints:
 
+* This is most easily realized from terminal by issuing:
+
+        >>> mkdir ~/.molpx
+        >>> echo "report_status = False" >> ~/.molpx/conf_molpx.py
+
 * You can check your report status anytime by typing this line in a (i)python terminal
 
         >>> import molpx
@@ -120,37 +125,19 @@ Hints:
         >>> import os
         >>> os.path.expanduser('~/.molpx')
 
-
-Known Issues
-=============
- * The installation of nglview might give a ``SandboxViolation`` error. Until we figure this out,
- try to install ``nglview`` externally issuing:
-
-
-    >>> conda install nglview -c bioconda
-
-    or, alternatively
-
-    >>> pip install nglview
-
- * Note that molPX only works with ``nglview`` versions >=0.6.2.1.
-
- * The interplay between some modules (nglview, nbextensions, ipywidgets) might limit you to use python3.X on some platforms. Sorry about that.
-
-
 .. |DOI| image::
    https://zenodo.org/badge/76460348.svg
    :target: https://zenodo.org/badge/latestdoi/76460348
    :height: 20
    :alt: DOI
 
-.. |travis-build| image::
+.. |travis_build| image::
    https://travis-ci.org/markovmodel/molPX.svg?branch=master
    :height: 10
    :target: https://travis-ci.org/markovmodel/molPX
    :alt: Travis build status
 
-.. |appveyor-build| image::
+.. |appveyor_build| image::
    https://ci.appveyor.com/api/projects/status/396ej39s3fewhwy9/branch/master?svg=true
    :height: 10
    :target: https://ci.appveyor.com/project/gph82/molpx
@@ -162,7 +149,7 @@ Known Issues
    :target: https://codecov.io/gh/markovmodel/molPX
    :alt: Codecov
 
-.. |docs-build| image::
+.. |docs_build| image::
    https://readthedocs.org/projects/molpx/badge/?version=latest
    :alt: Documentation Status
    :height: 20

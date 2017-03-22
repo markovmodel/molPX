@@ -33,7 +33,7 @@ class MyTestCase(unittest.TestCase):
         molpx.generate.sample(self.MD_trajectory, self.topology, self.projected_file)
 
     # Cannot get the widget to run outside the notebook because it needs an interact bar
-    def _test_visualize_qsample(self):
+    def test_visualize_qsample(self):
         pos, geom_smpl = molpx.generate.sample(self.MD_trajectory, self.topology, self.projected_file)
         plt.figure()
         iwd = molpx.visualize.sample(pos, geom_smpl, plt.gca())

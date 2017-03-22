@@ -42,7 +42,7 @@ class TestTrajInputs(unittest.TestCase):
         # This should fail
         try:
             visualize.traj(self.MD_trajectory_files, "unexisting_file", self.Y)
-        except OSError:
+        except (OSError, IOError):
             pass
         # This should pass
         visualize.traj(self.MD_geoms, "unexisting_file", self.Y)

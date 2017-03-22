@@ -423,7 +423,9 @@ def correlations(correlation_input,
     if proj_color_list is None:
         proj_color_list = ['blue'] * len(corr_dict["idxs"])
     elif isinstance(proj_color_list, list) and len(proj_color_list)<len(corr_dict["idxs"]):
-        proj_color_list += [proj_color_list[-1]] * (len(proj_idxs) - len(proj_color_list))
+        proj_color_list += [proj_color_list[-1]] * (len(corr_dict["idxs"]) - len(proj_color_list))
+    elif not isinstance(proj_color_list, list):
+        raise TypeError("parameter proj_color_list should be either None or a list, not %s of type %s"%(proj_color_list, type(proj_color_list)))
 
     # Add the represenation
     if widget is not None:

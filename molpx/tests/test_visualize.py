@@ -23,10 +23,8 @@ class TestTrajInputs(unittest.TestCase):
         self.projected_files = [os.path.join(self.tempdir,'Y.%u.npy'%ii) for ii in range(len(self.MD_trajectory_files))]
         self.feat = pyemma.coordinates.featurizer(self.MD_topology_file)
         self.feat.add_all()
-        source = pyemma.coordinates.source(self.MD_trajectory_files, features=self.feat)
-        self.tica = pyemma.coordinates.tica(source,lag=1, dim=10)
-        self.Y = self.tica.get_output()
-        self.F = source.get_output()
+        self.source = pyemma.coordinates.source(self.MD_trajectory_files, features=self.feat)
+        self.Y = self.source.get_output(dimensions=np.arange(10))
         [np.save(ifile,iY) for ifile, iY in zip(self.projected_files, self.Y)]
         [np.savetxt(ifile.replace('.npy','.dat'),iY) for ifile, iY in zip(self.projected_files, self.Y)]
 

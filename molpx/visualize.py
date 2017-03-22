@@ -354,7 +354,7 @@ def traj(MD_trajectories,
         widget = _add_atom_idxs_widget([corr_dict["atom_idxs"][iproj][ifeat]], widget, color_list=[icol])
 
     if plot_FES:
-        if len(proj_idxs)<2:
+        if len(proj_idxs)!=2:
             raise NotImplementedError('Can only plot 2D FES if more than one projection idxs has been '
                                       'specificed, but only got %s. \n In the future a 1D histogramm will '
                                       'be shown.'%proj_idxs)

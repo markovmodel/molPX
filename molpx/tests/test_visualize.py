@@ -11,6 +11,8 @@ import molpx
 from glob import glob
 from molpx import visualize
 import mdtraj as md
+import matplotlib.pyplot as plt
+plt.switch_backend('Agg') # allow tests
 
 class TestTrajInputs(unittest.TestCase):
 

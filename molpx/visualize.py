@@ -19,27 +19,6 @@ from matplotlib import pylab as _plt, rcParams as _rcParams
 import nglview as _nglview
 import mdtraj as _md
 
-# All calls to nglview call actually this function
-def _initialize_nglwidget_if_save(geom, mock=True):
-    try:
-        return _nglview.show_mdtraj(geom)
-    except:
-        if mock:
-            print("molPX has to be used inside a notebook, not from terminal. A mock nglwidget is being returned."
-                  "Ignore this message if testing, "
-                  "otherwise refer to molPX documentation")
-            return _mock_nglwidget(geom)
-        else:
-            raise Exception("molPX has to be used inside a notebook, not from terminal")
-
-class _mock_nglwidget(object):
-    r"""
-    mock widget, which isn't even a widget, to allow for testing inside of the terminal
-    """
-    def __init__(self, geom):
-        self.trajectory_0 = geom
-    def observe(self,*args, **kwargs):
-        pass
 
 def FES(MD_trajectories, MD_top, projected_trajectory,
         proj_idxs = [0,1],
@@ -439,7 +418,7 @@ def correlations(correlation_input,
 
     # Create ngl_viewer widget
     if geoms is not None and widget is None:
-        widget = _initialize_nglwidget_if_save(geoms.superpose(geoms))
+        widget = _nglview.show_mdtraj(geoms.superpose(geoms))
 
     if proj_color_list is None:
         proj_color_list = ['blue'] * len(corr_dict["idxs"])
@@ -522,7 +501,7 @@ def sample(positions, geom, ax,
 
     # Create ngl_viewer widget
     if widget is None:
-        iwd = _initialize_nglwidget_if_save(geom)
+        iwd = _nglview.show_mdtraj(geom)
     else:
         iwd = widget
 

@@ -13,7 +13,8 @@
    Example Jupyter Notebook <index_notebooks>
    About & YouTube Introduction <about>
    Installation Guide <INSTALL>
-
+   Changelog <CHANGELOG>
+    
 Indices and tables
 ==================
 

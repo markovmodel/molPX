@@ -11,7 +11,8 @@ from .bmutils import link_ax_w_pos_2_nglwidget as _link_ax_w_pos_2_nglwidget, \
     most_corr as _most_corr_info, \
     re_warp as _re_warp, \
     add_atom_idxs_widget as _add_atom_idxs_widget, \
-    matplotlib_colors_no_blue as _bmcolors
+    matplotlib_colors_no_blue as _bmcolors, \
+    get_ascending_coord_idx as _get_ascending_coord_idx
 
 from . import generate
 
@@ -111,7 +112,12 @@ def FES(MD_trajectories, MD_top, projected_trajectory,
                                                n_geom_samples=n_overlays,
                                                keep_all_samples=keep_all_samples
                                          )
+
     data = _np.vstack(data)
+
+    _plt.figure()
+    # Use PyEMMA's plotting routine
+    plot_free_energy(data[:,proj_idxs[0]], data[:,proj_idxs[1]], nbins=nbins)
 
     ax, FES_data, edges = _plot_ND_FES(data[:,proj_idxs],
                                   ['$\mathregular{%s_{%u}}$' % (axlabel, ii) for ii in proj_idxs],
@@ -267,7 +273,7 @@ def traj(MD_trajectories,
     n_feats : int, default is 1
         If a :obj:`projection` is passed along, the first n_feats features that most correlate the
         the projected trajectories will be represented, both in form of trajectories feat vs t as well as in
-        the nglwidget
+        the nglwidget. If :obj:`projection` is None, :obj:`nfeats`  will be ignored.
 
     Returns
     ---------
@@ -549,6 +555,8 @@ def sample(positions, geom, ax,
            n_smooth = 0,
            widget=None,
            superpose=True,
+           projection = None,
+           n_feats = 1,
            **link_ax2wdg_kwargs
            ):
 
@@ -587,6 +595,21 @@ def sample(positions, geom, ax,
         Since this method is mostly for visualization purposes, the default behaviour is to orient them all to
         maximally overlap with the first frame (of the first :obj:`mdtraj.Trajectory` object, in case :obj:`geom`
         is a list)
+    projection : object that generated the projection, default is None
+        The projected coordinates may come from a variety of sources. When working with :ref:`pyemma` a number of objects
+        might have generated this projection, like a
+        * :obj:`pyemma.coordinates.transform.TICA` or a
+        * :obj:`pyemma.coordinates.transform.PCA` or a
+
+        Expert use. Pass this object along ONLY if the :obj:`positions` have been generetaed using :any:`projection_paths`,
+        so that looking at linear correlations makes sense. Observe the features that are most correlated with the projections
+        will be plotted for the sample, allowing the user to establish a visual connection between the
+        projected coordinate and the original features (distances, angles, contacts etc)
+
+    n_feats : int, default is 1
+        If a :obj:`projection` is passed along, the first n_feats features that most correlate the
+        the projected trajectories will be represented, both in form of trajectories feat vs t as well as in
+        the nglwidget. If :obj:`projection` is None, :obj:`nfeats`  will be ignored.
 
     link_ax2wdg_kwargs: dictionary of named arguments, optional
         named arguments for the function :obj:`_link_ax_w_pos_2_nglwidget`, which is the one that internally
@@ -636,6 +659,17 @@ def sample(positions, geom, ax,
                                         band_width=band_width,
                                         **link_ax2wdg_kwargs
                                         )
+    # Do we have usable projection information?
+    corr_dict = _most_corr_info(projection, geoms = geom, n_args=n_feats)
+    if corr_dict["labels"] != []:
+        iproj = _get_ascending_coord_idx(positions)
+        for ifeat in range(n_feats):
+            ilabel = corr_dict["labels"][iproj][ifeat]
+            print(ilabel)
+            iwd = _add_atom_idxs_widget([corr_dict["atom_idxs"][iproj][ifeat]], iwd,
+                                        color_list=['green']
+                                        )
+
     # somehow returning the ax_wdg messes the displaying of both widgets
 
     return iwd

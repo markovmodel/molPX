@@ -572,10 +572,6 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
     if band_width is not None:
         #print("Band_width(x,y) is %s" % (band_width))
         coord_idx= get_ascending_coord_idx(pos)
-        if coord_idx.ndim > 0:
-            print("More than one column is in ascending order:%g."
-                  "Band visuals might be wrong." % coord_idx)
-            coord_idx = coord_idx[0]
 
         band_width_in_pts = int(_np.round(pts_per_axis_unit(ax)[coord_idx] * band_width[coord_idx]))
         #print("Band_width in %s is %s pts"%('xy'[coord_idx], band_width_in_pts))
@@ -640,7 +636,7 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
 
     return axes_widget
 
-def get_ascending_coord_idx(pos, fail_if_empty=False):
+def get_ascending_coord_idx(pos, fail_if_empty=False, fail_if_more_than_one=False):
     r"""
     return the indices of the columns of :obj:`pos` that's sorted in ascending order
 
@@ -650,8 +646,11 @@ def get_ascending_coord_idx(pos, fail_if_empty=False):
     pos : 2D ndarray of shape(N,M)
         the array for which the ascending column is wanted
 
-    fail_if_empty : bool, default is True
+    fail_if_empty : bool, default is False
         If no column is found, fail
+
+    fail_if_more_than_one : bool, default is False,
+        If more than one column is found, fail. Otherwise return the first index of the ascending columns
 
     Returns
     -------
@@ -665,6 +664,15 @@ def get_ascending_coord_idx(pos, fail_if_empty=False):
         idxs = _np.array(idxs)
     elif idxs == [] and fail_if_empty:
         raise ValueError('No column was found in ascending order')
+
+    if idxs.ndim > 0:
+        print('Found that more than one column in ascending order %s' % idxs)
+        if fail_if_more_than_one:
+            raise Exception
+        else:
+            print("Restricting to the first ascending coordinate."
+                  "Band visuals might be wrong.")
+            idxs = idxs[0]
     return idxs
 
 def pts_per_axis_unit(mplax, pt_per_inch=72):

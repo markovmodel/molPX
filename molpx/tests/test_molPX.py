@@ -20,8 +20,8 @@ class MyTestCase(unittest.TestCase):
         feat = pyemma.coordinates.featurizer(self.topology)
         feat.add_all()
         source = pyemma.coordinates.source(self.MD_trajectory, features=feat)
-        tica = pyemma.coordinates.tica(source,lag=1, dim=2)
-        Y = tica.get_output()[0]
+        self.tica = pyemma.coordinates.tica(source,lag=1, dim=2)
+        Y = self.tica.get_output()[0]
         print(self.tempdir)
         np.save(self.projected_file,Y)
 
@@ -39,6 +39,15 @@ class MyTestCase(unittest.TestCase):
         pos, geom_smpl = molpx.generate.sample(self.MD_trajectory, self.topology, self.projected_file)
         plt.figure()
         iwd = molpx.visualize.sample(pos, geom_smpl, plt.gca())
+
+    def test_visualize_path_w_tica(self):
+        paths_dict, idata = molpx.generate.projection_paths(self.MD_trajectory, self.topology, self.projected_file)
+        plt.figure()
+        path_type = 'min_disp'
+        igeom = paths_dict[0][path_type]["geom"]
+        ipath = paths_dict[0][path_type]["proj"]
+        iwd = molpx.visualize.sample(ipath, igeom, plt.gca(), projection=self.tica)
+
 
 if __name__ == '__main__':
     unittest.main()

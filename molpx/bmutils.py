@@ -1019,10 +1019,13 @@ def add_atom_idxs_widget(atom_idxs, widget, color_list=None):
 
     if atom_idxs != []:
         for iidxs, color in zip(atom_idxs, color_list):
-            if len(iidxs==2):
+            if _np.ndim(iidxs)>0 and len(iidxs)==2:
                 widget.add_distance(atom_pair=[[ii for ii in iidxs]], # yes it has to be this way for now
                  color=color,
                  #label_color='black',
                  label_size=0)
+        else:
+            print("Cannot represent these type of feature (yet)")
+            pass
     return widget
 

@@ -118,6 +118,7 @@ def traj(MD_trajectories,
          stride=1,
          proj_stride=1,
          proj_idxs=[0,1],
+         proj_labels='proj',
          plot_FES=False,
          panel_height = 1,
          sharey_traj=True,
@@ -165,6 +166,12 @@ def traj(MD_trajectories,
 
     proj_idxs : iterable of ints, default is [0,1]
         Indices of the projected coordinates to use in the various representations
+
+    proj_labels : either string or list of strings
+	The projection plots will get this paramter for labeling their yaxis. If a str is 
+        provided, that will be the base name proj_labels='%s_%u'%(proj_labels,ii) for each 
+        projection. If a list, the list will be used. If not enough labels are there
+        the module will complain
 
     plot_FES : bool, default is False
         Plot (and interactively link) the FES as well
@@ -265,7 +272,12 @@ def traj(MD_trajectories,
     for ii, __ in enumerate(proj_idxs):
         ylims[0, ii] = _np.min([idata[:,ii].min() for idata in data])
         ylims[1, ii] = _np.max([idata[:,ii].max() for idata in data])
-    ylabels = ['$\mathregular{proj_%u}$'%ii for ii in proj_idxs]
+    if isinstance(proj_labels, str):
+       ylabels = ['$\mathregular{%s_{%u}}$'%(proj_labels, ii) for ii in proj_idxs]
+    elif isinstance(proj_labels, list):
+       ylabels = proj_labels
+    else:
+       raise TypeError("Parameter proj_labels has to be of type str or list, not %s"%type(proj_labels))
 
     # Do we have usable projection information?
     corr_dict = _most_corr_info(projection, geoms=geoms, proj_idxs=proj_idxs, n_args=n_feats)

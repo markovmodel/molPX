@@ -300,7 +300,8 @@ def traj(MD_trajectories,
                     iax.plot(time, idata)
                     widget = sample(data_sample, geoms.superpose(geoms[0]), iax,
                                     clear_lines=False, widget=widget,
-                                    crosshairs='v')
+                                    crosshairs='v',
+                                    exclude_coord=1)
                     projections_plotted += 1
                     time_feat = time
                     # TODO find out why this is needed

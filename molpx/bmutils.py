@@ -514,7 +514,8 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
                               crosshairs=True,
                               band_width=None,
                               radius=False,
-                              directionality=None):
+                              directionality=None,
+                              exclude_coord=None):
     r"""
     Initial idea for this function comes from @arose, the rest is @gph82
 
@@ -526,11 +527,16 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
     crosshairs : Boolean or str
         If True, a crosshair will show where the mouse-click ocurred. If 'h' or 'v', only the horizontal or
         vertical line of the crosshair will be shown, respectively. If False, no crosshair will appear
-    directionality str or None, default is None
+
+    directionality : str or None, default is None
         If not None, directionality can be either 'a2w' or 'w2a', meaning that connectivity
          between axis and widget will be only established as
          * 'a2w' : action in axis   triggers action in widget, but not the other way around
          * 'w2a' : action in widget triggers action in axis, but not the other way around
+
+    exclude_coord : None or int , default is None
+        The excluded coordinate will not be considered when computing the nearest-point-to-click.
+        Typical use case is for visualize.traj to only compute distances horizontally along the time axis
     """
 
     assert directionality in [None, 'a2w', 'w2a'], "The directionality parameter has to be in [None, 'a2w', 'w2a'] " \
@@ -538,9 +544,13 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
 
     assert crosshairs in [True, False, 'h', 'v'], "The crosshairs parameter has to be in [True, False, 'h','v'], " \
                                                    "not %s" % crosshairs
-    kdtree = _cKDTree(pos)
+    ipos = _np.copy(pos)
+    if isinstance(exclude_coord, int):
+        ipos[:,exclude_coord] = 0
+    kdtree = _cKDTree(ipos)
     assert nglwidget.trajectory_0.n_frames == pos.shape[0], \
         ("Mismatching frame numbers %u vs %u"%( nglwidget.trajectory_0.n_frames, pos.shape[0]))
+
     x, y = pos.T
 
     # Basic interactive objects

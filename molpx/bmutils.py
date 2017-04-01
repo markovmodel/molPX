@@ -461,6 +461,11 @@ def data_from_input(projected_data):
     if isinstance(projected_data[0],str):
         if projected_data[0].endswith('npy'):
             idata = [_np.load(f) for f in projected_data]
+        elif projected_data[0].endswith('npz'):
+            idata = []
+            for jnpz in projected_data:
+                __, jdata, __, __, __, __ = opentica_npz(jnpz)
+                idata.append(jdata)
         else:
             idata = [_np.loadtxt(f) for f in projected_data]
     else:
@@ -1029,3 +1034,24 @@ def add_atom_idxs_widget(atom_idxs, widget, color_list=None):
             pass
     return widget
 
+def input2output_corr(icov, U):
+    r""" Equivalent to feature_TIC_correlation of a pyemma-TICA object
+    """
+    feature_sigma = _np.sqrt(_np.diag(icov))
+    return _np.dot(icov, U) / feature_sigma[:, _np.newaxis]
+
+def opentica_npz(ticanpzfile):
+    import os
+    from pyemma.util.linalg import eig_corr
+
+    r"""Open a simon-type of ticafile.npz and return some variables
+    """
+    lag_str = os.path.basename(ticanpzfile).replace('tica_','').replace('.npz','')
+    trajdata = _np.load(ticanpzfile, encoding='latin1')
+    icov, icovtau = trajdata['tica_cov'], trajdata['tica_cov_tau']
+    l, U = eig_corr(icov, icovtau)
+    tica_mean = trajdata['tica_mean']
+    data = trajdata['projdat']
+    corr = input2output_corr(icov, U)
+
+    return lag_str, data, corr, tica_mean, l, U

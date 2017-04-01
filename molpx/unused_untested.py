@@ -12,7 +12,6 @@ try:
 except ImportError:
     from sklearn.mixture import GMM as _GMM
 
-from pyemma.util.linalg import eig_corr
 from pyemma.coordinates import source as _source, \
     cluster_regspace as _cluster_regspace, \
     save_traj as _save_traj
@@ -63,11 +62,6 @@ def _correlations2CA_pairs(icorr,  geom_sample, corr_cutoff_after_max=.95, feat_
 
     return CA_pairs, max_corr
 
-def _input2output_corr(icov, U):
-    r""" Equivalent to feature_TIC_correlation of a pyemma-TICA object
-    """
-    feature_sigma = _np.sqrt(_np.diag(icov))
-    return _np.dot(icov, U) / feature_sigma[:, _np.newaxis]
 
 def _sequential_rmsd_fit(geomin, start_frame=0):
     r"""Provided an md.Trajectory object and a starting frame, sequentially (forward and backwars) orient the frames
@@ -86,18 +80,6 @@ def _sequential_rmsd_fit(geomin, start_frame=0):
 
     return visual_fit
 
-def _opentica_npz(ticanpzfile):
-    r"""Open a simon-type of ticafile.npz and return some variables
-    """
-    lag_str = os.path.basename(ticanpzfile).replace('tica_','').replace('.npz','')
-    trajdata = _np.load(ticanpzfile, encoding='latin1')
-    icov, icovtau = trajdata['tica_cov'], trajdata['tica_cov_tau']
-    l, U = eig_corr(icov, icovtau)
-    tica_mean = trajdata['tica_mean']
-    data = trajdata['projdat']
-    corr = input2output_corr(icov, U)
-
-    return lag_str, data, corr, tica_mean, l, U
 
 def _find_centers_bimodal(distro, space, barrier=0):
     #, geoms, mdfunction, pop=None, barrier=0, fitness='min')

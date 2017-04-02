@@ -1018,9 +1018,11 @@ def atom_idxs_from_feature(ifeat):
 def add_atom_idxs_widget(atom_idxs, widget, color_list=None):
     r"""
     provided a list of atom_idxs and a widget, try to represent them as well as possible in the widget
-    The user should not need to provide anything other than the atom indxs and the method decides how
+    It is assumed that this method is called once per feature, ie. the number of atoms defines the
+    feature. This way, the method decides how to best represent them
     best to represent them. Currently, that means:
-     * pairs of atoms are represented as distances
+     * single atoms:   assume cartesian feature, represent with spacefill
+     * pairs of atoms: assume distance feature, represent with distance
      * everything else is ignored
 
     Parameters
@@ -1047,16 +1049,18 @@ def add_atom_idxs_widget(atom_idxs, widget, color_list=None):
     elif isinstance(color_list, list) and len(color_list)<len(atom_idxs):
         color_list += [color_list[-1]]*(len(atom_idxs)-len(color_list))
 
-    if atom_idxs != []:
+    if atom_idxs is not []:
         for iidxs, color in zip(atom_idxs, color_list):
-            if _np.ndim(iidxs)>0 and len(iidxs)==2:
+            if isinstance(iidxs, (int, _np.int64, _np.int32)):
+                widget.add_spacefill(selection=[iidxs], radius=1, color=color)
+            elif _np.ndim(iidxs)>0 and len(iidxs)==2:
                 widget.add_distance(atom_pair=[[ii for ii in iidxs]], # yes it has to be this way for now
                  color=color,
                  #label_color='black',
                  label_size=0)
-        else:
-            print("Cannot represent these type of feature (yet)")
-            pass
+            else:
+                print("Cannot represent these type of feature (yet)")
+
     return widget
 
 def transpose_geom_list(geom_list):

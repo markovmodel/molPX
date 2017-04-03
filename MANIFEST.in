@@ -1,2 +1,3 @@
 include versioneer.py
 include molpx/_version.py
+include LICENSE.txt

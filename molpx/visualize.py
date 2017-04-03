@@ -35,11 +35,20 @@ def _initialize_nglwidget_if_safe(geom, mock=True):
 
 class _mock_nglwidget(object):
     r"""
-    mock widget, which isn't even a widget, to allow for testing inside of the terminal
+    mock widget, which isn't even a widget, to allow for testing inside of the terminal.
     """
+    # TODO nglvwidget inside terminal one should follow this comment
+    # https://github.com/markovmodel/PyEMMA/issues/1062#issuecomment-288494497
+
     def __init__(self, geom):
         self.trajectory_0 = geom
     def observe(self,*args, **kwargs):
+        print("The method 'observe' of a mock nglwidget is called. "
+              "Ignore this message if testing, otherwise refer to molPX documentation.")
+
+    def add_spacefill(self, *args, **kwargs):
+        print("The method 'add_spacefill' of a mock nglwidget is called. "
+              "Ignore this message if testing, otherwise refer to molPX documentation.")
         pass
 
 def FES(MD_trajectories, MD_top, projected_trajectory,

@@ -445,7 +445,8 @@ def correlations(correlation_input,
                  widget=None,
                  proj_color_list=None,
                  n_feats=1,
-                 verbose=False):
+                 verbose=False,
+                 featurizer=None):
     r"""
     Provide a visual and textual representation of the linear correlations between projected coordinates (PCA, TICA)
      and original features.
@@ -455,8 +456,9 @@ def correlations(correlation_input,
 
     correlation_input : anything
         Something that could, in principle, be a :obj:`pyemma.coordinates.transformer,
-        like a TICA or PCA object
-        (this method will be extended to interpret other inputs, so for now this parameter is pretty flexible)
+        like a TICA or PCA object or directly a correlation matrix, with a row for each feature and a column
+        for each projection, very much like the :obj:`feature_TIC_correlation` of the TICA object of pyemma.
+
 
     geoms : None or obj:`md.Trajectory`, default is None
         The values of the most correlated features will be returned for the geometires in this object. If widget is
@@ -495,6 +497,10 @@ def correlations(correlation_input,
     n_feats : int, default is 1
         Number of argmax correlation to return for each feature.
 
+    featurizer : optional featurizer, default is None
+        In case the :obj:`correlation_input` doest no have a data_producer.featurizer attribute, the
+        user can input one here
+
     verbose : Bool, default is True
         print to standard output
 
@@ -503,8 +509,11 @@ def correlations(correlation_input,
     """
     # todo document
     # todo test
+    # todo consider kwargs for most_corr_info
 
-    corr_dict = _most_corr_info(correlation_input, geoms=geoms, proj_idxs=proj_idxs, feat_name=feat_name, n_args=n_feats)
+    corr_dict = _most_corr_info(correlation_input,
+                                geoms=geoms, proj_idxs=proj_idxs, feat_name=feat_name, n_args=n_feats, featurizer=featurizer
+                                )
 
     # Create ngl_viewer widget
     if geoms is not None and widget is None:

@@ -927,7 +927,12 @@ def most_corr(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_a
         proj_idxs = [proj_idxs]
 
     if featurizer is None:
-        featurizer=correlation_input.data_producer.featurizer
+        try:
+            featurizer=correlation_input.data_producer.featurizer
+            avail_FT = True
+        except(AttributeError):
+            avail_FT = False
+
 
     if isinstance(correlation_input, _TICA):
         corr = correlation_input.feature_TIC_correlation
@@ -954,21 +959,21 @@ def most_corr(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_a
         icorr = corr[:, ii]
         most_corr_idxs.append(_np.abs(icorr).argsort()[::-1][:n_args])
         most_corr_vals.append([icorr[jj] for jj in most_corr_idxs[-1]])
-        if geoms is not None:
+        if geoms is not None and avail_FT:
             most_corr_feats.append(featurizer.transform(geoms)[:, most_corr_idxs[-1]])
 
         if isinstance(feat_name, str):
-            istr = '$\mathregular{%s_{%u}}$'%(feat_name, most_corr_idxs[-1])
-        elif feat_name is None:
-            istr = [featurizer.describe()[jj] for jj in most_corr_idxs[-1]]
-        most_corr_labels.append(istr)
+            most_corr_labels.append('$\mathregular{%s_{%u}}$'%(feat_name, most_corr_idxs[-1]))
+        elif feat_name is None and avail_FT:
+            most_corr_labels.append([featurizer.describe()[jj] for jj in most_corr_idxs[-1]])
 
-        if len(featurizer.active_features) > 1:
-            pass
-            # TODO write a warning
-        else:
-            ifeat = featurizer.active_features[0]
-            most_corr_atom_idxs.append(atom_idxs_from_feature(ifeat)[most_corr_idxs[-1]])
+        if avail_FT:
+            if len(featurizer.active_features) > 1:
+                pass
+                # TODO write a warning
+            else:
+                ifeat = featurizer.active_features[0]
+                most_corr_atom_idxs.append(atom_idxs_from_feature(ifeat)[most_corr_idxs[-1]])
 
     for ii, iproj in enumerate(proj_names):
         info.append({"lines":[], "name":iproj})

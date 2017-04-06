@@ -357,12 +357,13 @@ def traj(MD_trajectories,
        raise TypeError("Parameter proj_labels has to be of type str or list, not %s"%type(proj_labels))
 
     # Do we have usable projection information?
-    corr_dict = _most_corr_info(projection, geoms=geoms, proj_idxs=proj_idxs, n_args=n_feats)
-    if corr_dict["feats"] != []:
-        # Then extend the trajectory selection to include the active trajectory twice
-        traj_selection = _np.insert(traj_selection,
-                                    _np.argwhere([active_traj==ii for ii in traj_selection]).squeeze(),
-                                    [active_traj] * n_feats)
+    if projection is not None:
+        corr_dict = _most_corr_info(projection, geoms=geoms, proj_idxs=proj_idxs, n_args=n_feats)
+        if corr_dict["feats"] != []:
+            # Then extend the trajectory selection to include the active trajectory twice
+            traj_selection = _np.insert(traj_selection,
+                                        _np.argwhere([active_traj==ii for ii in traj_selection]).squeeze(),
+                                        [active_traj] * n_feats)
     else:
         # squash whatever input we had if the projection-info input wasn't actually usable
         n_feats = 0
@@ -669,15 +670,16 @@ def sample(positions, geom, ax,
                                         **link_ax2wdg_kwargs
                                         )
     # Do we have usable projection information?
-    corr_dict = _most_corr_info(projection, geoms = geom, n_args=n_feats)
-    if corr_dict["labels"] != []:
-        iproj = _get_ascending_coord_idx(positions)
-        for ifeat in range(n_feats):
-            ilabel = corr_dict["labels"][iproj][ifeat]
-            print(ilabel)
-            iwd = _add_atom_idxs_widget([corr_dict["atom_idxs"][iproj][ifeat]], iwd,
-                                        color_list=['green']
-                                        )
+    if projection is not None:
+        corr_dict = _most_corr_info(projection, geoms = geom, n_args=n_feats)
+        if corr_dict["labels"] != []:
+            iproj = _get_ascending_coord_idx(positions)
+            for ifeat in range(n_feats):
+                ilabel = corr_dict["labels"][iproj][ifeat]
+                print(ilabel)
+                iwd = _add_atom_idxs_widget([corr_dict["atom_idxs"][iproj][ifeat]], iwd,
+                                            color_list=['green']
+                                            )
 
     # somehow returning the ax_wdg messes the displaying of both widgets
 

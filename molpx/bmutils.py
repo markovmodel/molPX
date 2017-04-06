@@ -831,7 +831,7 @@ def smooth_geom(geom, n, geom_data=None, superpose=True, symmetric=True):
     else:
         return geom_out, data_out
 
-def most_corr(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_args=1, proj_names='proj'):
+def most_corr(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_args=1, proj_names='proj', featurizer=None):
     r"""
     return information about the most correlated features from a `:obj:pyemma.coodrinates.transformer` object
 
@@ -840,8 +840,8 @@ def most_corr(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_a
 
     correlation_input : anything
         Something that could, in principle, be a :obj:`pyemma.coordinates.transformer,
-        like a TICA or PCA object
-        (this method will be extended to interpret other inputs, so for now this parameter is pretty flexible)
+        like a TICA or PCA object or directly a correlation matrix, with a row for each feature and a column
+        for each projection, very much like the :obj:`feature_TIC_correlation` of the TICA object of pyemma
 
     geoms : None or obj:`md.Trajectory`, default is None
         The values of the most correlated features will be returned for the geometires in this object
@@ -856,6 +856,10 @@ def most_corr(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_a
 
     n_args : int, default is 1
         Number of argmax correlation to return for each feature.
+
+    featurizer : optional featurizer, default is None
+        In case the :obj:`correlation_input` doest no have a data_producer.featurizer attribute, the
+        user can input one here
 
     Returns
     -------
@@ -904,45 +908,56 @@ def most_corr(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_a
     if isinstance(proj_idxs, int):
         proj_idxs = [proj_idxs]
 
+    if featurizer is None:
+        featurizer=correlation_input.data_producer.featurizer
 
-    if isinstance(correlation_input, (_TICA, _PCA)):
+    if isinstance(correlation_input, _TICA):
+        corr = correlation_input.feature_TIC_correlation
+    elif isinstance(correlation_input, _PCA):
+        corr = correlation_input.feature_PC_correlation
+    elif isinstance(correlation_input, _np.ndarray):
+        corr = correlation_input
+    else:
+        raise TypeError('correlation_input has to be either %s, not %s'%([_TICA, _PCA, _np.ndarray], type(correlation_input)))
 
-        if proj_idxs is None:
-            proj_idxs = _np.arange(correlation_input.dim)
+    dim = corr.shape[1]
 
-        if isinstance(proj_names, str):
-            proj_names = ['%s_%u' % (proj_names, ii) for ii in proj_idxs]
+    if proj_idxs is None:
+        proj_idxs = _np.arange(dim)
 
-        if _np.max(proj_idxs) > correlation_input.dim:
-            raise ValueError("Cannot ask for projection index %u if the "
-                             "transformation only has %u projections"%(_np.max(proj_idxs), correlation_input.dim))
+    if isinstance(proj_names, str):
+        proj_names = ['%s_%u' % (proj_names, ii) for ii in proj_idxs]
 
-        for ii in proj_idxs:
-            icorr = correlation_input.feature_TIC_correlation[:, ii]
-            most_corr_idxs.append(_np.abs(icorr).argsort()[::-1][:n_args])
-            most_corr_vals.append([icorr[jj] for jj in most_corr_idxs[-1]])
-            if geoms is not None:
-                most_corr_feats.append(correlation_input.data_producer.featurizer.transform(geoms)[:, most_corr_idxs[-1]])
+    if _np.max(proj_idxs) > dim:
+        raise ValueError("Cannot ask for projection index %u if the "
+                         "transformation only has %u projections"%(_np.max(proj_idxs), dim))
 
-            if isinstance(feat_name, str):
-                istr = '$\mathregular{%s_{%%u}}$'%(feat_name, most_corr_idxs[-1])
-            elif feat_name is None:
-                istr = [correlation_input.data_producer.featurizer.describe()[jj] for jj in most_corr_idxs[-1]]
-            most_corr_labels.append(istr)
+    for ii in proj_idxs:
+        icorr = corr[:, ii]
+        most_corr_idxs.append(_np.abs(icorr).argsort()[::-1][:n_args])
+        most_corr_vals.append([icorr[jj] for jj in most_corr_idxs[-1]])
+        if geoms is not None:
+            most_corr_feats.append(featurizer.transform(geoms)[:, most_corr_idxs[-1]])
 
-            if len(correlation_input.data_producer.featurizer.active_features) > 1:
-                pass
-                # TODO write a warning
-            else:
-                ifeat = correlation_input.data_producer.featurizer.active_features[0]
-                most_corr_atom_idxs.append(atom_idxs_from_feature(ifeat)[most_corr_idxs[-1]])
+        if isinstance(feat_name, str):
+            istr = '$\mathregular{%s_{%u}}$'%(feat_name, most_corr_idxs[-1])
+        elif feat_name is None:
+            istr = [featurizer.describe()[jj] for jj in most_corr_idxs[-1]]
+        most_corr_labels.append(istr)
 
-        for ii, iproj in enumerate(proj_names):
-            info.append({"lines":[], "name":iproj})
-            for jj, jidx in enumerate(most_corr_idxs[ii]):
-                istr = 'Corr[%s|feat] = %2.1f for %-30s (feat nr. %u, atom idxs %s' % \
-                       (iproj, most_corr_vals[ii][jj], most_corr_labels[ii][jj], jidx, most_corr_atom_idxs[ii][jj])
-                info[-1]["lines"].append(istr)
+        if len(featurizer.active_features) > 1:
+            pass
+            # TODO write a warning
+        else:
+            ifeat = featurizer.active_features[0]
+            most_corr_atom_idxs.append(atom_idxs_from_feature(ifeat)[most_corr_idxs[-1]])
+
+    for ii, iproj in enumerate(proj_names):
+        info.append({"lines":[], "name":iproj})
+        for jj, jidx in enumerate(most_corr_idxs[ii]):
+            istr = 'Corr[%s|feat] = %2.1f for %-30s (feat nr. %u, atom idxs %s' % \
+                   (iproj, most_corr_vals[ii][jj], most_corr_labels[ii][jj], jidx, most_corr_atom_idxs[ii][jj])
+            info[-1]["lines"].append(istr)
 
     corr_dict = {'idxs': most_corr_idxs,
                  'vals': most_corr_vals,

@@ -966,13 +966,18 @@ def atom_idxs_from_feature(ifeat):
 
     atom_indices : list with the atoms indices representative of this feature, whatever the feature
     """
-    from pyemma.coordinates.data.featurization.distances import DistanceFeature as _DF
+
+    from pyemma.coordinates.data.featurization.distances import DistanceFeature as _DF, \
+        ResidueMinDistanceFeature as _ResMinDF
     from pyemma.coordinates.data.featurization.misc import SelectionFeature as _SF
-    if isinstance(ifeat, _DF):
+
+    if isinstance(ifeat, _DF) and not isinstance(ifeat, _ResMinDF):
         return ifeat.distance_indexes
     elif isinstance(ifeat, _SF):
         return _np.repeat(ifeat.indexes, 3)
-        pass
+    elif isinstance(ifeat, _ResMinDF):
+        # Comprehend all the lists!!!!
+        return _np.vstack([[list(ifeat.top.residue(pj).atoms_by_name('CA'))[0].index for pj in pair] for pair in ifeat.contacts])
     else:
         # TODO write a warning?
         return []

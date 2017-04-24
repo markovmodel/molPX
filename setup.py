@@ -17,17 +17,15 @@ setup(name='molPX',
       ],
       install_requires=[
           'nglview>=0.6.2.2',
+          'ipywidgets>=5.2.2',
           'pyemma',
           'scikit-learn',
           'notebook',
           'mdtraj',
-          'sphinx',
-          'sphinx_rtd_theme',
-          'nbsphinx'
       ],
-          package_data = {
-              'molpx': ['notebooks/*', 'notebooks/data/*']
-          }
+      package_data = {
+          'molpx': ['notebooks/*', 'notebooks/data/*'],
+      }
 )
 
 

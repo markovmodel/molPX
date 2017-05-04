@@ -11,7 +11,8 @@ from .bmutils import link_ax_w_pos_2_nglwidget as _link_ax_w_pos_2_nglwidget, \
     most_corr as _most_corr_info, \
     re_warp as _re_warp, \
     add_atom_idxs_widget as _add_atom_idxs_widget, \
-    matplotlib_colors_no_blue as _bmcolors
+    matplotlib_colors_no_blue as _bmcolors, \
+    transpose_geom_list as _transpose_geom_list
 
 from . import generate
 
@@ -44,7 +45,8 @@ class _mock_nglwidget(object):
 def FES(MD_trajectories, MD_top, projected_trajectory,
         proj_idxs = [0,1],
         nbins=100, n_sample = 100,
-        axlabel='proj'):
+        axlabel='proj',
+        n_overlays=1):
     r"""
     Return a molecular visualization widget connected with a free energy plot.
 
@@ -76,6 +78,10 @@ def FES(MD_trajectories, MD_top, projected_trajectory,
     axlabel : str, default is 'proj'
         Format of the labels in the FES plot
 
+    n_overlays : int, default is 1
+        The number of structures that will be displayed for every sampled point of the FES. This parameter can
+        seriously slow down the method, it is currently limited to a maximum value of 50
+
     Returns
     --------
 
@@ -89,14 +95,28 @@ def FES(MD_trajectories, MD_top, projected_trajectory,
         :obj:`mdtraj.Trajectory` object with the geometries n_sample geometries shown by the nglwidget
 
     """
+
+    # Prepare the overlay option
+    n_overlays = _np.min([n_overlays,50])
+    if n_overlays>1:
+        keep_all_samples = True
+    else:
+        keep_all_samples = False
+
+
     data_sample, geoms, data = generate.sample(MD_trajectories, MD_top, projected_trajectory, proj_idxs=proj_idxs,
                                                n_points=n_sample,
-                                        return_data=True
+                                               return_data=True,
+                                               n_geom_samples=n_overlays,
+                                               keep_all_samples=keep_all_samples
                                          )
-    data = _np.vstack(data)
+    if keep_all_samples:
+        assert isinstance(geoms, list)
+        geoms = _transpose_geom_list(geoms)
 
+    data = _np.vstack(data)
     _plt.figure()
-    # Use PyEMMA's plotting routing
+    # Use PyEMMA's plotting routine
     plot_free_energy(data[:,proj_idxs[0]], data[:,proj_idxs[1]], nbins=nbins)
 
     #h, (x, y) = _np.histogramdd(data, bins=nbins)
@@ -107,7 +127,12 @@ def FES(MD_trajectories, MD_top, projected_trajectory,
     ax.set_xlabel('$\mathregular{%s_{%u}}$'%(axlabel, proj_idxs[0]))
     ax.set_ylabel('$\mathregular{%s_{%u}}$'%(axlabel, proj_idxs[1]))
 
-    iwd = sample(data_sample, geoms.superpose(geoms[0]), ax)
+    if isinstance(geoms, _md.Trajectory):
+        iwd = sample(data_sample, geoms.superpose(geoms[0]), ax)
+    elif isinstance(geoms, list):
+        iwd = sample(data_sample, geoms[0].superpose(geoms[0][0]), ax)
+        for igeom in geoms[1:]:
+            iwd.add_trajectory(igeom.superpose(geoms[0][0]))
 
     return _plt.gca(), _plt.gcf(), iwd, data_sample, geoms
 

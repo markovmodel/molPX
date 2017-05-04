@@ -304,15 +304,13 @@ def sample(MD_trajectories, MD_top, projected_trajectories,
     geom_smpl = _save_traj_wrapper(src, _np.vstack(cat_smpl), None, top=MD_top, stride=proj_stride)
 
     if n_geom_samples>1:
+        geom_smpl = _re_warp(geom_smpl, [n_geom_samples] * cl.n_clusters)
         if not keep_all_samples:
-            geom_smpl = _re_warp(geom_smpl, [n_geom_samples] * cl.n_clusters)
+            #geom_smpl = _re_warp(geom_smpl, [n_geom_samples] * cl.n_clusters)
             # Of the most populated geom, get the most compact
             most_pop = _np.bincount(_np.hstack(cl.dtrajs)).argmax()
             geom_most_pop = geom_smpl[most_pop][_md.compute_rg(geom_smpl[most_pop]).argmin()]
             geom_smpl = _minimize_rmsd2ref_in_sample(geom_smpl, geom_most_pop)
-        else:
-            # Need to repeat the pos-vector
-            pos = _np.tile(pos,n_geom_samples).reshape(-1,2)
 
     if not return_data:
         return pos, geom_smpl

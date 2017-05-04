@@ -259,14 +259,11 @@ def sample(MD_trajectories, MD_top, projected_trajectories,
         Number of points along the projection path. The higher this number, the higher the projected coordinate is
         resolved, at the cost of more computational effort. It's a trade-off parameter
 
-    n_points : int, default is 100
+    n_geom_samples : int, default is 1
         For each of the :obj:`n_points` along the projection path, :obj:`n_geom_samples` will be retrieved from
         the trajectory files. The higher this number, the *smoother* the minRMSD projection path. Also, the longer
-        it takes for the path to be computed
-
-    n_geom_samples : int, default is 1
-        This is a trade-off parameter between how smooth the transitons between geometries can be and how long it takes
-        to generate the sample
+        it takes for the path to be computed. This is a trade-off parameter between how smooth the transitons between
+        geometries can be and how long it takes to generate the sample
 
     keep_all_samples : boolean, default is False
         In principle, once the closest-to-ref geometry has been kept, the other geometries are discarded, and the

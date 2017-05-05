@@ -3,7 +3,7 @@ from __future__ import print_function
 __author__ = 'gph82'
 
 
-from pyemma.plots import plot_free_energy
+from pyemma.plots import plot_free_energy as _plot_free_energy
 import numpy as _np
 from .bmutils import link_ax_w_pos_2_nglwidget as _link_ax_w_pos_2_nglwidget, \
     data_from_input as _data_from_input, \
@@ -12,6 +12,7 @@ from .bmutils import link_ax_w_pos_2_nglwidget as _link_ax_w_pos_2_nglwidget, \
     re_warp as _re_warp, \
     add_atom_idxs_widget as _add_atom_idxs_widget, \
     matplotlib_colors_no_blue as _bmcolors
+
 from . import generate
 
 from matplotlib import pylab as _plt, rcParams as _rcParams
@@ -43,8 +44,7 @@ class _mock_nglwidget(object):
 def FES(MD_trajectories, MD_top, projected_trajectory,
         proj_idxs = [0,1],
         nbins=100, n_sample = 100,
-        axlabel='proj',
-        n_overlays=1):
+        axlabel='proj'):
     r"""
     Return a molecular visualization widget connected with a free energy plot.
 
@@ -63,7 +63,7 @@ def FES(MD_trajectories, MD_top, projected_trajectory,
         you can provide .npy-filenames or readable asciis (.dat, .txt etc).
         NOTE: molpx assumes that there is no time column.
 
-    proj_idxs: list or ndarray of length 2
+    proj_idxs: int, list or ndarray
         Selection of projection idxs (zero-idxd) to visualize.
 
     nbins : int, default 100
@@ -75,10 +75,6 @@ def FES(MD_trajectories, MD_top, projected_trajectory,
 
     axlabel : str, default is 'proj'
         Format of the labels in the FES plot
-
-    n_overlays : int, default is 1
-        The number of structures that will be simultaneously displayed as overlays for every sampled point of the FES.
-        This parameter can seriously slow down the method, it is currently limited to a maximum value of 50
 
     Returns
     --------
@@ -93,38 +89,71 @@ def FES(MD_trajectories, MD_top, projected_trajectory,
         :obj:`mdtraj.Trajectory` object with the geometries n_sample geometries shown by the nglwidget
 
     """
-
-    # Prepare the overlay option
-    n_overlays = _np.min([n_overlays,50])
-    if n_overlays>1:
-        keep_all_samples = True
-    else:
-        keep_all_samples = False
-
-
+    if isinstance(proj_idxs,int):
+        proj_idxs = [proj_idxs]
     data_sample, geoms, data = generate.sample(MD_trajectories, MD_top, projected_trajectory, proj_idxs=proj_idxs,
                                                n_points=n_sample,
-                                               return_data=True,
-                                               n_geom_samples=n_overlays,
-                                               keep_all_samples=keep_all_samples
+                                        return_data=True
                                          )
-
     data = _np.vstack(data)
-    _plt.figure()
-    # Use PyEMMA's plotting routine
-    plot_free_energy(data[:,proj_idxs[0]], data[:,proj_idxs[1]], nbins=nbins)
 
-    #h, (x, y) = _np.histogramdd(data, bins=nbins)
-    #irange = _np.hstack((x[[0,-1]], y[[0,-1]]))
-    #_plt.contourf(-_np.log(h).T, extent=irange)
+    ax, FES_data, edges = _plot_ND_FES(data[:,proj_idxs],
+                                  ['$\mathregular{%s_{%u}}$' % (axlabel, ii) for ii in proj_idxs],
+                                  bins=nbins)
+    if edges[0] is not None:
+        # We have the luxury of sorting!
+        sorts_data = data_sample[:,0].argsort()
+        data_sample[:,0] = data_sample[sorts_data,0]
+        geoms = _md.Trajectory([geoms[ii].xyz.squeeze() for ii in sorts_data], geoms.topology)
 
-    ax = _plt.gca()
-    ax.set_xlabel('$\mathregular{%s_{%u}}$'%(axlabel, proj_idxs[0]))
-    ax.set_ylabel('$\mathregular{%s_{%u}}$'%(axlabel, proj_idxs[1]))
+        # TODO: look closely at this x[:-2]  (bins, edges, and off-by-one errors
+        FES_sample = FES_data[_np.digitize(data_sample, edges[0][:-2])]
+        data_sample = _np.hstack((data_sample, FES_sample))
 
-    iwd = sample(data_sample, geoms, ax)
+    iwd = sample(data_sample, geoms.superpose(geoms[0]), ax, clear_lines=False)
 
     return _plt.gca(), _plt.gcf(), iwd, data_sample, geoms
+
+def _plot_ND_FES(data, ax_labels, bins=50):
+    r""" A wrapper for pyemmas FESs plotting function that can also plot 1D
+
+    Parameters
+    ----------
+
+    data : list of numpy nd.arrays
+
+    ax_labels : list
+
+    Returns
+    -------
+
+    ax : :obj:`pylab.Axis` object
+
+    FES_data : numpy nd.array containing the FES (only for 1D data)
+
+    edges : tuple containimg the axes along which FES is to be plotted (only in the 1D case so far, else it's None)
+
+    """
+    _plt.figure()
+    ax = _plt.gca()
+    idata = _np.vstack(data)
+    ax.set_xlabel(ax_labels[0])
+    if idata.shape[1] == 1:
+        h, edges = _np.histogramdd(idata, bins=bins, normed=True)
+        FES_data = -_np.log(h)
+        FES_data -= FES_data.min()
+        ax.plot(edges[0][:-1], FES_data)
+        ax.set_ylabel('$\Delta G / \kappa T $')
+
+    elif idata.shape[1] == 2:
+        _plot_free_energy(idata[:,0], idata[:,1], nbins=bins, ax=ax)
+        ax.set_ylabel(ax_labels[1])
+        edges, FES_data = [None], None
+        # TODO: retrieve the actual edges from pyemma's "plot_free_energy"'s axes
+    else:
+        raise NotImplementedError('Can only plot 1D or 2D FESs, but data has %s columns' % _np.shape(idata)[0])
+
+    return ax, FES_data, edges,
 
 def traj(MD_trajectories,
          MD_top, projected_trajectories,
@@ -381,26 +410,11 @@ def traj(MD_trajectories,
         widget = _add_atom_idxs_widget([corr_dict["atom_idxs"][iproj][ifeat]], widget, color_list=[icol])
 
     if plot_FES:
-        if len(proj_idxs)==1:
-            h, x = _np.histogram(_np.vstack(data), bins=50)
-            _plt.figure()
-            h = -_np.log(h)
-            _plt.plot(x[:-1],h)
-            _plt.xlabel(ylabels[0])
-            _plt.ylabel('$\Delta G / \kappa T $')
-            FES_val = [h[_np.digitize(idata, x[:-2])] for idata in data]
-            data = [_np.hstack((idata, iFES_val)) for idata, iFES_val in zip(data, FES_val)]
-            # TODO: look closely at this x[:-2]  (bins, edges, and off-by-one errors
-        elif len(proj_idxs)==2:
-            h, (x, y) = _np.histogramdd(_np.vstack(data), bins=50)
-            irange = _np.hstack((x[[0,-1]], y[[0,-1]]))
-            _plt.figure()
-            _plt.contourf(-_np.log(h).T, extent=irange)
-            _plt.xlabel(ylabels[0])
-            _plt.ylabel(ylabels[1])
-        else:
-            raise NotImplementedError('Can only plot 1D or 2D FESs, but len(proj_idxs)=%s'%len(proj_idxs))
-        ax = _plt.gca()
+        ax, FES_data, edges = _plot_ND_FES(data, ylabels)
+        if edges[0] is not None:
+            print(edges)
+            FES_data = [FES_data[_np.digitize(idata, edges[0][:-2])] for idata in data]
+            data = [_np.hstack((idata, iFES_data)) for idata, iFES_data in zip(data, FES_data)]
 
         widget = sample(data[active_traj], geoms.superpose(geoms[0]), ax, widget=widget, clear_lines=False)
 
@@ -506,7 +520,6 @@ def sample(positions, geom, ax,
            clear_lines=True,
            n_smooth = 0,
            widget=None,
-           superpose=True,
            **link_ax2wdg_kwargs
            ):
 
@@ -521,8 +534,8 @@ def sample(positions, geom, ax,
     positions : numpy nd.array of shape (n_frames, 2)
         Contains the position associated with each frame in :obj:`geom` in that order
 
-    geom : :obj:`mdtraj.Trajectory` objects or a list thereof.
-        The geometries associated with the the :obj:`positions`. Hence, all have to have the same number of n_frames
+    geom : :obj:`mdtraj.Trajectory` object
+        Contains n_frames, each frame
 
     ax : matplotlib.pyplot.Axes object
         The axes to be linked with the nglviewer widget
@@ -540,12 +553,6 @@ def sample(positions, geom, ax,
     widget : None or existing nglview widget
         you can provide an already instantiated nglviewer widget here (avanced use)
 
-    superpose : boolean, default is True
-        The geometries in :obj:`geom` may or may not be oriented, depending on where they were generated.
-        Since this method is mostly for visualization purposes, the default behaviour is to orient them all to
-        maximally overlap with the first frame (of the first :obj:`mdtraj.Trajectory` object, in case :obj:`geom`
-        is a list)
-
     link_ax2wdg_kwargs: dictionary of named arguments, optional
         named arguments for the function :obj:`_link_ax_w_pos_2_nglwidget`, which is the one that internally
         provides the interactivity. Non-expert users can safely ignore this option.
@@ -557,27 +564,16 @@ def sample(positions, geom, ax,
 
     """
 
-    assert isinstance(geom, (list, _md.Trajectory))
-
-    # Dow I need to smooth things out?
     if n_smooth > 0:
-        if isinstance(geom, _md.Trajectory): # smoothing only makes sense for paths, and paths cannot be lists at the moment
-            geom, positions = _smooth_geom(geom, n_smooth, geom_data=positions)
-            mean_smooth_radius = _np.diff(positions, axis=0).mean(0) * n_smooth
-            band_width = 2 * mean_smooth_radius
+        geom, positions = _smooth_geom(geom, n_smooth, geom_data=positions)
+        mean_smooth_radius = _np.diff(positions, axis=0).mean(0) * n_smooth
+        band_width = 2 * mean_smooth_radius
     else:
         band_width = None
 
     # Create ngl_viewer widget
     if widget is None:
-        if isinstance(geom, _md.Trajectory):
-            iwd = _initialize_nglwidget_if_safe(geom.superpose(geom[0]))
-        else:
-            iwd = _initialize_nglwidget_if_safe(geom[0].superpose(geom[0]))
-            for igeom in geom[1:]:
-                iwd.add_trajectory(igeom.superpose(geom[0]))
-
-
+        iwd = _initialize_nglwidget_if_safe(geom)
     else:
         iwd = widget
 

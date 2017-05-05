@@ -79,8 +79,8 @@ def FES(MD_trajectories, MD_top, projected_trajectory,
         Format of the labels in the FES plot
 
     n_overlays : int, default is 1
-        The number of structures that will be displayed for every sampled point of the FES. This parameter can
-        seriously slow down the method, it is currently limited to a maximum value of 50
+        The number of structures that will be simultaneously displayed as overlays for every sampled point of the FES.
+        This parameter can seriously slow down the method, it is currently limited to a maximum value of 50
 
     Returns
     --------

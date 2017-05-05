@@ -11,9 +11,7 @@ from .bmutils import link_ax_w_pos_2_nglwidget as _link_ax_w_pos_2_nglwidget, \
     most_corr as _most_corr_info, \
     re_warp as _re_warp, \
     add_atom_idxs_widget as _add_atom_idxs_widget, \
-    matplotlib_colors_no_blue as _bmcolors, \
-    transpose_geom_list as _transpose_geom_list
-
+    matplotlib_colors_no_blue as _bmcolors
 from . import generate
 
 from matplotlib import pylab as _plt, rcParams as _rcParams
@@ -110,9 +108,6 @@ def FES(MD_trajectories, MD_top, projected_trajectory,
                                                n_geom_samples=n_overlays,
                                                keep_all_samples=keep_all_samples
                                          )
-    if keep_all_samples:
-        assert isinstance(geoms, list)
-        geoms = _transpose_geom_list(geoms)
 
     data = _np.vstack(data)
     _plt.figure()
@@ -127,12 +122,7 @@ def FES(MD_trajectories, MD_top, projected_trajectory,
     ax.set_xlabel('$\mathregular{%s_{%u}}$'%(axlabel, proj_idxs[0]))
     ax.set_ylabel('$\mathregular{%s_{%u}}$'%(axlabel, proj_idxs[1]))
 
-    if isinstance(geoms, _md.Trajectory):
-        iwd = sample(data_sample, geoms.superpose(geoms[0]), ax)
-    elif isinstance(geoms, list):
-        iwd = sample(data_sample, geoms[0].superpose(geoms[0][0]), ax)
-        for igeom in geoms[1:]:
-            iwd.add_trajectory(igeom.superpose(geoms[0][0]))
+    iwd = sample(data_sample, geoms, ax)
 
     return _plt.gca(), _plt.gcf(), iwd, data_sample, geoms
 
@@ -520,8 +510,8 @@ def sample(positions, geom, ax,
     positions : numpy nd.array of shape (n_frames, 2)
         Contains the position associated with each frame in :obj:`geom` in that order
 
-    geom : :obj:`mdtraj.Trajectory` object
-        Contains n_frames, each frame
+    geom : :obj:`mdtraj.Trajectory` objects or a list thereof.
+        The geometries associated with the the :obj:`positions`. Hence, all have to have the same number of n_frames
 
     ax : matplotlib.pyplot.Axes object
         The axes to be linked with the nglviewer widget
@@ -550,16 +540,26 @@ def sample(positions, geom, ax,
 
     """
 
+    assert isinstance(geom, (list, _md.Trajectory))
+
+    # Dow I need to smooth things out?
     if n_smooth > 0:
-        geom, positions = _smooth_geom(geom, n_smooth, geom_data=positions)
-        mean_smooth_radius = _np.diff(positions, axis=0).mean(0) * n_smooth
-        band_width = 2 * mean_smooth_radius
+        if isinstance(geom, _md.Trajectory):
+            geom, positions = _smooth_geom(geom, n_smooth, geom_data=positions)
+            mean_smooth_radius = _np.diff(positions, axis=0).mean(0) * n_smooth
+            band_width = 2 * mean_smooth_radius
     else:
         band_width = None
 
     # Create ngl_viewer widget
     if widget is None:
-        iwd = _initialize_nglwidget_if_safe(geom)
+        if isinstance(geom, _md.Trajectory):
+            iwd = _initialize_nglwidget_if_safe(geom)
+        else:
+            iwd = _initialize_nglwidget_if_safe(geom[0])
+            for igeom in geom[1:]:
+                iwd.add_trajectory(igeom)
+
     else:
         iwd = widget
 

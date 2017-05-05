@@ -120,7 +120,9 @@ def FES(MD_trajectories, MD_top, projected_trajectory,
         # We have the luxury of sorting!
         sorts_data = data_sample[:,0].argsort()
         data_sample[:,0] = data_sample[sorts_data,0]
-        geoms = _md.Trajectory([geoms[ii].xyz.squeeze() for ii in sorts_data], geoms.topology)
+        if isinstance(geoms, _md.Trajectory):
+            geoms = [geoms]
+            geoms = [_md.Trajectory([igeom[ii].xyz.squeeze() for ii in sorts_data], igeom.topology) for igeom in geoms]
 
         # TODO: look closely at this x[:-2]  (bins, edges, and off-by-one errors
         FES_sample = FES_data[_np.digitize(data_sample, edges[0][:-2])]

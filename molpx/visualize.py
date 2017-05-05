@@ -496,6 +496,7 @@ def sample(positions, geom, ax,
            clear_lines=True,
            n_smooth = 0,
            widget=None,
+           superpose=True,
            **link_ax2wdg_kwargs
            ):
 
@@ -529,6 +530,12 @@ def sample(positions, geom, ax,
     widget : None or existing nglview widget
         you can provide an already instantiated nglviewer widget here (avanced use)
 
+    superpose : boolean, default is True
+        The geometries in :obj:`geom` may or may not be oriented, depending on where they were generated.
+        Since this method is mostly for visualization purposes, the default behaviour is to orient them all to
+        maximally overlap with the first frame (of the first :obj:`mdtraj.Trajectory` object, in case :obj:`geom`
+        is a list)
+
     link_ax2wdg_kwargs: dictionary of named arguments, optional
         named arguments for the function :obj:`_link_ax_w_pos_2_nglwidget`, which is the one that internally
         provides the interactivity. Non-expert users can safely ignore this option.
@@ -544,7 +551,7 @@ def sample(positions, geom, ax,
 
     # Dow I need to smooth things out?
     if n_smooth > 0:
-        if isinstance(geom, _md.Trajectory):
+        if isinstance(geom, _md.Trajectory): # smoothing only makes sense for paths, and paths cannot be lists at the moment
             geom, positions = _smooth_geom(geom, n_smooth, geom_data=positions)
             mean_smooth_radius = _np.diff(positions, axis=0).mean(0) * n_smooth
             band_width = 2 * mean_smooth_radius
@@ -554,11 +561,12 @@ def sample(positions, geom, ax,
     # Create ngl_viewer widget
     if widget is None:
         if isinstance(geom, _md.Trajectory):
-            iwd = _initialize_nglwidget_if_safe(geom)
+            iwd = _initialize_nglwidget_if_safe(geom.superpose(geom[0]))
         else:
-            iwd = _initialize_nglwidget_if_safe(geom[0])
+            iwd = _initialize_nglwidget_if_safe(geom[0].superpose(geom[0]))
             for igeom in geom[1:]:
-                iwd.add_trajectory(igeom)
+                iwd.add_trajectory(igeom.superpose(geom[0]))
+
 
     else:
         iwd = widget

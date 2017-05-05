@@ -44,7 +44,8 @@ class _mock_nglwidget(object):
 def FES(MD_trajectories, MD_top, projected_trajectory,
         proj_idxs = [0,1],
         nbins=100, n_sample = 100,
-        axlabel='proj'):
+        axlabel='proj',
+        n_overlays=1):
     r"""
     Return a molecular visualization widget connected with a free energy plot.
 
@@ -76,6 +77,10 @@ def FES(MD_trajectories, MD_top, projected_trajectory,
     axlabel : str, default is 'proj'
         Format of the labels in the FES plot
 
+    n_overlays : int, default is 1
+        The number of structures that will be simultaneously displayed as overlays for every sampled point of the FES.
+        This parameter can seriously slow down the method, it is currently limited to a maximum value of 50
+
     Returns
     --------
 
@@ -89,11 +94,22 @@ def FES(MD_trajectories, MD_top, projected_trajectory,
         :obj:`mdtraj.Trajectory` object with the geometries n_sample geometries shown by the nglwidget
 
     """
+
+    # Prepare the overlay option
+    n_overlays = _np.min([n_overlays,50])
+    if n_overlays>1:
+        keep_all_samples = True
+    else:
+        keep_all_samples = False
+
+    # Prepare for 1D case
     if isinstance(proj_idxs,int):
         proj_idxs = [proj_idxs]
     data_sample, geoms, data = generate.sample(MD_trajectories, MD_top, projected_trajectory, proj_idxs=proj_idxs,
                                                n_points=n_sample,
-                                        return_data=True
+                                               return_data=True,
+                                               n_geom_samples=n_overlays,
+                                               keep_all_samples=keep_all_samples
                                          )
     data = _np.vstack(data)
 
@@ -520,6 +536,7 @@ def sample(positions, geom, ax,
            clear_lines=True,
            n_smooth = 0,
            widget=None,
+           superpose=True,
            **link_ax2wdg_kwargs
            ):
 
@@ -534,8 +551,8 @@ def sample(positions, geom, ax,
     positions : numpy nd.array of shape (n_frames, 2)
         Contains the position associated with each frame in :obj:`geom` in that order
 
-    geom : :obj:`mdtraj.Trajectory` object
-        Contains n_frames, each frame
+    geom : :obj:`mdtraj.Trajectory` objects or a list thereof.
+        The geometries associated with the the :obj:`positions`. Hence, all have to have the same number of n_frames
 
     ax : matplotlib.pyplot.Axes object
         The axes to be linked with the nglviewer widget
@@ -553,6 +570,12 @@ def sample(positions, geom, ax,
     widget : None or existing nglview widget
         you can provide an already instantiated nglviewer widget here (avanced use)
 
+    superpose : boolean, default is True
+        The geometries in :obj:`geom` may or may not be oriented, depending on where they were generated.
+        Since this method is mostly for visualization purposes, the default behaviour is to orient them all to
+        maximally overlap with the first frame (of the first :obj:`mdtraj.Trajectory` object, in case :obj:`geom`
+        is a list)
+
     link_ax2wdg_kwargs: dictionary of named arguments, optional
         named arguments for the function :obj:`_link_ax_w_pos_2_nglwidget`, which is the one that internally
         provides the interactivity. Non-expert users can safely ignore this option.
@@ -564,16 +587,27 @@ def sample(positions, geom, ax,
 
     """
 
+    assert isinstance(geom, (list, _md.Trajectory))
+
+    # Dow I need to smooth things out?
     if n_smooth > 0:
-        geom, positions = _smooth_geom(geom, n_smooth, geom_data=positions)
-        mean_smooth_radius = _np.diff(positions, axis=0).mean(0) * n_smooth
-        band_width = 2 * mean_smooth_radius
+        if isinstance(geom, _md.Trajectory): # smoothing only makes sense for paths, and paths cannot be lists at the moment
+            geom, positions = _smooth_geom(geom, n_smooth, geom_data=positions)
+            mean_smooth_radius = _np.diff(positions, axis=0).mean(0) * n_smooth
+            band_width = 2 * mean_smooth_radius
     else:
         band_width = None
 
     # Create ngl_viewer widget
     if widget is None:
-        iwd = _initialize_nglwidget_if_safe(geom)
+        if isinstance(geom, _md.Trajectory):
+            iwd = _initialize_nglwidget_if_safe(geom.superpose(geom[0]))
+        else:
+            iwd = _initialize_nglwidget_if_safe(geom[0].superpose(geom[0]))
+            for igeom in geom[1:]:
+                iwd.add_trajectory(igeom.superpose(geom[0]))
+
+
     else:
         iwd = widget
 

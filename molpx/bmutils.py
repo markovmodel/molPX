@@ -1046,6 +1046,8 @@ def transpose_geom_list(geom_list):
 
     geom_list_T : list of md.Trajectory objects (transposed)
     """
+
+    assert isinstance(geom_list, list)
     n_frames_per_element = geom_list[0].n_frames
     assert _np.all([igeom.n_frames==n_frames_per_element for igeom in geom_list]), \
         "All geometries in the list have to have the same length"

@@ -6,7 +6,7 @@
 molpx.visualize
 ===============
 
-The core functionality is to link two interative figures, *fig1* and *fig2*, inside an Ipython/Jupyter notebook,
+The core functionality is to link two interative figures, *fig1* and *fig2*, inside an IPython/Jupyter notebook,
 so that an action in *fig1* (e.g.a click of the mouse or a slide of a slidebar) will trigger an event in *fig2*
 (e.g. a frame update or point moved) and vice versa. Usually, these two figures contain representations from:
 

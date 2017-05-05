@@ -267,10 +267,12 @@ def sample(MD_trajectories, MD_top, projected_trajectories,
 
     keep_all_samples : boolean, default is False
         In principle, once the closest-to-ref geometry has been kept, the other geometries are discarded, and the
-        output sample contains only n_point geometries. HOWEVER, there are special cases where the user might
+        output sample contains only n_point geometries. There are, still, special cases where the user might
         want to keep all sampled geometries. Typical use-case is when the n_points is low and many representatives
-        per clustercenters will be much more informative than the other way around
-        (i know, this is confusing TODO: write this better)
+        per clustercenters will be much more informative than the other way around.
+        This is an advanced feature that other methods of molPX use internally for generating overlays, but
+        it changes the return type of :obj:`geom_smpl` from the default (an :obj:`mdtraj.Trajectory` with :obj:`n_points`-frames)
+        to a list with :obj:`n_points` :obj:`mdtraj.Trajectory`-objects, each one of :obj:`n_geom_samples`-frames.
 
 
     Returns
@@ -279,7 +281,10 @@ def sample(MD_trajectories, MD_top, projected_trajectories,
     pos :
         ndarray with the positions of the sample
     geom_smpl :
-        :obj:`mdtraj.Trajectory` object with the sampled geometries
+        sampled geometries. Can be of two types:
+
+        * default: :obj:`mdtraj.Trajectory` with :obj:`n_points`-frames
+        * if keep_all_samples = True: list of length :obj:`n_points`. Each element is an :obj:`mdtraj.Trajectory` object of :obj:`n_geom_samples`-frames.
 
     """
 

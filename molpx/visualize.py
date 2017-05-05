@@ -381,18 +381,28 @@ def traj(MD_trajectories,
         widget = _add_atom_idxs_widget([corr_dict["atom_idxs"][iproj][ifeat]], widget, color_list=[icol])
 
     if plot_FES:
-        if len(proj_idxs)!=2:
-            raise NotImplementedError('Can only plot 2D FES if more than one projection idxs has been '
-                                      'specificed, but only got %s. \n In the future a 1D histogramm will '
-                                      'be shown.'%proj_idxs)
-        h, (x, y) = _np.histogramdd(_np.vstack(data), bins=50)
-        irange = _np.hstack((x[[0,-1]], y[[0,-1]]))
-        _plt.figure()
-        _plt.contourf(-_np.log(h).T, extent=irange)
-        _plt.xlabel(ylabels[0])
-        _plt.ylabel(ylabels[1])
+        if len(proj_idxs)==1:
+            h, x = _np.histogram(_np.vstack(data), bins=50)
+            _plt.figure()
+            h = -_np.log(h)
+            _plt.plot(x[:-1],h)
+            _plt.xlabel(ylabels[0])
+            _plt.ylabel('$\Delta G / \kappa T $')
+            FES_val = [h[_np.digitize(idata, x[:-2])] for idata in data]
+            data = [_np.hstack((idata, iFES_val)) for idata, iFES_val in zip(data, FES_val)]
+            # TODO: look closely at this x[:-2]  (bins, edges, and off-by-one errors
+        elif len(proj_idxs)==2:
+            h, (x, y) = _np.histogramdd(_np.vstack(data), bins=50)
+            irange = _np.hstack((x[[0,-1]], y[[0,-1]]))
+            _plt.figure()
+            _plt.contourf(-_np.log(h).T, extent=irange)
+            _plt.xlabel(ylabels[0])
+            _plt.ylabel(ylabels[1])
+        else:
+            raise NotImplementedError('Can only plot 1D or 2D FESs, but len(proj_idxs)=%s'%len(proj_idxs))
         ax = _plt.gca()
-        widget = sample(data[active_traj], geoms.superpose(geoms[0]), ax, widget=widget)
+
+        widget = sample(data[active_traj], geoms.superpose(geoms[0]), ax, widget=widget, clear_lines=False)
 
     return _plt.gca(), _plt.gcf(), widget, geoms
 

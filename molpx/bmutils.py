@@ -1000,7 +1000,7 @@ def add_atom_idxs_widget(atom_idxs, widget, color_list=None):
 
     Returns
     -------
-    widget : Input widget with the representations add
+    widget : Input widget with the representations addesßd
 
     """
 
@@ -1018,3 +1018,48 @@ def add_atom_idxs_widget(atom_idxs, widget, color_list=None):
                  label_size=0)
     return widget
 
+def transpose_geom_list(geom_list):
+    r"""
+    Transpose a list of md.Trajectory objects, so that an input having the frames input
+    geom_list[0] = md.Trajectory with frames f00, f01, f02,..., f0M
+    geom_list[1] = md.Trajectory with frames f10, f11, f12,..., f1M
+    geom_list[2] = md.Trajectory with frames f20, f21, f22,..., f2M
+    ...
+    geom_list[N] = md.Trajectory with frames fN0, fN1, fN2,..., fNM
+
+    gets transposed to
+
+    geom_list[0] = md.Trajectory with frames f00, f10, f20,..., fM0
+    geom_list[1] = md.Trajectory with frames f01, f11, f21,..., fM1
+    geom_list[2] = md.Trajectory with frames f02, f12, f22,..., fM2
+    ...
+    geom_list[M] = md.Trajectory with frames f0N, f1N, f2N,..., fMN
+
+    Parameters
+    ----------
+
+    geom_list : list of md.Trajectory objects, all must have the same geom.n_frames
+
+
+    Returns
+    -------
+
+    geom_list_T : list of md.Trajectory objects (transposed)
+    """
+
+    assert isinstance(geom_list, list)
+    n_frames_per_element = geom_list[0].n_frames
+    assert _np.all([igeom.n_frames==n_frames_per_element for igeom in geom_list]), \
+        "All geometries in the list have to have the same length"
+
+
+    list_out = [[igeom[ii] for igeom in geom_list] for ii in range(n_frames_per_element)]
+    geom_list_T = []
+    for ilist in list_out:
+        igeom = ilist[0]
+        #TODO: avoid joining via copy_not_join
+        for jgeom in ilist[1:]:
+            igeom = igeom.join(jgeom)
+        geom_list_T.append(igeom)
+
+    return(geom_list_T)

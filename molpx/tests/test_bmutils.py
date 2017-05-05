@@ -497,7 +497,7 @@ class TestSmoothingFunctions(unittest.TestCase):
     def setUp(self):
         # The setup creates the typical, "geometries-sampled along cluster-scenario"
         traj = md.load(os.path.join(pyemma.__path__[0], 'coordinates/tests/data/bpti_ca.pdb'))
-        traj = traj.atom_slice([0, 1])  # create a trajectory with four atoms
+        traj = traj.atom_slice([0, 1])  # create a trajectory with two atoms
         # Create a fake bi-modal trajectory with a compact and an open structure
         ixyz = np.array([[10.,  20.,  30.],
                          [100., 200., 300.],
@@ -581,12 +581,37 @@ class TestSmoothingFunctions(unittest.TestCase):
         assert np.allclose(geom.xyz, self.traj[2:-2].xyz), (geom.xyz, self.traj[1:-1].xyz)
         assert np.allclose(self.traj.xyz.mean(-1)[2:-2], xyz)
 
-    def test_smooth_geom_righ_output_square(self):
-        # TODO FINISH THIS TESTS
+    def test_smooth_geom_right_output_square(self):
+        # TODO FINISH THIS TESTS: make it so that the averaged value is not linear in the running variable
         # This geometry is harder to do
         xyz = [self.traj.xyz[0] + np.ones((2, 3)) * ii**2 for ii in range(10)]
         self.traj = md.Trajectory(xyz, self.traj.top)
         print(self.traj.xyz)
+
+class TestListTransposeGeomList(unittest.TestCase):
+
+    def test_it(self):
+        # Create a dummy topology
+        traj = md.load(os.path.join(pyemma.__path__[0], 'coordinates/tests/data/bpti_ca.pdb'))
+        top = traj.atom_slice([0]).top  # Single atom topology
+
+        ixyz_row_0 =  [[0, 0, 0]],    [[0, 1, 0]],    [[0, 2, 0]] # 3 frames of 1 atom
+        ixyz_row_1 =  [[1, 0, 0]],    [[1, 1, 0]],    [[2, 2, 0]] # 3 frames of 1 atom
+
+        # A list of 2 elements each of 3 frames
+        geom_list = [md.Trajectory(ixyz_row_0, topology=top),
+                     md.Trajectory(ixyz_row_1, topology=top)]
+
+
+
+        # A list of 3 elements each of 2 frames
+        transposed_geom_list = bmutils.transpose_geom_list(geom_list)
+
+        new_ixyz_column_0 = [igeom[0].xyz for igeom in transposed_geom_list]
+        new_ixyz_column_1 = [igeom[1].xyz for igeom in transposed_geom_list]
+
+        assert np.allclose(np.squeeze(ixyz_row_0), np.squeeze(new_ixyz_column_0)), (ixyz_row_0, new_ixyz_column_0)
+        assert np.allclose(np.squeeze(ixyz_row_1), np.squeeze(new_ixyz_column_1)), (ixyz_row_1, new_ixyz_column_1)
 
 if __name__ == '__main__':
     unittest.main()

@@ -13,7 +13,9 @@ from .bmutils import (regspace_cluster_to_target as _cluster_to_target,
                       visual_path as _visual_path,
                       data_from_input as _data_from_input,
                       minimize_rmsd2ref_in_sample as _minimize_rmsd2ref_in_sample,
-                      save_traj_wrapper as _save_traj_wrapper)
+                      save_traj_wrapper as _save_traj_wrapper,
+                      transpose_geom_list as _transpose_geom_list
+                      )
 from collections import defaultdict as _defdict
 import mdtraj as _md
 
@@ -267,10 +269,12 @@ def sample(MD_trajectories, MD_top, projected_trajectories,
 
     keep_all_samples : boolean, default is False
         In principle, once the closest-to-ref geometry has been kept, the other geometries are discarded, and the
-        output sample contains only n_point geometries. HOWEVER, there are special cases where the user might
+        output sample contains only n_point geometries. There are, still, special cases where the user might
         want to keep all sampled geometries. Typical use-case is when the n_points is low and many representatives
-        per clustercenters will be much more informative than the other way around
-        (i know, this is confusing TODO: write this better)
+        per clustercenters will be much more informative than the other way around.
+        This is an advanced feature that other methods of molPX use internally for generating overlays, be awere that
+        it changes the return type of :obj:`geom_smpl` from the default (an :obj:`mdtraj.Trajectory` with :obj:`n_points`-frames)
+        to a list list of length :obj:`n_geom_samples`, each element is an :obj:`mdtraj.Trajectory` object of :obj:`n_points`-frames
 
 
     Returns
@@ -279,7 +283,10 @@ def sample(MD_trajectories, MD_top, projected_trajectories,
     pos :
         ndarray with the positions of the sample
     geom_smpl :
-        :obj:`mdtraj.Trajectory` object with the sampled geometries
+        sampled geometries. Can be of two types:
+
+        * default: :obj:`mdtraj.Trajectory` with :obj:`n_points`-frames
+        * if keep_all_samples = True: list of length :obj:`n_geom_samples`. Each element is an :obj:`mdtraj.Trajectory` object of :obj:`n_points`-frames.
 
     """
 
@@ -304,15 +311,14 @@ def sample(MD_trajectories, MD_top, projected_trajectories,
     geom_smpl = _save_traj_wrapper(src, _np.vstack(cat_smpl), None, top=MD_top, stride=proj_stride)
 
     if n_geom_samples>1:
+        geom_smpl = _re_warp(geom_smpl, [n_geom_samples] * cl.n_clusters)
         if not keep_all_samples:
-            geom_smpl = _re_warp(geom_smpl, [n_geom_samples] * cl.n_clusters)
             # Of the most populated geom, get the most compact
             most_pop = _np.bincount(_np.hstack(cl.dtrajs)).argmax()
             geom_most_pop = geom_smpl[most_pop][_md.compute_rg(geom_smpl[most_pop]).argmin()]
             geom_smpl = _minimize_rmsd2ref_in_sample(geom_smpl, geom_most_pop)
         else:
-            # Need to repeat the pos-vector
-            pos = _np.tile(pos,n_geom_samples).reshape(-1,2)
+            geom_smpl = _transpose_geom_list(geom_smpl)
 
     if not return_data:
         return pos, geom_smpl

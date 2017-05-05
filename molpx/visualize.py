@@ -126,7 +126,7 @@ def FES(MD_trajectories, MD_top, projected_trajectory,
         FES_sample = FES_data[_np.digitize(data_sample, edges[0][:-2])]
         data_sample = _np.hstack((data_sample, FES_sample))
 
-    iwd = sample(data_sample, geoms.superpose(geoms[0]), ax, clear_lines=False)
+    iwd = sample(data_sample, geoms, ax, clear_lines=False)
 
     return _plt.gca(), _plt.gcf(), iwd, data_sample, geoms
 

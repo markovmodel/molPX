@@ -124,10 +124,6 @@ def FES(MD_trajectories, MD_top, projected_trajectory,
 
     data = _np.vstack(data)
 
-    _plt.figure()
-    # Use PyEMMA's plotting routine
-    plot_free_energy(data[:,proj_idxs[0]], data[:,proj_idxs[1]], nbins=nbins)
-
     ax, FES_data, edges = _plot_ND_FES(data[:,proj_idxs],
                                   ['$\mathregular{%s_{%u}}$' % (axlabel, ii) for ii in proj_idxs],
                                   bins=nbins)

@@ -556,8 +556,107 @@ def correlations(correlation_input,
 
     return corr_dict, widget
 
-
 def sample(positions, geom, ax,
+           plot_path=False,
+           clear_lines=True,
+           n_smooth = 0,
+           widget=None,
+           superpose=True,
+           projection = None,
+           n_feats = 1,
+           sticky=False,
+           **link_ax2wdg_kwargs
+           ):
+
+    r"""
+    Visualize the geometries in :obj:`geom` according to the data in :obj:`positions` on an existing matplotlib axes :obj:`ax`
+
+    Use this method when the array of positions, the geometries, the axes (and the widget, optionally) have already been
+    generated elsewhere.
+
+    Parameters
+    ----------
+    positions : numpy nd.array of shape (n_frames, 2)
+        Contains the position associated with each frame in :obj:`geom` in that order
+
+    geom : :obj:`mdtraj.Trajectory` objects or a list thereof.
+        The geometries associated with the the :obj:`positions`. Hence, all have to have the same number of n_frames
+
+    ax : matplotlib.pyplot.Axes object
+        The axes to be linked with the nglviewer widget
+
+    plot_path : bool, default is False
+        whether to draw a line connecting the positions in :obj:`positions`
+
+    clear_lines : bool, default is True
+        whether to clear all the lines that were previously drawn in :obj:`ax`
+
+    n_smooth : int, default is 0,
+        if n_smooth > 0, the shown geometries and paths will be smoothed out by 2*n frames.
+        See :any:`bmutils.smooth_geom` for more information
+
+    widget : None or existing nglview widget
+        you can provide an already instantiated nglviewer widget here (avanced use)
+
+    superpose : boolean, default is True
+        # TODO: false is not implemented yet
+        The geometries in :obj:`geom` may or may not be oriented, depending on where they were generated.
+        Since this method is mostly for visualization purposes, the default behaviour is to orient them all to
+        maximally overlap with the first frame (of the first :obj:`mdtraj.Trajectory` object, in case :obj:`geom`
+        is a list)
+    projection : object that generated the projection, default is None
+        The projected coordinates may come from a variety of sources. When working with :ref:`pyemma` a number of objects
+        might have generated this projection, like a
+        * :obj:`pyemma.coordinates.transform.TICA` or a
+        * :obj:`pyemma.coordinates.transform.PCA` or a
+
+        Expert use. Pass this object along ONLY if the :obj:`positions` have been generetaed using :any:`projection_paths`,
+        so that looking at linear correlations makes sense. Observe the features that are most correlated with the projections
+        will be plotted for the sample, allowing the user to establish a visual connection between the
+        projected coordinate and the original features (distances, angles, contacts etc)
+
+    n_feats : int, default is 1
+        If a :obj:`projection` is passed along, the first n_feats features that most correlate the
+        the projected trajectories will be represented, both in form of trajectories feat vs t as well as in
+        the nglwidget. If :obj:`projection` is None, :obj:`nfeats`  will be ignored.
+
+    link_ax2wdg_kwargs: dictionary of named arguments, optional
+        named arguments for the function :obj:`_link_ax_w_pos_2_nglwidget`, which is the one that internally
+        provides the interactivity. Non-expert users can safely ignore this option.
+
+    Returns
+    --------
+
+    iwd : :obj:`nglview.NGLWidget`
+
+    """
+
+    if not sticky:
+        return _sample(positions, geom, ax,
+                       plot_path = plot_path,
+                       clear_lines = clear_lines,
+                       n_smooth = n_smooth,
+                       widget = widget,
+                       superpose = superpose,
+                       projection = projection,
+                       n_feats = n_feats,
+                       ** link_ax2wdg_kwargs)
+    else:
+        if isinstance(geom, _md.Trajectory):
+            geom=[geom]
+        iwd = _initialize_nglwidget_if_safe(geom[0].superpose(geom[0]))
+        iwd.component_0.clear()
+        iwd._hidden_sticky_frames = [igeom.superpose(geom[0][0]) for igeom in geom]
+        _link_ax_w_pos_2_nglwidget(ax,
+                                   positions,
+                                   iwd,
+                                   directionality='a2w',
+                                   **link_ax2wdg_kwargs
+                                   )
+        return iwd
+
+
+def _sample(positions, geom, ax,
            plot_path=False,
            clear_lines=True,
            n_smooth = 0,
@@ -599,6 +698,7 @@ def sample(positions, geom, ax,
         you can provide an already instantiated nglviewer widget here (avanced use)
 
     superpose : boolean, default is True
+        # TODO: false is not implemented yet
         The geometries in :obj:`geom` may or may not be oriented, depending on where they were generated.
         Since this method is mostly for visualization purposes, the default behaviour is to orient them all to
         maximally overlap with the first frame (of the first :obj:`mdtraj.Trajectory` object, in case :obj:`geom`
@@ -649,7 +749,6 @@ def sample(positions, geom, ax,
             iwd = _initialize_nglwidget_if_safe(geom[0].superpose(geom[0]))
             for igeom in geom[1:]:
                 iwd.add_trajectory(igeom.superpose(geom[0]))
-
 
     else:
         iwd = widget

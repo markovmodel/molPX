@@ -569,6 +569,15 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
 
     x, y = pos.T
 
+    from matplotlib.colors import cnames as _cnames
+
+    # Are we in a sticky situation?
+    sticky = False
+    if hasattr(nglwidget, '_hidden_sticky_frames'):
+        sticky = True
+        sticky_overlays_by_frame = transpose_geom_list(nglwidget._hidden_sticky_frames)
+        overlay_iterator_by_frame = {ff: iter(sgeom) for ff, sgeom in enumerate(sticky_overlays_by_frame)}
+        sticky_colors_hex = _np.random.permutation(list(_cnames.values()))
     # Basic interactive objects
     showclick_objs = []
     if crosshairs in [True, 'h']:
@@ -621,8 +630,14 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
             update2Dlines(idot,x[index],y[index])
 
         nglwidget.isClick = True
-        nglwidget.frame = index
-
+        if not sticky:
+            nglwidget.frame = index
+        else:
+            nglwidget.add_trajectory(next(overlay_iterator_by_frame[index]))
+            nglwidget.clear_representations(component=nglwidget.n_components)
+            nglwidget.add_representation('cartoon', component=nglwidget.n_components, color=sticky_colors_hex[index])
+            ax.plot(pos[index, 0], pos[index, 1], 'o', c=sticky_colors_hex[index], ms=7)
+            print()
     def my_observer(change):
         r"""Here comes the code that you want to execute
         """

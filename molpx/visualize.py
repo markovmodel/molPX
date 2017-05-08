@@ -3,7 +3,7 @@ from __future__ import print_function
 __author__ = 'gph82'
 
 
-from pyemma.plots import plot_free_energy
+from pyemma.plots import plot_free_energy as _plot_free_energy
 import numpy as _np
 from .bmutils import link_ax_w_pos_2_nglwidget as _link_ax_w_pos_2_nglwidget, \
     data_from_input as _data_from_input, \
@@ -12,6 +12,7 @@ from .bmutils import link_ax_w_pos_2_nglwidget as _link_ax_w_pos_2_nglwidget, \
     re_warp as _re_warp, \
     add_atom_idxs_widget as _add_atom_idxs_widget, \
     matplotlib_colors_no_blue as _bmcolors
+
 from . import generate
 
 from matplotlib import pylab as _plt, rcParams as _rcParams
@@ -63,7 +64,7 @@ def FES(MD_trajectories, MD_top, projected_trajectory,
         you can provide .npy-filenames or readable asciis (.dat, .txt etc).
         NOTE: molpx assumes that there is no time column.
 
-    proj_idxs: list or ndarray of length 2
+    proj_idxs: int, list or ndarray
         Selection of projection idxs (zero-idxd) to visualize.
 
     nbins : int, default 100
@@ -101,30 +102,76 @@ def FES(MD_trajectories, MD_top, projected_trajectory,
     else:
         keep_all_samples = False
 
-
+    # Prepare for 1D case
+    if isinstance(proj_idxs,int):
+        proj_idxs = [proj_idxs]
     data_sample, geoms, data = generate.sample(MD_trajectories, MD_top, projected_trajectory, proj_idxs=proj_idxs,
                                                n_points=n_sample,
                                                return_data=True,
                                                n_geom_samples=n_overlays,
                                                keep_all_samples=keep_all_samples
                                          )
-
     data = _np.vstack(data)
-    _plt.figure()
-    # Use PyEMMA's plotting routine
-    plot_free_energy(data[:,proj_idxs[0]], data[:,proj_idxs[1]], nbins=nbins)
 
-    #h, (x, y) = _np.histogramdd(data, bins=nbins)
-    #irange = _np.hstack((x[[0,-1]], y[[0,-1]]))
-    #_plt.contourf(-_np.log(h).T, extent=irange)
+    ax, FES_data, edges = _plot_ND_FES(data[:,proj_idxs],
+                                  ['$\mathregular{%s_{%u}}$' % (axlabel, ii) for ii in proj_idxs],
+                                  bins=nbins)
+    if edges[0] is not None:
+        # We have the luxury of sorting!
+        sorts_data = data_sample[:,0].argsort()
+        data_sample[:,0] = data_sample[sorts_data,0]
+        if isinstance(geoms, _md.Trajectory):
+            geoms = [geoms]
+            geoms = [_md.Trajectory([igeom[ii].xyz.squeeze() for ii in sorts_data], igeom.topology) for igeom in geoms]
 
-    ax = _plt.gca()
-    ax.set_xlabel('$\mathregular{%s_{%u}}$'%(axlabel, proj_idxs[0]))
-    ax.set_ylabel('$\mathregular{%s_{%u}}$'%(axlabel, proj_idxs[1]))
+        # TODO: look closely at this x[:-2]  (bins, edges, and off-by-one errors
+        FES_sample = FES_data[_np.digitize(data_sample, edges[0][:-2])]
+        data_sample = _np.hstack((data_sample, FES_sample))
 
-    iwd = sample(data_sample, geoms, ax)
+    iwd = sample(data_sample, geoms, ax, clear_lines=False)
 
     return _plt.gca(), _plt.gcf(), iwd, data_sample, geoms
+
+def _plot_ND_FES(data, ax_labels, bins=50):
+    r""" A wrapper for pyemmas FESs plotting function that can also plot 1D
+
+    Parameters
+    ----------
+
+    data : list of numpy nd.arrays
+
+    ax_labels : list
+
+    Returns
+    -------
+
+    ax : :obj:`pylab.Axis` object
+
+    FES_data : numpy nd.array containing the FES (only for 1D data)
+
+    edges : tuple containimg the axes along which FES is to be plotted (only in the 1D case so far, else it's None)
+
+    """
+    _plt.figure()
+    ax = _plt.gca()
+    idata = _np.vstack(data)
+    ax.set_xlabel(ax_labels[0])
+    if idata.shape[1] == 1:
+        h, edges = _np.histogramdd(idata, bins=bins, normed=True)
+        FES_data = -_np.log(h)
+        FES_data -= FES_data.min()
+        ax.plot(edges[0][:-1], FES_data)
+        ax.set_ylabel('$\Delta G / \kappa T $')
+
+    elif idata.shape[1] == 2:
+        _plot_free_energy(idata[:,0], idata[:,1], nbins=bins, ax=ax)
+        ax.set_ylabel(ax_labels[1])
+        edges, FES_data = [None], None
+        # TODO: retrieve the actual edges from pyemma's "plot_free_energy"'s axes
+    else:
+        raise NotImplementedError('Can only plot 1D or 2D FESs, but data has %s columns' % _np.shape(idata)[0])
+
+    return ax, FES_data, edges,
 
 def traj(MD_trajectories,
          MD_top, projected_trajectories,
@@ -381,18 +428,13 @@ def traj(MD_trajectories,
         widget = _add_atom_idxs_widget([corr_dict["atom_idxs"][iproj][ifeat]], widget, color_list=[icol])
 
     if plot_FES:
-        if len(proj_idxs)!=2:
-            raise NotImplementedError('Can only plot 2D FES if more than one projection idxs has been '
-                                      'specificed, but only got %s. \n In the future a 1D histogramm will '
-                                      'be shown.'%proj_idxs)
-        h, (x, y) = _np.histogramdd(_np.vstack(data), bins=50)
-        irange = _np.hstack((x[[0,-1]], y[[0,-1]]))
-        _plt.figure()
-        _plt.contourf(-_np.log(h).T, extent=irange)
-        _plt.xlabel(ylabels[0])
-        _plt.ylabel(ylabels[1])
-        ax = _plt.gca()
-        widget = sample(data[active_traj], geoms.superpose(geoms[0]), ax, widget=widget)
+        ax, FES_data, edges = _plot_ND_FES(data, ylabels)
+        if edges[0] is not None:
+            print(edges)
+            FES_data = [FES_data[_np.digitize(idata, edges[0][:-2])] for idata in data]
+            data = [_np.hstack((idata, iFES_data)) for idata, iFES_data in zip(data, FES_data)]
+
+        widget = sample(data[active_traj], geoms.superpose(geoms[0]), ax, widget=widget, clear_lines=False)
 
     return _plt.gca(), _plt.gcf(), widget, geoms
 

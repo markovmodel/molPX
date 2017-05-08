@@ -514,7 +514,8 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
                               crosshairs=True,
                               band_width=None,
                               radius=False,
-                              directionality=None):
+                              directionality=None,
+                              exclude_coord=None):
     r"""
     Initial idea for this function comes from @arose, the rest is @gph82
 
@@ -526,11 +527,16 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
     crosshairs : Boolean or str
         If True, a crosshair will show where the mouse-click ocurred. If 'h' or 'v', only the horizontal or
         vertical line of the crosshair will be shown, respectively. If False, no crosshair will appear
-    directionality str or None, default is None
+
+    directionality : str or None, default is None
         If not None, directionality can be either 'a2w' or 'w2a', meaning that connectivity
          between axis and widget will be only established as
          * 'a2w' : action in axis   triggers action in widget, but not the other way around
          * 'w2a' : action in widget triggers action in axis, but not the other way around
+
+    exclude_coord : None or int , default is None
+        The excluded coordinate will not be considered when computing the nearest-point-to-click.
+        Typical use case is for visualize.traj to only compute distances horizontally along the time axis
     """
 
     assert directionality in [None, 'a2w', 'w2a'], "The directionality parameter has to be in [None, 'a2w', 'w2a'] " \
@@ -538,9 +544,13 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
 
     assert crosshairs in [True, False, 'h', 'v'], "The crosshairs parameter has to be in [True, False, 'h','v'], " \
                                                    "not %s" % crosshairs
-    kdtree = _cKDTree(pos)
+    ipos = _np.copy(pos)
+    if isinstance(exclude_coord, int):
+        ipos[:,exclude_coord] = 0
+    kdtree = _cKDTree(ipos)
     assert nglwidget.trajectory_0.n_frames == pos.shape[0], \
         ("Mismatching frame numbers %u vs %u"%( nglwidget.trajectory_0.n_frames, pos.shape[0]))
+
     x, y = pos.T
 
     # Basic interactive objects
@@ -562,10 +572,6 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
     if band_width is not None:
         #print("Band_width(x,y) is %s" % (band_width))
         coord_idx= get_ascending_coord_idx(pos)
-        if coord_idx.ndim > 0:
-            print("More than one column is in ascending order:%g."
-                  "Band visuals might be wrong." % coord_idx)
-            coord_idx = coord_idx[0]
 
         band_width_in_pts = int(_np.round(pts_per_axis_unit(ax)[coord_idx] * band_width[coord_idx]))
         #print("Band_width in %s is %s pts"%('xy'[coord_idx], band_width_in_pts))
@@ -630,7 +636,7 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
 
     return axes_widget
 
-def get_ascending_coord_idx(pos, fail_if_empty=False):
+def get_ascending_coord_idx(pos, fail_if_empty=False, fail_if_more_than_one=False):
     r"""
     return the indices of the columns of :obj:`pos` that's sorted in ascending order
 
@@ -640,8 +646,11 @@ def get_ascending_coord_idx(pos, fail_if_empty=False):
     pos : 2D ndarray of shape(N,M)
         the array for which the ascending column is wanted
 
-    fail_if_empty : bool, default is True
+    fail_if_empty : bool, default is False
         If no column is found, fail
+
+    fail_if_more_than_one : bool, default is False,
+        If more than one column is found, fail. Otherwise return the first index of the ascending columns
 
     Returns
     -------
@@ -655,6 +664,15 @@ def get_ascending_coord_idx(pos, fail_if_empty=False):
         idxs = _np.array(idxs)
     elif idxs == [] and fail_if_empty:
         raise ValueError('No column was found in ascending order')
+
+    if idxs.ndim > 0:
+        print('Found that more than one column in ascending order %s' % idxs)
+        if fail_if_more_than_one:
+            raise Exception
+        else:
+            print("Restricting to the first ascending coordinate."
+                  "Band visuals might be wrong.")
+            idxs = idxs[0]
     return idxs
 
 def pts_per_axis_unit(mplax, pt_per_inch=72):
@@ -831,7 +849,7 @@ def smooth_geom(geom, n, geom_data=None, superpose=True, symmetric=True):
     else:
         return geom_out, data_out
 
-def most_corr(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_args=1, proj_names='proj'):
+def most_corr(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_args=1, proj_names='proj', featurizer=None):
     r"""
     return information about the most correlated features from a `:obj:pyemma.coodrinates.transformer` object
 
@@ -840,8 +858,8 @@ def most_corr(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_a
 
     correlation_input : anything
         Something that could, in principle, be a :obj:`pyemma.coordinates.transformer,
-        like a TICA or PCA object
-        (this method will be extended to interpret other inputs, so for now this parameter is pretty flexible)
+        like a TICA or PCA object or directly a correlation matrix, with a row for each feature and a column
+        for each projection, very much like the :obj:`feature_TIC_correlation` of the TICA object of pyemma
 
     geoms : None or obj:`md.Trajectory`, default is None
         The values of the most correlated features will be returned for the geometires in this object
@@ -856,6 +874,10 @@ def most_corr(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_a
 
     n_args : int, default is 1
         Number of argmax correlation to return for each feature.
+
+    featurizer : optional featurizer, default is None
+        In case the :obj:`correlation_input` doest no have a data_producer.featurizer attribute, the
+        user can input one here
 
     Returns
     -------
@@ -904,45 +926,61 @@ def most_corr(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_a
     if isinstance(proj_idxs, int):
         proj_idxs = [proj_idxs]
 
+    if featurizer is None:
+        try:
+            featurizer=correlation_input.data_producer.featurizer
+            avail_FT = True
+        except(AttributeError):
+            avail_FT = False
 
-    if isinstance(correlation_input, (_TICA, _PCA)):
 
-        if proj_idxs is None:
-            proj_idxs = _np.arange(correlation_input.dim)
+    if isinstance(correlation_input, _TICA):
+        corr = correlation_input.feature_TIC_correlation
+    elif isinstance(correlation_input, _PCA):
+        corr = correlation_input.feature_PC_correlation
+    elif isinstance(correlation_input, _np.ndarray):
+        corr = correlation_input
+    else:
+        raise TypeError('correlation_input has to be either %s, not %s'%([_TICA, _PCA, _np.ndarray], type(correlation_input)))
 
-        if isinstance(proj_names, str):
-            proj_names = ['%s_%u' % (proj_names, ii) for ii in proj_idxs]
+    dim = corr.shape[1]
 
-        if _np.max(proj_idxs) > correlation_input.dim:
-            raise ValueError("Cannot ask for projection index %u if the "
-                             "transformation only has %u projections"%(_np.max(proj_idxs), correlation_input.dim))
+    if proj_idxs is None:
+        proj_idxs = _np.arange(dim)
 
-        for ii in proj_idxs:
-            icorr = correlation_input.feature_TIC_correlation[:, ii]
-            most_corr_idxs.append(_np.abs(icorr).argsort()[::-1][:n_args])
-            most_corr_vals.append([icorr[jj] for jj in most_corr_idxs[-1]])
-            if geoms is not None:
-                most_corr_feats.append(correlation_input.data_producer.featurizer.transform(geoms)[:, most_corr_idxs[-1]])
+    if isinstance(proj_names, str):
+        proj_names = ['%s_%u' % (proj_names, ii) for ii in proj_idxs]
 
-            if isinstance(feat_name, str):
-                istr = '$\mathregular{%s_{%%u}}$'%(feat_name, most_corr_idxs[-1])
-            elif feat_name is None:
-                istr = [correlation_input.data_producer.featurizer.describe()[jj] for jj in most_corr_idxs[-1]]
-            most_corr_labels.append(istr)
+    if _np.max(proj_idxs) > dim:
+        raise ValueError("Cannot ask for projection index %u if the "
+                         "transformation only has %u projections"%(_np.max(proj_idxs), dim))
 
-            if len(correlation_input.data_producer.featurizer.active_features) > 1:
+    for ii in proj_idxs:
+        icorr = corr[:, ii]
+        most_corr_idxs.append(_np.abs(icorr).argsort()[::-1][:n_args])
+        most_corr_vals.append([icorr[jj] for jj in most_corr_idxs[-1]])
+        if geoms is not None and avail_FT:
+            most_corr_feats.append(featurizer.transform(geoms)[:, most_corr_idxs[-1]])
+
+        if isinstance(feat_name, str):
+            most_corr_labels.append('$\mathregular{%s_{%u}}$'%(feat_name, most_corr_idxs[-1]))
+        elif feat_name is None and avail_FT:
+            most_corr_labels.append([featurizer.describe()[jj] for jj in most_corr_idxs[-1]])
+
+        if avail_FT:
+            if len(featurizer.active_features) > 1:
                 pass
                 # TODO write a warning
             else:
-                ifeat = correlation_input.data_producer.featurizer.active_features[0]
+                ifeat = featurizer.active_features[0]
                 most_corr_atom_idxs.append(atom_idxs_from_feature(ifeat)[most_corr_idxs[-1]])
 
-        for ii, iproj in enumerate(proj_names):
-            info.append({"lines":[], "name":iproj})
-            for jj, jidx in enumerate(most_corr_idxs[ii]):
-                istr = 'Corr[%s|feat] = %2.1f for %-30s (feat nr. %u, atom idxs %s' % \
-                       (iproj, most_corr_vals[ii][jj], most_corr_labels[ii][jj], jidx, most_corr_atom_idxs[ii][jj])
-                info[-1]["lines"].append(istr)
+    for ii, iproj in enumerate(proj_names):
+        info.append({"lines":[], "name":iproj})
+        for jj, jidx in enumerate(most_corr_idxs[ii]):
+            istr = 'Corr[%s|feat] = %2.1f for %-30s (feat nr. %u, atom idxs %s' % \
+                   (iproj, most_corr_vals[ii][jj], most_corr_labels[ii][jj], jidx, most_corr_atom_idxs[ii][jj])
+            info[-1]["lines"].append(istr)
 
     corr_dict = {'idxs': most_corr_idxs,
                  'vals': most_corr_vals,
@@ -966,13 +1004,18 @@ def atom_idxs_from_feature(ifeat):
 
     atom_indices : list with the atoms indices representative of this feature, whatever the feature
     """
-    from pyemma.coordinates.data.featurization.distances import DistanceFeature as _DF
+
+    from pyemma.coordinates.data.featurization.distances import DistanceFeature as _DF, \
+        ResidueMinDistanceFeature as _ResMinDF
     from pyemma.coordinates.data.featurization.misc import SelectionFeature as _SF
-    if isinstance(ifeat, _DF):
+
+    if isinstance(ifeat, _DF) and not isinstance(ifeat, _ResMinDF):
         return ifeat.distance_indexes
     elif isinstance(ifeat, _SF):
         return _np.repeat(ifeat.indexes, 3)
-        pass
+    elif isinstance(ifeat, _ResMinDF):
+        # Comprehend all the lists!!!!
+        return _np.vstack([[list(ifeat.top.residue(pj).atoms_by_name('CA'))[0].index for pj in pair] for pair in ifeat.contacts])
     else:
         # TODO write a warning?
         return []
@@ -980,9 +1023,11 @@ def atom_idxs_from_feature(ifeat):
 def add_atom_idxs_widget(atom_idxs, widget, color_list=None):
     r"""
     provided a list of atom_idxs and a widget, try to represent them as well as possible in the widget
-    The user should not need to provide anything other than the atom indxs and the method decides how
+    It is assumed that this method is called once per feature, ie. the number of atoms defines the
+    feature. This way, the method decides how to best represent them
     best to represent them. Currently, that means:
-     * pairs of atoms are represented as distances
+     * single atoms:   assume cartesian feature, represent with spacefill
+     * pairs of atoms: assume distance feature, represent with distance
      * everything else is ignored
 
     Parameters
@@ -1009,13 +1054,18 @@ def add_atom_idxs_widget(atom_idxs, widget, color_list=None):
     elif isinstance(color_list, list) and len(color_list)<len(atom_idxs):
         color_list += [color_list[-1]]*(len(atom_idxs)-len(color_list))
 
-    if atom_idxs != []:
+    if atom_idxs is not []:
         for iidxs, color in zip(atom_idxs, color_list):
-            if len(iidxs==2):
+            if isinstance(iidxs, (int, _np.int64, _np.int32)):
+                widget.add_spacefill(selection=[iidxs], radius=1, color=color)
+            elif _np.ndim(iidxs)>0 and len(iidxs)==2:
                 widget.add_distance(atom_pair=[[ii for ii in iidxs]], # yes it has to be this way for now
                  color=color,
                  #label_color='black',
                  label_size=0)
+            else:
+                print("Cannot represent these type of feature (yet)")
+
     return widget
 
 def transpose_geom_list(geom_list):

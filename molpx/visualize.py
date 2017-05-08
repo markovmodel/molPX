@@ -11,7 +11,8 @@ from .bmutils import link_ax_w_pos_2_nglwidget as _link_ax_w_pos_2_nglwidget, \
     most_corr as _most_corr_info, \
     re_warp as _re_warp, \
     add_atom_idxs_widget as _add_atom_idxs_widget, \
-    matplotlib_colors_no_blue as _bmcolors
+    matplotlib_colors_no_blue as _bmcolors, \
+    get_ascending_coord_idx as _get_ascending_coord_idx
 
 from . import generate
 
@@ -34,11 +35,20 @@ def _initialize_nglwidget_if_safe(geom, mock=True):
 
 class _mock_nglwidget(object):
     r"""
-    mock widget, which isn't even a widget, to allow for testing inside of the terminal
+    mock widget, which isn't even a widget, to allow for testing inside of the terminal.
     """
+    # TODO nglvwidget inside terminal one should follow this comment
+    # https://github.com/markovmodel/PyEMMA/issues/1062#issuecomment-288494497
+
     def __init__(self, geom):
         self.trajectory_0 = geom
     def observe(self,*args, **kwargs):
+        print("The method 'observe' of a mock nglwidget is called. "
+              "Ignore this message if testing, otherwise refer to molPX documentation.")
+
+    def add_spacefill(self, *args, **kwargs):
+        print("The method 'add_spacefill' of a mock nglwidget is called. "
+              "Ignore this message if testing, otherwise refer to molPX documentation.")
         pass
 
 def FES(MD_trajectories, MD_top, projected_trajectory,
@@ -111,6 +121,7 @@ def FES(MD_trajectories, MD_top, projected_trajectory,
                                                n_geom_samples=n_overlays,
                                                keep_all_samples=keep_all_samples
                                          )
+
     data = _np.vstack(data)
 
     ax, FES_data, edges = _plot_ND_FES(data[:,proj_idxs],
@@ -267,7 +278,7 @@ def traj(MD_trajectories,
     n_feats : int, default is 1
         If a :obj:`projection` is passed along, the first n_feats features that most correlate the
         the projected trajectories will be represented, both in form of trajectories feat vs t as well as in
-        the nglwidget
+        the nglwidget. If :obj:`projection` is None, :obj:`nfeats`  will be ignored.
 
     Returns
     ---------
@@ -342,12 +353,13 @@ def traj(MD_trajectories,
        raise TypeError("Parameter proj_labels has to be of type str or list, not %s"%type(proj_labels))
 
     # Do we have usable projection information?
-    corr_dict = _most_corr_info(projection, geoms=geoms, proj_idxs=proj_idxs, n_args=n_feats)
-    if corr_dict["feats"] != []:
-        # Then extend the trajectory selection to include the active trajectory twice
-        traj_selection = _np.insert(traj_selection,
-                                    _np.argwhere([active_traj==ii for ii in traj_selection]).squeeze(),
-                                    [active_traj] * n_feats)
+    if projection is not None:
+        corr_dict = _most_corr_info(projection, geoms=geoms, proj_idxs=proj_idxs, n_args=n_feats)
+        if corr_dict["feats"] != []:
+            # Then extend the trajectory selection to include the active trajectory twice
+            traj_selection = _np.insert(traj_selection,
+                                        _np.argwhere([active_traj==ii for ii in traj_selection]).squeeze(),
+                                        [active_traj] * n_feats)
     else:
         # squash whatever input we had if the projection-info input wasn't actually usable
         n_feats = 0
@@ -374,7 +386,8 @@ def traj(MD_trajectories,
                     iax.plot(time, idata)
                     widget = sample(data_sample, geoms.superpose(geoms[0]), iax,
                                     clear_lines=False, widget=widget,
-                                    crosshairs='v')
+                                    crosshairs='v',
+                                    exclude_coord=1)
                     projections_plotted += 1
                     time_feat = time
                     # TODO find out why this is needed
@@ -445,7 +458,8 @@ def correlations(correlation_input,
                  widget=None,
                  proj_color_list=None,
                  n_feats=1,
-                 verbose=False):
+                 verbose=False,
+                 featurizer=None):
     r"""
     Provide a visual and textual representation of the linear correlations between projected coordinates (PCA, TICA)
      and original features.
@@ -455,8 +469,9 @@ def correlations(correlation_input,
 
     correlation_input : anything
         Something that could, in principle, be a :obj:`pyemma.coordinates.transformer,
-        like a TICA or PCA object
-        (this method will be extended to interpret other inputs, so for now this parameter is pretty flexible)
+        like a TICA or PCA object or directly a correlation matrix, with a row for each feature and a column
+        for each projection, very much like the :obj:`feature_TIC_correlation` of the TICA object of pyemma.
+
 
     geoms : None or obj:`md.Trajectory`, default is None
         The values of the most correlated features will be returned for the geometires in this object. If widget is
@@ -495,6 +510,10 @@ def correlations(correlation_input,
     n_feats : int, default is 1
         Number of argmax correlation to return for each feature.
 
+    featurizer : optional featurizer, default is None
+        In case the :obj:`correlation_input` doest no have a data_producer.featurizer attribute, the
+        user can input one here
+
     verbose : Bool, default is True
         print to standard output
 
@@ -503,8 +522,11 @@ def correlations(correlation_input,
     """
     # todo document
     # todo test
+    # todo consider kwargs for most_corr_info
 
-    corr_dict = _most_corr_info(correlation_input, geoms=geoms, proj_idxs=proj_idxs, feat_name=feat_name, n_args=n_feats)
+    corr_dict = _most_corr_info(correlation_input,
+                                geoms=geoms, proj_idxs=proj_idxs, feat_name=feat_name, n_args=n_feats, featurizer=featurizer
+                                )
 
     # Create ngl_viewer widget
     if geoms is not None and widget is None:
@@ -539,6 +561,8 @@ def sample(positions, geom, ax,
            n_smooth = 0,
            widget=None,
            superpose=True,
+           projection = None,
+           n_feats = 1,
            **link_ax2wdg_kwargs
            ):
 
@@ -577,6 +601,21 @@ def sample(positions, geom, ax,
         Since this method is mostly for visualization purposes, the default behaviour is to orient them all to
         maximally overlap with the first frame (of the first :obj:`mdtraj.Trajectory` object, in case :obj:`geom`
         is a list)
+    projection : object that generated the projection, default is None
+        The projected coordinates may come from a variety of sources. When working with :ref:`pyemma` a number of objects
+        might have generated this projection, like a
+        * :obj:`pyemma.coordinates.transform.TICA` or a
+        * :obj:`pyemma.coordinates.transform.PCA` or a
+
+        Expert use. Pass this object along ONLY if the :obj:`positions` have been generetaed using :any:`projection_paths`,
+        so that looking at linear correlations makes sense. Observe the features that are most correlated with the projections
+        will be plotted for the sample, allowing the user to establish a visual connection between the
+        projected coordinate and the original features (distances, angles, contacts etc)
+
+    n_feats : int, default is 1
+        If a :obj:`projection` is passed along, the first n_feats features that most correlate the
+        the projected trajectories will be represented, both in form of trajectories feat vs t as well as in
+        the nglwidget. If :obj:`projection` is None, :obj:`nfeats`  will be ignored.
 
     link_ax2wdg_kwargs: dictionary of named arguments, optional
         named arguments for the function :obj:`_link_ax_w_pos_2_nglwidget`, which is the one that internally
@@ -626,6 +665,18 @@ def sample(positions, geom, ax,
                                         band_width=band_width,
                                         **link_ax2wdg_kwargs
                                         )
+    # Do we have usable projection information?
+    if projection is not None:
+        corr_dict = _most_corr_info(projection, geoms = geom, n_args=n_feats)
+        if corr_dict["labels"] != []:
+            iproj = _get_ascending_coord_idx(positions)
+            for ifeat in range(n_feats):
+                ilabel = corr_dict["labels"][iproj][ifeat]
+                print(ilabel)
+                iwd = _add_atom_idxs_widget([corr_dict["atom_idxs"][iproj][ifeat]], iwd,
+                                            color_list=['green']
+                                            )
+
     # somehow returning the ax_wdg messes the displaying of both widgets
 
     return iwd

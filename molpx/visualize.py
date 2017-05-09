@@ -251,6 +251,7 @@ def traj(MD_trajectories,
          proj_idxs=[0,1],
          proj_labels='proj',
          plot_FES=False,
+	 weights=None,
          panel_height = 1,
          sharey_traj=True,
          dt = 1.0,
@@ -306,6 +307,9 @@ def traj(MD_trajectories,
 
     plot_FES : bool, default is False
         Plot (and interactively link) the FES as well
+
+    weights : ndarray(n_frames), default = None
+        sample weights. By default all samples have the same weight (used for FES calculation only)
 
     panel_height : int, default  1
         Height, in inches, of each panel of each trajectory subplots
@@ -499,7 +503,7 @@ def traj(MD_trajectories,
         widget = _add_atom_idxs_widget([corr_dict["atom_idxs"][iproj][ifeat]], widget, color_list=[icol])
 
     if plot_FES:
-        ax, FES_data, edges = _plot_ND_FES(data, ylabels)
+        ax, FES_data, edges = _plot_ND_FES(data, ylabels, weights=weights)
         if edges[0] is not None:
             print(edges)
             FES_data = [FES_data[_np.digitize(idata, edges[0][:-2])] for idata in data]

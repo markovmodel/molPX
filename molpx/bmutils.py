@@ -1013,6 +1013,8 @@ def atom_idxs_from_feature(ifeat):
     from pyemma.coordinates.data.featurization.distances import DistanceFeature as _DF, \
         ResidueMinDistanceFeature as _ResMinDF
     from pyemma.coordinates.data.featurization.misc import SelectionFeature as _SF
+    from pyemma.coordinates.data.featurization.angles import DihedralFeature as _DihF
+    from pyemma.coordinates.data.featurization.angles import AngleFeature as _AF
 
     if isinstance(ifeat, _DF) and not isinstance(ifeat, _ResMinDF):
         return ifeat.distance_indexes
@@ -1021,9 +1023,13 @@ def atom_idxs_from_feature(ifeat):
     elif isinstance(ifeat, _ResMinDF):
         # Comprehend all the lists!!!!
         return _np.vstack([[list(ifeat.top.residue(pj).atoms_by_name('CA'))[0].index for pj in pair] for pair in ifeat.contacts])
+    if isinstance(ifeat, (_DihF, _AF)):
+        ai = ifeat.angle_indexes
+        if ifeat.cossin:
+            ai = _np.tile(ai, 2).reshape(-1, ai.shape[1])
+        return ai
     else:
-        # TODO write a warning?
-        return []
+        raise NotImplementedError('bmutils.atom_idxs_from_feature cannot interpret the atoms behind %s yet'%ifeat)
 
 def add_atom_idxs_widget(atom_idxs, widget, color_list=None):
     r"""
@@ -1068,8 +1074,10 @@ def add_atom_idxs_widget(atom_idxs, widget, color_list=None):
                  color=color,
                  #label_color='black',
                  label_size=0)
+            elif _np.ndim(iidxs) > 0 and len(iidxs) in [3,4]:
+                widget.add_spacefill(selection=iidxs, radius=1, color=color)
             else:
-                print("Cannot represent these type of feature (yet)")
+                print("Cannot represent features involving more than 5 atoms per single feature")
 
     return widget
 

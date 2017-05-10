@@ -110,7 +110,7 @@ class TemporaryDirectory(object):
         except OSError:
             pass
 
-def example_notebook(extra_flags_as_one_string=None):
+def example_notebook(extra_flags_as_one_string=None, nb_file='Projection_Explorer.ipynb'):
     r"""
     Open the example notebook in the default browser.
     The ipython terminal stays active while the notebook is still active. Ctr+C in the ipython terminal will
@@ -121,11 +121,11 @@ def example_notebook(extra_flags_as_one_string=None):
     """
     from IPython.terminal.interactiveshell import TerminalInteractiveShell
     import shutil, os
-    origfile = _molpxdir('notebooks/Projection_Explorer.ipynb')
+    origfile = _molpxdir('notebooks/%s'%nb_file)
 
 
     with TemporaryDirectory(suffix='_test_molpx_notebook') as tmpdir:
-        tmpfile = os.path.abspath(os.path.join(tmpdir, 'Projection_Explorer.ipynb'))
+        tmpfile = os.path.abspath(os.path.join(tmpdir, nb_file))
         shutil.copy(origfile, tmpfile)
 
         nbstring = open(tmpfile).read()

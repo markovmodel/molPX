@@ -1060,21 +1060,16 @@ def add_atom_idxs_widget(atom_idxs, widget, color_list=None):
         color_list += [color_list[-1]]*(len(atom_idxs)-len(color_list))
 
     if atom_idxs is not []:
-        nc = len(widget._ngl_component_ids) # TODO widget.n_components won't work unless the wdg was drawn already once
-        for rr in range(nc):
-            for iidxs, color in zip(atom_idxs, color_list):
-                if isinstance(iidxs, (int, _np.int64, _np.int32)):
-                        widget.add_spacefill(selection=[iidxs], radius=1, color=color,
-                                             component=nc
-                                             )
-                elif _np.ndim(iidxs)>0 and len(iidxs)==2:
-                    widget.add_distance(atom_pair=[[ii for ii in iidxs]], # yes it has to be this way for now
-                     color=color,
-                     #label_color='black',
-                     component=rr,
-                     label_size=0)
-                else:
-                    print("Cannot represent these type of feature (yet)")
+        for iidxs, color in zip(atom_idxs, color_list):
+            if isinstance(iidxs, (int, _np.int64, _np.int32)):
+                widget.add_spacefill(selection=[iidxs], radius=1, color=color)
+            elif _np.ndim(iidxs)>0 and len(iidxs)==2:
+                widget.add_distance(atom_pair=[[ii for ii in iidxs]], # yes it has to be this way for now
+                 color=color,
+                 #label_color='black',
+                 label_size=0)
+            else:
+                print("Cannot represent these type of feature (yet)")
 
     return widget
 

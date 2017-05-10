@@ -50,13 +50,18 @@ class _mock_nglwidget(object):
     def add_spacefill(self, *args, **kwargs):
         print("The method 'add_spacefill' of a mock nglwidget is called. "
               "Ignore this message if testing, otherwise refer to molPX documentation.")
-        pass
+
+    def _ngl_component_ids(self, *args, **kwargs):
+        print("The method '_ngl_component_ids' of a mock nglwidget is called. "
+              "Ignore this message if testing, otherwise refer to molPX documentation.")
+
 
 def FES(MD_trajectories, MD_top, projected_trajectory,
         proj_idxs = [0,1],
         nbins=100, n_sample = 100,
         axlabel='proj',
-        n_overlays=1):
+        n_overlays=1,
+        **sample_kwargs):
     r"""
     Return a molecular visualization widget connected with a free energy plot.
 
@@ -91,6 +96,9 @@ def FES(MD_trajectories, MD_top, projected_trajectory,
     n_overlays : int, default is 1
         The number of structures that will be simultaneously displayed as overlays for every sampled point of the FES.
         This parameter can seriously slow down the method, it is currently limited to a maximum value of 50
+
+    sample_kwargs : dictionary of named arguments, optional
+        named arguments for the function :obj:`visualize.sample`. Non-expert users can safely ignore this option.
 
     Returns
     --------
@@ -140,7 +148,7 @@ def FES(MD_trajectories, MD_top, projected_trajectory,
         FES_sample = FES_data[_np.digitize(data_sample, edges[0][:-2])]
         data_sample = _np.hstack((data_sample, FES_sample))
 
-    iwd = sample(data_sample, geoms, ax, clear_lines=False)
+    iwd = sample(data_sample, geoms, ax, clear_lines=False, **sample_kwargs)
 
     return _plt.gca(), _plt.gcf(), iwd, data_sample, geoms
 
@@ -640,7 +648,7 @@ def sample(positions, geom, ax,
                        superpose = superpose,
                        projection = projection,
                        n_feats = n_feats,
-                       ** link_ax2wdg_kwargs)
+                       **link_ax2wdg_kwargs)
     else:
         if isinstance(geom, _md.Trajectory):
             geom=[geom]
@@ -656,19 +664,19 @@ def sample(positions, geom, ax,
         return iwd
 
 
-def _sample(positions, geom, ax,
-           plot_path=False,
-           clear_lines=True,
-           n_smooth = 0,
-           widget=None,
-           superpose=True,
-           projection = None,
-           n_feats = 1,
-           **link_ax2wdg_kwargs
-           ):
+def _sample(positions, geoms, ax,
+            plot_path=False,
+            clear_lines=True,
+            n_smooth = 0,
+            widget=None,
+            superpose=True,
+            projection = None,
+            n_feats = 1,
+            **link_ax2wdg_kwargs
+            ):
 
     r"""
-    Visualize the geometries in :obj:`geom` according to the data in :obj:`positions` on an existing matplotlib axes :obj:`ax`
+    Visualize the geometries in :obj:`geoms` according to the data in :obj:`positions` on an existing matplotlib axes :obj:`ax`
 
     Use this method when the array of positions, the geometries, the axes (and the widget, optionally) have already been
     generated elsewhere.
@@ -676,9 +684,9 @@ def _sample(positions, geom, ax,
     Parameters
     ----------
     positions : numpy nd.array of shape (n_frames, 2)
-        Contains the position associated with each frame in :obj:`geom` in that order
+        Contains the position associated with each frame in :obj:`geoms` in that order
 
-    geom : :obj:`mdtraj.Trajectory` objects or a list thereof.
+    geoms : :obj:`mdtraj.Trajectory` objects or a list thereof.
         The geometries associated with the the :obj:`positions`. Hence, all have to have the same number of n_frames
 
     ax : matplotlib.pyplot.Axes object
@@ -699,9 +707,9 @@ def _sample(positions, geom, ax,
 
     superpose : boolean, default is True
         # TODO: false is not implemented yet
-        The geometries in :obj:`geom` may or may not be oriented, depending on where they were generated.
+        The geometries in :obj:`geoms` may or may not be oriented, depending on where they were generated.
         Since this method is mostly for visualization purposes, the default behaviour is to orient them all to
-        maximally overlap with the first frame (of the first :obj:`mdtraj.Trajectory` object, in case :obj:`geom`
+        maximally overlap with the first frame (of the first :obj:`mdtraj.Trajectory` object, in case :obj:`geoms`
         is a list)
     projection : object that generated the projection, default is None
         The projected coordinates may come from a variety of sources. When working with :ref:`pyemma` a number of objects
@@ -730,26 +738,40 @@ def _sample(positions, geom, ax,
 
     """
 
-    assert isinstance(geom, (list, _md.Trajectory))
+    assert isinstance(geoms, (list, _md.Trajectory))
 
     # Dow I need to smooth things out?
     if n_smooth > 0:
-        if isinstance(geom, _md.Trajectory): # smoothing only makes sense for paths, and paths cannot be lists at the moment
-            geom, positions = _smooth_geom(geom, n_smooth, geom_data=positions)
+        if isinstance(geoms, _md.Trajectory): # smoothing only makes sense for paths, and paths cannot be lists at the moment
+            geoms, positions = _smooth_geom(geoms, n_smooth, geom_data=positions)
             mean_smooth_radius = _np.diff(positions, axis=0).mean(0) * n_smooth
             band_width = 2 * mean_smooth_radius
     else:
         band_width = None
 
+    # Now we can listify the geoms object
+    if isinstance(geoms, _md.Trajectory):
+        geoms = [geoms]
+
+    # Superpose if needed
+    # TODO TEST ALL THIS
+    sel = None
+    if superpose is True:
+        sel = _np.arange(geoms[0].n_atoms)
+    elif isinstance(superpose, str):
+        sel = geoms[0].top.select(superpose)
+    elif isinstance(superpose, (list, _np.ndarray)):
+        assert _np.all([isinstance(ii, int) for ii in superpose])
+        sel = superpose
+
+    if sel is not None:
+        geoms = [igeom.superpose(geoms[0], atom_indices=sel) for igeom in geoms]
+
     # Create ngl_viewer widget
     if widget is None:
-        if isinstance(geom, _md.Trajectory):
-            iwd = _initialize_nglwidget_if_safe(geom.superpose(geom[0]))
-        else:
-            iwd = _initialize_nglwidget_if_safe(geom[0].superpose(geom[0]))
-            for igeom in geom[1:]:
-                iwd.add_trajectory(igeom.superpose(geom[0]))
-
+        iwd = _initialize_nglwidget_if_safe(geoms[0])
+        for igeom in geoms[1:]:
+            iwd.add_trajectory(igeom)
     else:
         iwd = widget
 
@@ -768,7 +790,7 @@ def _sample(positions, geom, ax,
                                         )
     # Do we have usable projection information?
     if projection is not None:
-        corr_dict = _most_corr_info(projection, geoms = geom, n_args=n_feats)
+        corr_dict = _most_corr_info(projection, n_args=n_feats)
         if corr_dict["labels"] != []:
             iproj = _get_ascending_coord_idx(positions)
             for ifeat in range(n_feats):

@@ -51,9 +51,11 @@ class _mock_nglwidget(object):
         print("The method 'add_spacefill' of a mock nglwidget is called. "
               "Ignore this message if testing, otherwise refer to molPX documentation.")
 
-    def _ngl_component_ids(self, *args, **kwargs):
+    @property
+    def _ngl_component_ids(self):
         print("The method '_ngl_component_ids' of a mock nglwidget is called. "
               "Ignore this message if testing, otherwise refer to molPX documentation.")
+        return []
 
 
 def FES(MD_trajectories, MD_top, projected_trajectory,

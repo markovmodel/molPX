@@ -531,11 +531,14 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
                               band_width=None,
                               radius=False,
                               directionality=None,
-                              exclude_coord=None):
+                              exclude_coord=None,
+                              sticky_rep='cartoon',
+                              sticky_sel='all',
+                              ):
     r"""
     Initial idea for this function comes from @arose, the rest is @gph82
 
-    Paramters
+    Parameters
     ---------
     band_with : None or float,
         band_width is in units of the axis of (it will be tranlated to pts internally)
@@ -553,6 +556,16 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
     exclude_coord : None or int , default is None
         The excluded coordinate will not be considered when computing the nearest-point-to-click.
         Typical use case is for visualize.traj to only compute distances horizontally along the time axis
+
+    sticky_rep : str, default is 'cartoon'
+        The type of representation for the sticky components of the widget. Will be parsed to the
+        widget's add_representation's method, so see its documentation
+
+    sticky_sel : str, default is 'all'
+        The selection for the sticky components of the widget. Will be parsed to the
+        widget's add_representation's method, so see its documentation
+
+
     """
 
     assert directionality in [None, 'a2w', 'w2a'], "The directionality parameter has to be in [None, 'a2w', 'w2a'] " \
@@ -569,15 +582,20 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
 
     x, y = pos.T
 
-    from matplotlib.colors import cnames as _cnames
-
-    # Are we in a sticky situation?
     sticky = False
+    # Are we in a sticky situation?
     if hasattr(nglwidget, '_hidden_sticky_frames'):
-        sticky = True
+        from matplotlib.cm import get_cmap as _get_cmap
+        from matplotlib.colors import rgb2hex as _rgb2hex
+        cmap = _get_cmap('rainbow')
+        cmap_table = _np.linspace(0, 1, len(x))
         sticky_overlays_by_frame = transpose_geom_list(nglwidget._hidden_sticky_frames)
         overlay_iterator_by_frame = {ff: iter(sgeom) for ff, sgeom in enumerate(sticky_overlays_by_frame)}
-        sticky_colors_hex = _np.random.permutation(list(_cnames.values()))
+        # TODO: create a path through the colors that maximizes distance between averages (otherwise some colors
+        # are too close
+        sticky_colors_hex = [_rgb2hex(cmap(ii)) for ii in _np.random.permutation(cmap_table)]
+
+        sticky = True
     # Basic interactive objects
     showclick_objs = []
     if crosshairs in [True, 'h']:
@@ -606,7 +624,8 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
                           ms=_np.round(band_width_in_pts),
                           c='green', alpha=.25, markeredgecolor='None')[0]
             setattr(rad, 'whatisthis', 'dot')
-            closest_to_click_obj.append(rad)
+            if not sticky:
+                closest_to_click_obj.append(rad)
         else:
             band_call = [ax.axvline, ax.axhline][coord_idx]
             band_init = [ax.get_xbound, ax.get_ybound][coord_idx]
@@ -635,7 +654,10 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
         else:
             nglwidget.add_trajectory(next(overlay_iterator_by_frame[index]))
             nglwidget.clear_representations(component=nglwidget.n_components)
-            nglwidget.add_representation('cartoon', component=nglwidget.n_components, color=sticky_colors_hex[index])
+            nglwidget.add_representation(sticky_rep,
+                                         component=nglwidget.n_components,
+                                         color=sticky_colors_hex[index],
+                                         selection=sticky_sel)
             ax.plot(pos[index, 0], pos[index, 1], 'o', c=sticky_colors_hex[index], ms=7)
             print()
     def my_observer(change):

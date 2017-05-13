@@ -53,7 +53,7 @@ class _mock_nglwidget(object):
 
 def FES(MD_trajectories, MD_top, projected_trajectory,
         proj_idxs = [0,1],
-        nbins=100, n_sample = 100,
+        nbins=100, n_sample = 100, weights=None,
         axlabel='proj',
         n_overlays=1):
     r"""
@@ -83,6 +83,9 @@ def FES(MD_trajectories, MD_top, projected_trajectory,
     n_sample : int, default is 100
         The number of geometries that will be used to represent the FES. The higher the number, the higher the spatial
         resolution of the "click"-action.
+
+    weights : ndarray(n_frames), default = None
+        sample weights. By default all samples have the same weight
 
     axlabel : str, default is 'proj'
         Format of the labels in the FES plot
@@ -126,7 +129,7 @@ def FES(MD_trajectories, MD_top, projected_trajectory,
 
     ax, FES_data, edges = _plot_ND_FES(data[:,proj_idxs],
                                   ['$\mathregular{%s_{%u}}$' % (axlabel, ii) for ii in proj_idxs],
-                                  bins=nbins)
+                                  weights=weights, bins=nbins)
     if edges[0] is not None:
         # We have the luxury of sorting!
         sorts_data = data_sample[:,0].argsort()
@@ -143,7 +146,7 @@ def FES(MD_trajectories, MD_top, projected_trajectory,
 
     return _plt.gca(), _plt.gcf(), iwd, data_sample, geoms
 
-def _plot_ND_FES(data, ax_labels, bins=50):
+def _plot_ND_FES(data, ax_labels, weights=None, bins=50):
     r""" A wrapper for pyemmas FESs plotting function that can also plot 1D
 
     Parameters
@@ -168,14 +171,14 @@ def _plot_ND_FES(data, ax_labels, bins=50):
     idata = _np.vstack(data)
     ax.set_xlabel(ax_labels[0])
     if idata.shape[1] == 1:
-        h, edges = _np.histogramdd(idata, bins=bins, normed=True)
+        h, edges = _np.histogramdd(idata, weights=weights, bins=bins, normed=True)
         FES_data = -_np.log(h)
         FES_data -= FES_data.min()
         ax.plot(edges[0][:-1], FES_data)
         ax.set_ylabel('$\Delta G / \kappa T $')
 
     elif idata.shape[1] == 2:
-        _plot_free_energy(idata[:,0], idata[:,1], nbins=bins, ax=ax)
+        _plot_free_energy(idata[:,0], idata[:,1], weights=weights, nbins=bins, ax=ax)
         ax.set_ylabel(ax_labels[1])
         edges, FES_data = [None], None
         # TODO: retrieve the actual edges from pyemma's "plot_free_energy"'s axes
@@ -193,6 +196,7 @@ def traj(MD_trajectories,
          proj_idxs=[0,1],
          proj_labels='proj',
          plot_FES=False,
+         weights=None,
          panel_height = 1,
          sharey_traj=True,
          dt = 1.0,
@@ -248,6 +252,9 @@ def traj(MD_trajectories,
 
     plot_FES : bool, default is False
         Plot (and interactively link) the FES as well
+
+    weights : ndarray(n_frames), default = None
+        sample weights. By default all samples have the same weight (used for FES calculation only)
 
     panel_height : int, default  1
         Height, in inches, of each panel of each trajectory subplots
@@ -441,7 +448,7 @@ def traj(MD_trajectories,
         widget = _add_atom_idxs_widget([corr_dict["atom_idxs"][iproj][ifeat]], widget, color_list=[icol])
 
     if plot_FES:
-        ax, FES_data, edges = _plot_ND_FES(data, ylabels)
+        ax, FES_data, edges = _plot_ND_FES(data, ylabels, weights=weights)
         if edges[0] is not None:
             print(edges)
             FES_data = [FES_data[_np.digitize(idata, edges[0][:-2])] for idata in data]

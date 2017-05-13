@@ -826,9 +826,14 @@ def _sample(positions, geoms, ax,
 
     # Create ngl_viewer widget
     if widget is None:
-        iwd = _nglwidget_wrapper(geoms[0], )
-        for igeom in geoms[1:]:
-            iwd.add_trajectory(igeom)
+        if isinstance(geom, _md.Trajectory):
+            iwd = _initialize_nglwidget_if_safe(geom.superpose(geom[0]))
+        else:
+            iwd = _initialize_nglwidget_if_safe(geom[0].superpose(geom[0]))
+            for igeom in geom[1:]:
+                iwd.add_trajectory(igeom.superpose(geom[0]))
+
+
     else:
         iwd = widget
 
@@ -848,7 +853,7 @@ def _sample(positions, geoms, ax,
 
     # Do we have usable projection information?
     if projection is not None:
-        corr_dict = _most_corr_info(projection, n_args=n_feats)
+        corr_dict = _most_corr_info(projection, geoms = geom, n_args=n_feats)
         if corr_dict["labels"] != []:
             iproj = _get_ascending_coord_idx(positions)
             for ifeat in range(n_feats):

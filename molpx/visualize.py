@@ -469,7 +469,7 @@ def correlations(correlation_input,
 
     correlation_input : anything
         Something that could, in principle, be a :obj:`pyemma.coordinates.transformer,
-        like a TICA or PCA object or directly a correlation matrix, with a row for each feature and a column
+        like a TICA, PCA or featurizer object or directly a correlation matrix, with a row for each feature and a column
         for each projection, very much like the :obj:`feature_TIC_correlation` of the TICA object of pyemma.
 
 
@@ -511,8 +511,9 @@ def correlations(correlation_input,
         Number of argmax correlation to return for each feature.
 
     featurizer : optional featurizer, default is None
-        In case the :obj:`correlation_input` doest no have a data_producer.featurizer attribute, the
-        user can input one here
+        If :obj:`correlation_input` is not an :obj:`_MDFeautrizer` itself or doesn't have a
+        data_producer.featurizer attribute, the user can input one here. If both an _MDfeaturizer *and* an :obj:`featurizer`
+         are provided, the latter will be ignored.
 
     verbose : Bool, default is True
         print to standard output

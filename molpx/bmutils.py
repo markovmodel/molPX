@@ -13,6 +13,7 @@ from pyemma.coordinates import \
     save_traj as _save_traj
 
 from pyemma.coordinates.data.feature_reader import  FeatureReader as _FeatureReader
+from pyemma.coordinates.data.featurization.featurizer import MDFeaturizer as _MDFeaturizer
 from pyemma.coordinates.transform import TICA as _TICA, PCA as _PCA
 from pyemma.util.discrete_trajectories import index_states as _index_states
 from scipy.spatial import cKDTree as _cKDTree
@@ -858,8 +859,8 @@ def most_corr(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_a
 
     correlation_input : anything
         Something that could, in principle, be a :obj:`pyemma.coordinates.transformer,
-        like a TICA or PCA object or directly a correlation matrix, with a row for each feature and a column
-        for each projection, very much like the :obj:`feature_TIC_correlation` of the TICA object of pyemma
+        like a TICA, PCA or featurizer object or directly a correlation matrix, with a row for each feature and a column
+        for each projection, very much like the :obj:`feature_TIC_correlation` of the TICA object of pyemma.
 
     geoms : None or obj:`md.Trajectory`, default is None
         The values of the most correlated features will be returned for the geometires in this object
@@ -876,8 +877,9 @@ def most_corr(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_a
         Number of argmax correlation to return for each feature.
 
     featurizer : optional featurizer, default is None
-        In case the :obj:`correlation_input` doest no have a data_producer.featurizer attribute, the
-        user can input one here
+        If :obj:`correlation_input` is not an :obj:`_MDFeautrizer` itself or doesn't have a
+        data_producer.featurizer attribute, the user can input one here. If both an _MDfeaturizer *and* an :obj:`featurizer`
+         are provided, the latter will be ignored.
 
     Returns
     -------
@@ -926,22 +928,25 @@ def most_corr(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_a
     if isinstance(proj_idxs, int):
         proj_idxs = [proj_idxs]
 
-    if featurizer is None:
-        try:
-            featurizer=correlation_input.data_producer.featurizer
-            avail_FT = True
-        except(AttributeError):
-            avail_FT = False
-
-
     if isinstance(correlation_input, _TICA):
         corr = correlation_input.feature_TIC_correlation
     elif isinstance(correlation_input, _PCA):
         corr = correlation_input.feature_PC_correlation
     elif isinstance(correlation_input, _np.ndarray):
         corr = correlation_input
+    elif isinstance(correlation_input, _MDFeaturizer):
+        corr = _np.eye(correlation_input.dimension())
+        featurizer = correlation_input
+        avail_FT = True
     else:
-        raise TypeError('correlation_input has to be either %s, not %s'%([_TICA, _PCA, _np.ndarray], type(correlation_input)))
+        raise TypeError('correlation_input has to be either %s, not %s'%([_TICA, _PCA, _np.ndarray, _MDFeaturizer], type(correlation_input)))
+
+    if featurizer is None:
+        try:
+            featurizer=correlation_input.data_producer.featurizer
+            avail_FT = True
+        except(AttributeError):
+            avail_FT = False
 
     dim = corr.shape[1]
 
@@ -1008,6 +1013,8 @@ def atom_idxs_from_feature(ifeat):
     from pyemma.coordinates.data.featurization.distances import DistanceFeature as _DF, \
         ResidueMinDistanceFeature as _ResMinDF
     from pyemma.coordinates.data.featurization.misc import SelectionFeature as _SF
+    from pyemma.coordinates.data.featurization.angles import DihedralFeature as _DihF
+    from pyemma.coordinates.data.featurization.angles import AngleFeature as _AF
 
     if isinstance(ifeat, _DF) and not isinstance(ifeat, _ResMinDF):
         return ifeat.distance_indexes
@@ -1016,9 +1023,13 @@ def atom_idxs_from_feature(ifeat):
     elif isinstance(ifeat, _ResMinDF):
         # Comprehend all the lists!!!!
         return _np.vstack([[list(ifeat.top.residue(pj).atoms_by_name('CA'))[0].index for pj in pair] for pair in ifeat.contacts])
+    if isinstance(ifeat, (_DihF, _AF)):
+        ai = ifeat.angle_indexes
+        if ifeat.cossin:
+            ai = _np.tile(ai, 2).reshape(-1, ai.shape[1])
+        return ai
     else:
-        # TODO write a warning?
-        return []
+        raise NotImplementedError('bmutils.atom_idxs_from_feature cannot interpret the atoms behind %s yet'%ifeat)
 
 def add_atom_idxs_widget(atom_idxs, widget, color_list=None):
     r"""
@@ -1063,8 +1074,10 @@ def add_atom_idxs_widget(atom_idxs, widget, color_list=None):
                  color=color,
                  #label_color='black',
                  label_size=0)
+            elif _np.ndim(iidxs) > 0 and len(iidxs) in [3,4]:
+                widget.add_spacefill(selection=iidxs, radius=1, color=color)
             else:
-                print("Cannot represent these type of feature (yet)")
+                print("Cannot represent features involving more than 5 atoms per single feature")
 
     return widget
 

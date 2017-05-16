@@ -79,6 +79,7 @@ class TestCorrelationsInput(unittest.TestCase):
         self.feat.add_all()
         source = pyemma.coordinates.source(self.MD_trajectory_files, features=self.feat)
         self.tica = pyemma.coordinates.tica(source, lag=1, dim=10)
+        self.pca = pyemma.coordinates.pca(source)
         self.Y = self.tica.get_output()
         self.F = source.get_output()
         [np.save(ifile, iY) for ifile, iY in zip(self.projected_files, self.Y)]
@@ -87,8 +88,14 @@ class TestCorrelationsInput(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.tempdir)
 
-    def test_correlations_inputs(self):
+    def test_correlations_input_tica(self):
         visualize.correlations(self.tica)
+
+    def test_correlations_input_pca(self):
+        visualize.correlations(self.pca)
+
+    def test_correlations_input_feat(self):
+        visualize.correlations(self.feat)
 
     def test_correlations_inputs_verbose(self):
         visualize.correlations(self.tica, verbose=True)

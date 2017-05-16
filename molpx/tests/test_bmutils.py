@@ -613,5 +613,50 @@ class TestListTransposeGeomList(unittest.TestCase):
         assert np.allclose(np.squeeze(ixyz_row_0), np.squeeze(new_ixyz_column_0)), (ixyz_row_0, new_ixyz_column_0)
         assert np.allclose(np.squeeze(ixyz_row_1), np.squeeze(new_ixyz_column_1)), (ixyz_row_1, new_ixyz_column_1)
 
+class TestIndexFromFeatures(unittest.TestCase):
+
+    def setUp(self):
+        self.MD_topology = os.path.join(pyemma.__path__[0], 'coordinates/tests/data/bpti_ca.pdb')
+        self.feat= pyemma.coordinates.featurizer(self.MD_topology)
+
+        self.ang_idxs = [[ii + jj for jj in range(3)] for ii in range(self.feat.topology.n_atoms - 3)]
+        self.dih_idxs = [[ii + jj for jj in range(4)] for ii in range(self.feat.topology.n_atoms - 4)]
+
+        self.feat.add_all()
+        self.feat.add_distances_ca(excluded_neighbors=0)
+        self.feat.add_angles(self.ang_idxs)
+        self.feat.add_angles(self.ang_idxs, cossin=True)
+        self.feat.add_dihedrals(self.dih_idxs)
+        self.feat.add_dihedrals(self.dih_idxs, cossin=True)
+
+    def tearDown(self):
+        pass
+
+    def test_atom_idxs_from_feature_xyz(self):
+        ai = bmutils.atom_idxs_from_feature(self.feat.active_features[0])
+        assert np.allclose(np.repeat(np.arange(self.feat.topology.n_atoms),3), ai)
+
+    def test_atom_idxs_from_feature_D_CA(self):
+        ai = bmutils.atom_idxs_from_feature(self.feat.active_features[1])
+        ref = np.vstack(np.triu_indices(self.feat.topology.n_atoms, k=1)).T
+        assert np.allclose(ref, ai),ai
+
+    def test_atom_idxs_from_feature_ang(self):
+        ai = bmutils.atom_idxs_from_feature(self.feat.active_features[2])
+        assert np.allclose(self.ang_idxs, ai)
+
+    def test_atom_idxs_from_feature_ang_cossin(self):
+        ai = bmutils.atom_idxs_from_feature(self.feat.active_features[3])
+        ref = np.tile(self.ang_idxs, 2).reshape(-1,3)
+        assert np.allclose(ai, ref)
+
+    def test_atom_idxs_from_feature_dih(self):
+        ai = bmutils.atom_idxs_from_feature(self.feat.active_features[4])
+        assert np.allclose(self.dih_idxs, ai)
+    def test_atom_idxs_from_feature_dih_cossin(self):
+        ai = bmutils.atom_idxs_from_feature(self.feat.active_features[5])
+        ref = np.tile(self.dih_idxs, 2).reshape(-1,4)
+        assert np.allclose(ref, ai)
+
 if __name__ == '__main__':
     unittest.main()

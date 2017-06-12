@@ -14,7 +14,8 @@ from .bmutils import (regspace_cluster_to_target as _cluster_to_target,
                       data_from_input as _data_from_input,
                       minimize_rmsd2ref_in_sample as _minimize_rmsd2ref_in_sample,
                       save_traj_wrapper as _save_traj_wrapper,
-                      transpose_geom_list as _transpose_geom_list
+                      transpose_geom_list as _transpose_geom_list,
+                      listify_if_int as _listify_if_int, listfiy_if_not_list as _listfiy_if_not_list
                       )
 from collections import defaultdict as _defdict
 import mdtraj as _md
@@ -101,8 +102,7 @@ def projection_paths(MD_trajectories, MD_top, projected_trajectories,
         list of ndarrays with the the data in  :obj:`projected_trajectories`
     """
 
-    if not isinstance(MD_trajectories, list):
-        MD_trajectories = [MD_trajectories]
+    MD_trajectories = _listfiy_if_not_list(MD_trajectories)
 
     if isinstance(MD_trajectories[0], _md.Trajectory):
         src = MD_trajectories
@@ -120,8 +120,7 @@ def projection_paths(MD_trajectories, MD_top, projected_trajectories,
     if proj_idxs is None:
        proj_idxs = _np.arange(n_projs)
     else:
-        if isinstance(proj_idxs, int):
-            proj_idxs = [proj_idxs]
+        proj_idxs = _listify_if_int(proj_idxs)
 
     proj_dim = _np.max((proj_dim, _np.max(proj_idxs)+1))
     proj_dim = _np.min((proj_dim,input_dim))
@@ -290,8 +289,7 @@ def sample(MD_trajectories, MD_top, projected_trajectories,
 
     """
 
-    if not isinstance(MD_trajectories, list):
-        MD_trajectories = [MD_trajectories]
+    MD_trajectories = _listfiy_if_not_list(MD_trajectories)
     if isinstance(MD_trajectories[0], _md.Trajectory):
         src = MD_trajectories
     else:

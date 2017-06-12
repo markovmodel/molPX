@@ -12,7 +12,8 @@ from .bmutils import link_ax_w_pos_2_nglwidget as _link_ax_w_pos_2_nglwidget, \
     re_warp as _re_warp, \
     add_atom_idxs_widget as _add_atom_idxs_widget, \
     matplotlib_colors_no_blue as _bmcolors, \
-    get_ascending_coord_idx as _get_ascending_coord_idx
+    get_ascending_coord_idx as _get_ascending_coord_idx, \
+    listify_if_int as _listify_if_int, listfiy_if_not_list as _listfiy_if_not_list
 
 from . import generate
 
@@ -113,8 +114,8 @@ def FES(MD_trajectories, MD_top, projected_trajectory,
         keep_all_samples = False
 
     # Prepare for 1D case
-    if isinstance(proj_idxs,int):
-        proj_idxs = [proj_idxs]
+    proj_idxs = _listify_if_int(proj_idxs)
+
     data_sample, geoms, data = generate.sample(MD_trajectories, MD_top, projected_trajectory, proj_idxs=proj_idxs,
                                                n_points=n_sample,
                                                return_data=True,
@@ -298,22 +299,22 @@ def traj(MD_trajectories,
 
     """
 
-
-    if isinstance(proj_idxs, int):
-        proj_idxs = [proj_idxs]
+    proj_idxs = _listify_if_int(proj_idxs)
 
     # Parse input
     data = [iY[:,proj_idxs] for iY in _data_from_input(projected_trajectories)]
-    if not isinstance(MD_trajectories, list):
-        MD_trajectories = [MD_trajectories]
+
+    MD_trajectories = _listfiy_if_not_list(MD_trajectories)
+
     assert len(data) == len(MD_trajectories), "Mismatch between number of MD-trajectories " \
                                            "and projected trajectores %u vs %u"%(len(MD_trajectories), len(data))
     assert len(MD_trajectories) > active_traj, "parameter active_traj selected for traj nr. %u to be active " \
                                             " but your input has only %u trajs. Note: the parameter active_traj " \
                                             "is zero-indexed"%(active_traj, len(MD_trajectories))
-    if isinstance(traj_selection, int):
-        traj_selection = [traj_selection]
-    elif traj_selection is None:
+
+    traj_selection = _listify_if_int(traj_selection)
+
+    if traj_selection is None:
         traj_selection = _np.arange(len(data))
     assert _np.max(traj_selection) < len(data), "Selected up to traj. nr. %u via the parameter traj_selection, " \
                                                 "but only provided %u trajs"%(_np.max(traj_selection), len(data))

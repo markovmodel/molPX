@@ -16,7 +16,21 @@ from pyemma.coordinates.data.feature_reader import  FeatureReader as _FeatureRea
 from pyemma.coordinates.data.featurization.featurizer import MDFeaturizer as _MDFeaturizer
 from pyemma.coordinates.transform import TICA as _TICA, PCA as _PCA
 from pyemma.util.discrete_trajectories import index_states as _index_states
+from pyemma.util.types import is_string as _is_string,  is_int as _is_int
+
 from scipy.spatial import cKDTree as _cKDTree
+
+def listify_if_int(inp):
+    if _is_int(inp):
+        inp = [inp]
+
+    return inp
+
+def listfiy_if_not_list(inp):
+    if not isinstance(inp, list):
+        inp = [inp]
+
+    return inp
 
 def matplotlib_colors_no_blue():
     # Until we get the colorcyle thing working, this is a workaround:
@@ -51,7 +65,7 @@ def re_warp(array_in, lengths):
     warped: list
     """
 
-    if isinstance(lengths, int):
+    if _is_int(lengths):
         lengths = [lengths] * int(_np.ceil(len(array_in) / lengths))
 
     warped = []
@@ -139,8 +153,9 @@ def min_disp_path(start, path_of_candidates,
 
     tested = True
     """
-    if isinstance(exclude_coords, int):
-        exclude_coords = [exclude_coords]
+
+    exclude_coords = listify_if_int([exclude_coords])
+
     path_out = []
     now = _np.copy(start)
     if _np.ndim(now) == 1:
@@ -268,7 +283,7 @@ def catalogues(cl, data=None, sort_by=None):
         cat_cont.append(_np.vstack([idata[ii][jj] for ii,jj in icat]))
 
     if sort_by is not None:
-       assert isinstance(sort_by, int)
+       assert _is_int(sort_by)
        assert sort_by <= cl.clustercenters.shape[1], "Want to sort by %u-th coord, but centers have only %u dims"%(sort_by, cl.clustercenters.shape[1])
        sorts_coordinate = _np.argsort(cl.clustercenters[:,sort_by])
        cat_idxs = [cat_idxs[ii] for ii in sorts_coordinate]
@@ -300,7 +315,7 @@ def visual_path(cat_idxs, cat_cont, path_type='min_disp', start_pos='maxpop', st
     """
     if start_pos == 'maxpop':
        start_idx = _np.argmax([len(icat) for icat in cat_idxs])
-    elif isinstance(start_pos, (int, _np.int32, _np.int64)):
+    elif _is_int(start_pos):
        start_idx = start_pos
     else:
        raise NotImplementedError(start_pos)
@@ -454,12 +469,12 @@ def data_from_input(projected_data):
     """
 
     # Create a list if ONE str or ONE ndarray are input
-    if isinstance(projected_data, str) or isinstance(projected_data, _np.ndarray):
+    if _is_string(projected_data) or isinstance(projected_data, _np.ndarray):
         projected_data = [projected_data]
     elif not isinstance(projected_data, list):
         raise ValueError("Data type not understood %s" % type(projected_data))
 
-    if isinstance(projected_data[0],str):
+    if _is_string(projected_data[0]):
         if projected_data[0].endswith('npy'):
             idata = [_np.load(f) for f in projected_data]
         else:
@@ -485,7 +500,7 @@ def save_traj_wrapper(traj_inp, indexes, outfile, top=None, stride=1, chunksize=
         traj_inp = [traj_inp]
 
     # Do the normal thing in case of Feature_reader or list of strings
-    if isinstance(traj_inp, _FeatureReader) or isinstance(traj_inp[0], str):
+    if isinstance(traj_inp, _FeatureReader) or _is_string(traj_inp[0]):
         geom_smpl = _save_traj(traj_inp, indexes, None, top=top, stride=stride,
                                chunksize=chunksize, image_molecules=image_molecules, verbose=verbose)
     elif isinstance(traj_inp[0], _md.Trajectory):
@@ -546,7 +561,7 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
     assert crosshairs in [True, False, 'h', 'v'], "The crosshairs parameter has to be in [True, False, 'h','v'], " \
                                                    "not %s" % crosshairs
     ipos = _np.copy(pos)
-    if isinstance(exclude_coord, int):
+    if _is_int(exclude_coord):
         ipos[:,exclude_coord] = 0
     kdtree = _cKDTree(ipos)
     assert nglwidget.trajectory_0.n_frames == pos.shape[0], \
@@ -661,7 +676,7 @@ def get_ascending_coord_idx(pos, fail_if_empty=False, fail_if_more_than_one=Fals
     """
 
     idxs = _np.argwhere(_np.all(_np.diff(pos,axis=0)>0, axis=0)).squeeze()
-    if isinstance(idxs, (int, _np.int16, _np.int32)):
+    if _is_int(idxs):
         idxs = _np.array(idxs)
     elif idxs == [] and fail_if_empty:
         raise ValueError('No column was found in ascending order')
@@ -925,8 +940,7 @@ def most_corr(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_a
     most_corr_atom_idxs = []
     info = []
 
-    if isinstance(proj_idxs, int):
-        proj_idxs = [proj_idxs]
+    proj_idxs = listify_if_int(proj_idxs)
 
     if isinstance(correlation_input, _TICA):
         corr = correlation_input.feature_TIC_correlation
@@ -953,7 +967,7 @@ def most_corr(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_a
     if proj_idxs is None:
         proj_idxs = _np.arange(dim)
 
-    if isinstance(proj_names, str):
+    if _is_string(proj_names):
         proj_names = ['%s_%u' % (proj_names, ii) for ii in proj_idxs]
 
     if _np.max(proj_idxs) > dim:
@@ -967,7 +981,7 @@ def most_corr(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_a
         if geoms is not None and avail_FT:
             most_corr_feats.append(featurizer.transform(geoms)[:, most_corr_idxs[-1]])
 
-        if isinstance(feat_name, str):
+        if _is_string(feat_name):
             most_corr_labels.append('$\mathregular{%s_{%u}}$'%(feat_name, most_corr_idxs[-1]))
         elif feat_name is None and avail_FT:
             most_corr_labels.append([featurizer.describe()[jj] for jj in most_corr_idxs[-1]])
@@ -1067,7 +1081,7 @@ def add_atom_idxs_widget(atom_idxs, widget, color_list=None):
 
     if atom_idxs is not []:
         for iidxs, color in zip(atom_idxs, color_list):
-            if isinstance(iidxs, (int, _np.int64, _np.int32)):
+            if _is_int(iidxs):
                 widget.add_spacefill(selection=[iidxs], radius=1, color=color)
             elif _np.ndim(iidxs)>0 and len(iidxs)==2:
                 widget.add_distance(atom_pair=[[ii for ii in iidxs]], # yes it has to be this way for now

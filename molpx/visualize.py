@@ -22,17 +22,31 @@ import nglview as _nglview
 import mdtraj as _md
 
 # All calls to nglview call actually this function
-def _initialize_nglwidget_if_safe(geom, mock=True):
+def _nglwidget_wrapper(geom, mock=True):
+    r""" Wrapper to nlgivew.show_geom's method that allows for some other automatic choice of
+    representation and avoids the actual widget if one is calling from terminal (for unit tests)
+
+    :return: :nglview.widget object
+    """
     try:
-        return _nglview.show_mdtraj(geom)
+        iwd = _nglview.show_mdtraj(geom)
     except:
         if mock:
             print("molPX has to be used inside a notebook, not from terminal. A mock nglwidget is being returned."
                   "Ignore this message if testing, "
                   "otherwise refer to molPX documentation")
-            return _mock_nglwidget(geom)
+            iwd = _mock_nglwidget(geom)
         else:
             raise Exception("molPX has to be used inside a notebook, not from terminal")
+
+    # Let' some customization take place
+    ## Do we need a ball+stick representation?
+    if geom.top.n_residues < 10:
+        iwd.remove_cartoon()
+        iwd.remove_backbone()
+        iwd.add_ball_and_stick()
+
+    return iwd
 
 class _mock_nglwidget(object):
     r"""
@@ -57,12 +71,22 @@ class _mock_nglwidget(object):
               "Ignore this message if testing, otherwise refer to molPX documentation.")
         return []
 
+    def remove_cartoon(self):
+        print("The method 'remove_cartoon' of a mock nglwidget is called. "
+              "Ignore this message if testing, otherwise refer to molPX documentation.")
+
+    def add_ball_and_stick(self):
+        print("The method 'add_ball_and_stick' of a mock nglwidget is called. "
+              "Ignore this message if testing, otherwise refer to molPX documentation.")
+
+
 
 def FES(MD_trajectories, MD_top, projected_trajectory,
         proj_idxs = [0,1],
         nbins=100, n_sample = 100,
-        axlabel='proj',
+        proj_labels='proj',
         n_overlays=1,
+        atom_selection=None,
         **sample_kwargs):
     r"""
     Return a molecular visualization widget connected with a free energy plot.
@@ -92,12 +116,21 @@ def FES(MD_trajectories, MD_top, projected_trajectory,
         The number of geometries that will be used to represent the FES. The higher the number, the higher the spatial
         resolution of the "click"-action.
 
-    axlabel : str, default is 'proj'
-        Format of the labels in the FES plot
+    proj_labels : either string or list of strings
+        The projection plots will get this paramter for labeling their yaxis. If a str is
+        provided, that will be the base name proj_labels='%s_%u'%(proj_labels,ii) for each
+        projection. If a list, the list will be used. If not enough labels are there
+        the module will complain
 
     n_overlays : int, default is 1
         The number of structures that will be simultaneously displayed as overlays for every sampled point of the FES.
         This parameter can seriously slow down the method, it is currently limited to a maximum value of 50
+
+    atom_selection : string or iterable of integers, default is None
+        The geometries of the original trajectory files will be filtered down to these atoms. It can be any DSL string
+        that   mdtraj.Topology.select could understand or directly the iterable of integers.
+        If :py:obj`MD_trajectories` is already a (list of) md.Trajectory objects, the atom-slicing can take place
+        before calling this method.
 
     sample_kwargs : dictionary of named arguments, optional
         named arguments for the function :obj:`visualize.sample`. Non-expert users can safely ignore this option.
@@ -126,7 +159,9 @@ def FES(MD_trajectories, MD_top, projected_trajectory,
     # Prepare for 1D case
     proj_idxs = _listify_if_int(proj_idxs)
 
-    data_sample, geoms, data = generate.sample(MD_trajectories, MD_top, projected_trajectory, proj_idxs=proj_idxs,
+    data_sample, geoms, data = generate.sample(MD_trajectories, MD_top, projected_trajectory,
+                                               atom_selection=atom_selection,
+                                               proj_idxs=proj_idxs,
                                                n_points=n_sample,
                                                return_data=True,
                                                n_geom_samples=n_overlays,
@@ -135,9 +170,17 @@ def FES(MD_trajectories, MD_top, projected_trajectory,
 
     data = _np.vstack(data)
 
+
+    if isinstance(proj_labels, str):
+       axlabels = ['$\mathregular{%s_{%u}}$'%(proj_labels, ii) for ii in proj_idxs]
+    elif isinstance(proj_labels, list):
+       axlabels = proj_labels
+    else:
+       raise TypeError("Parameter proj_labels has to be of type str or list, not %s"%type(proj_labels))
+
     ax, FES_data, edges = _plot_ND_FES(data[:,proj_idxs],
-                                  ['$\mathregular{%s_{%u}}$' % (axlabel, ii) for ii in proj_idxs],
-                                  bins=nbins)
+                                       axlabels,
+                                       bins=nbins)
     if edges[0] is not None:
         # We have the luxury of sorting!
         sorts_data = data_sample[:,0].argsort()
@@ -542,7 +585,7 @@ def correlations(correlation_input,
 
     # Create ngl_viewer widget
     if geoms is not None and widget is None:
-        widget = _initialize_nglwidget_if_safe(geoms.superpose(geoms))
+        widget = _nglwidget_wrapper(geoms.superpose(geoms))
 
     if proj_color_list is None:
         proj_color_list = ['blue'] * len(corr_dict["idxs"])
@@ -630,6 +673,10 @@ def sample(positions, geom, ax,
         the projected trajectories will be represented, both in form of trajectories feat vs t as well as in
         the nglwidget. If :obj:`projection` is None, :obj:`nfeats`  will be ignored.
 
+    sticky : boolean, default is False,
+        If set to True, the widget the generated visualizations will be sticky in that they do not disappear with
+        the next click event. Particularly useful for represeting more minima simultaneously.
+
     link_ax2wdg_kwargs: dictionary of named arguments, optional
         named arguments for the function :obj:`_link_ax_w_pos_2_nglwidget`, which is the one that internally
         provides the interactivity. Non-expert users can safely ignore this option.
@@ -654,7 +701,7 @@ def sample(positions, geom, ax,
     else:
         if isinstance(geom, _md.Trajectory):
             geom=[geom]
-        iwd = _initialize_nglwidget_if_safe(geom[0].superpose(geom[0]))
+        iwd = _nglwidget_wrapper(geom[0].superpose(geom[0]))
         iwd.component_0.clear()
         iwd._hidden_sticky_frames = [igeom.superpose(geom[0][0]) for igeom in geom]
         _link_ax_w_pos_2_nglwidget(ax,
@@ -756,7 +803,6 @@ def _sample(positions, geoms, ax,
         geoms = [geoms]
 
     # Superpose if needed
-    # TODO TEST ALL THIS
     sel = None
     if superpose is True:
         sel = _np.arange(geoms[0].n_atoms)
@@ -771,7 +817,7 @@ def _sample(positions, geoms, ax,
 
     # Create ngl_viewer widget
     if widget is None:
-        iwd = _initialize_nglwidget_if_safe(geoms[0])
+        iwd = _nglwidget_wrapper(geoms[0], )
         for igeom in geoms[1:]:
             iwd.add_trajectory(igeom)
     else:
@@ -790,6 +836,7 @@ def _sample(positions, geoms, ax,
                                         band_width=band_width,
                                         **link_ax2wdg_kwargs
                                         )
+
     # Do we have usable projection information?
     if projection is not None:
         corr_dict = _most_corr_info(projection, n_args=n_feats)

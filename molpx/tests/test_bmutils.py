@@ -613,6 +613,19 @@ class TestListTransposeGeomList(unittest.TestCase):
         assert np.allclose(np.squeeze(ixyz_row_0), np.squeeze(new_ixyz_column_0)), (ixyz_row_0, new_ixyz_column_0)
         assert np.allclose(np.squeeze(ixyz_row_1), np.squeeze(new_ixyz_column_1)), (ixyz_row_1, new_ixyz_column_1)
 
+class geom_list_2_geom(unittest.TestCase):
+
+    def test_it(self):
+        # Create a dummy topology
+        MD_trajectory = os.path.join(pyemma.__path__[0], 'coordinates/tests/data/bpti_mini.xtc')
+        MD_topology = os.path.join(pyemma.__path__[0], 'coordinates/tests/data/bpti_ca.pdb')
+        traj = md.load(MD_trajectory, top=MD_topology)
+
+        traj_list = [itraj for itraj in traj]
+        new_geom = bmutils.geom_list_2_geom(traj_list)
+
+        assert np.allclose(np.hstack([igeom.xyz for igeom in new_geom]).squeeze(), np.vstack(traj.xyz))
+
 class TestIndexFromFeatures(unittest.TestCase):
 
     def setUp(self):

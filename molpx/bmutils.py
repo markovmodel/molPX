@@ -12,7 +12,7 @@ from pyemma.coordinates import \
     cluster_regspace as _cluster_regspace, \
     save_traj as _save_traj
 
-from pyemma.coordinates.data.feature_reader import  FeatureReader as _FeatureReader
+from pyemma.coordinates.data.feature_reader import FeatureReader as _FeatureReader
 from pyemma.coordinates.data.featurization.featurizer import MDFeaturizer as _MDFeaturizer
 from pyemma.coordinates.transform import TICA as _TICA, PCA as _PCA
 from pyemma.util.discrete_trajectories import index_states as _index_states
@@ -1107,7 +1107,7 @@ def add_atom_idxs_widget(atom_idxs, widget, color_list=None):
 
     Returns
     -------
-    widget : Input widget with the representations added
+    widget : Input widget with the representations addesßd
 
     """
 
@@ -1177,3 +1177,30 @@ def transpose_geom_list(geom_list):
         geom_list_T.append(igeom)
 
     return(geom_list_T)
+
+def geom_list_2_geom(geom_list):
+    r"""
+    Join a list of md.Trajectory objects to one single trajectory
+
+
+    Parameters
+    ----------
+
+    geom_list : list of md.Trajectory objects, each can have the arbitrary geom.n_frames
+
+
+    Returns
+    -------
+
+    geom : of md.Trajectory object
+    """
+
+    assert isinstance(geom_list, list)
+
+    geom = geom_list[0]
+    #TODO: avoid joining via copy_not_join
+    for jgeom in geom_list[1:]:
+        geom = geom.join(jgeom)
+
+
+    return(geom)

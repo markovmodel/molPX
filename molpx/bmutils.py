@@ -532,8 +532,6 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
                               radius=False,
                               directionality=None,
                               exclude_coord=None,
-                              sticky_rep='cartoon',
-                              sticky_sel='all',
                               ):
     r"""
     Initial idea for this function comes from @arose, the rest is @gph82
@@ -556,15 +554,6 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
     exclude_coord : None or int , default is None
         The excluded coordinate will not be considered when computing the nearest-point-to-click.
         Typical use case is for visualize.traj to only compute distances horizontally along the time axis
-
-    sticky_rep : str, default is 'cartoon'
-        The type of representation for the sticky components of the widget. Will be parsed to the
-        widget's add_representation's method, so see its documentation
-
-    sticky_sel : str, default is 'all'
-        The selection for the sticky components of the widget. Will be parsed to the
-        widget's add_representation's method, so see its documentation
-
 
     """
 
@@ -595,7 +584,13 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
         # are too close
         sticky_colors_hex = [_rgb2hex(cmap(ii)) for ii in _np.random.permutation(cmap_table)]
 
+        sticky_rep = 'cartoon'
+        if nglwidget._hidden_sticky_frames[0].top.n_residues < 10:
+            sticky_rep = 'ball+stick'
+
         sticky = True
+
+
     # Basic interactive objects
     showclick_objs = []
     if crosshairs in [True, 'h']:
@@ -657,9 +652,9 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
             nglwidget.add_representation(sticky_rep,
                                          component=nglwidget.n_components,
                                          color=sticky_colors_hex[index],
-                                         selection=sticky_sel)
+                                         )
             ax.plot(pos[index, 0], pos[index, 1], 'o', c=sticky_colors_hex[index], ms=7)
-            print()
+
     def my_observer(change):
         r"""Here comes the code that you want to execute
         """

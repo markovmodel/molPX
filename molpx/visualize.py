@@ -407,7 +407,7 @@ def traj(MD_trajectories,
 
     # Now let's go to the feature axes
     # Some bookkeping about axis and features
-    first_empty_axis = _np.argwhere(traj_selection==active_traj)[0]*len(proj_idxs)+len(proj_idxs)
+    first_empty_axis = _np.argwhere([active_traj==ii for ii in traj_selection])[0]*len(proj_idxs)+len(proj_idxs)
     last_empty_axis = first_empty_axis+ len(proj_idxs) * n_feats
     rows, cols = _np.unravel_index(_np.arange(first_empty_axis,last_empty_axis), myax.shape)
     colors = _bmcolors()

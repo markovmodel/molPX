@@ -18,7 +18,7 @@ class TestTrajInputs(unittest.TestCase):
 
     def setUp(self):
         self.MD_trajectory_files = glob(molpx._molpxdir(join='notebooks/data/c-alpha_centered.stride.1000*xtc'))
-        self.MD_topology_file = glob(molpx._molpxdir(join='notebooks/data/*pdb'))[0]
+        self.MD_topology_file = molpx._molpxdir(join='notebooks/data/bpti-c-alpha_centered.pdb')
         self.MD_geoms = [md.load(ff, top=self.MD_topology_file) for ff in self.MD_trajectory_files]
         self.MD_top = self.MD_geoms[0].topology
         self.tempdir = tempfile.mkdtemp('test_molpx')
@@ -69,7 +69,7 @@ class TestCorrelationsInput(unittest.TestCase):
 
     def setUp(self):
         self.MD_trajectory_files = glob(molpx._molpxdir(join='notebooks/data/c-alpha_centered.stride.1000*xtc'))[:1]
-        self.MD_topology_file = glob(molpx._molpxdir(join='notebooks/data/*pdb'))[0]
+        self.MD_topology_file = molpx._molpxdir(join='notebooks/data/bpti-c-alpha_centered.pdb')
         self.MD_geoms = [md.load(ff, top=self.MD_topology_file) for ff in self.MD_trajectory_files]
         self.MD_top = self.MD_geoms[0].topology
         self.tempdir = tempfile.mkdtemp('test_molpx')

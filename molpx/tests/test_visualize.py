@@ -29,9 +29,10 @@ class TestTrajInputs(unittest.TestCase):
         self.Y = self.source.get_output(dimensions=np.arange(10))
         [np.save(ifile,iY) for ifile, iY in zip(self.projected_files, self.Y)]
         [np.savetxt(ifile.replace('.npy','.dat'),iY) for ifile, iY in zip(self.projected_files, self.Y)]
-        self.metad_trajectory_file = glob(molpx._molpxdir(join='notebooks/data/ala_dipeptide/traj.xtc'))
-        self.metad_topology_file = glob(molpx._molpxdir(join='notebooks/data/ala_dipeptide/conf.pdb'))
-        self.metad_colvar_file = glob(molpx._molpxdir(join='notebooks/data/ala_dipeptide/COLVAR'))
+
+        self.ala2_topology_file = molpx._molpxdir(join='notebooks/data/ala2.pdb')
+        self.metad_trajectory_files = glob(molpx._molpxdir(join='notebooks/data/ala2.meta*.xtc'))
+        self.metad_colvar_files = glob(molpx._molpxdir(join='notebooks/data/ala2.meta.CV.*txt'))
 
     def tearDown(self):
         shutil.rmtree(self.tempdir)
@@ -69,8 +70,8 @@ class TestTrajInputs(unittest.TestCase):
             pass
 
     def test_weights_on_biased_FES(self):
-        weights = np.exp(np.loadtxt(self.metad_colvar_file[0])[:,7])
-        visualize.FES(self.metad_trajectory_file[0], self.metad_topology_file[0], self.metad_colvar_file[0],
+        weights = [np.exp(np.loadtxt(iw)[:,7]) for iw in self.metad_colvar_files]
+        visualize.FES(self.metad_trajectory_files, self.ala2_topology_file, self.metad_colvar_files,
                       proj_idxs=[1,2], weights=weights)
 
 class TestCorrelationsInput(unittest.TestCase):

@@ -176,6 +176,10 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
 
     data = _np.vstack(data)
 
+    weights = _listfiy_if_not_list(weights)
+    if weights[0].ndim == 1:
+        weights = [_np.array(iw, ndmin=2).T for iw in weights]
+    weights = _np.vstack(weights).squeeze()
 
     if isinstance(proj_labels, str):
        axlabels = ['$\mathregular{%s_{%u}}$'%(proj_labels, ii) for ii in proj_idxs]

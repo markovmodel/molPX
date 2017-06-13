@@ -15,7 +15,7 @@ from .bmutils import (regspace_cluster_to_target as _cluster_to_target,
                       minimize_rmsd2ref_in_sample as _minimize_rmsd2ref_in_sample,
                       save_traj_wrapper as _save_traj_wrapper,
                       transpose_geom_list as _transpose_geom_list,
-                      listify_if_int as _listify_if_int, listfiy_if_not_list as _listfiy_if_not_list
+                      listify_if_int as _listify_if_int, listfiy_if_not_list as _listfiy_if_not_list, _is_int
                       )
 from collections import defaultdict as _defdict
 import mdtraj as _md
@@ -228,11 +228,12 @@ def projection_paths(MD_trajectories, MD_top, projected_trajectories,
 
 
 def sample(MD_trajectories, MD_top, projected_trajectories,
-                 proj_idxs=[0,1], n_points=100, n_geom_samples=1,
-                 keep_all_samples = False,
-                 proj_stride=1,
-                 verbose=False,
-                 return_data=False
+           atom_selection = None,
+           proj_idxs=[0,1], n_points=100, n_geom_samples=1,
+           keep_all_samples = False,
+           proj_stride=1,
+           verbose=False,
+           return_data=False
                  ):
     r"""
     Returns a sample of molecular geometries  and their positions in the projected space
@@ -251,6 +252,12 @@ def sample(MD_trajectories, MD_top, projected_trajectories,
         you can provide .npy-filenames or readable asciis (.dat, .txt etc). Alternatively, you can feed in
         your own clustering object.
         NOTE: molpx assumes that there is no time column.
+
+    atom_selection : string or iterable of integers, default is None
+        The geometries of the original trajectory files will be filtered down to these atoms. It can be any DSL string
+        that   mdtraj.Topology.select could understand or directly the iterable of integers.
+        If :py:obj`MD_trajectories` is already a (list of) md.Trajectory objects, the atom-slicing can take place
+        before calling this method.
 
     proj_idxs: int, default is None
         Selection of projection idxs (zero-idxd) to visualize. The default behaviour is that proj_idxs = range(n_projs).
@@ -295,6 +302,7 @@ def sample(MD_trajectories, MD_top, projected_trajectories,
     else:
         src = _source(MD_trajectories, top=MD_top)
 
+
     # Find out if we already have a clustering object
     try:
         projected_trajectories.dtrajs
@@ -307,6 +315,14 @@ def sample(MD_trajectories, MD_top, projected_trajectories,
     cat_smpl = cl.sample_indexes_by_cluster(_np.arange(cl.n_clusters), n_geom_samples)
 
     geom_smpl = _save_traj_wrapper(src, _np.vstack(cat_smpl), None, top=MD_top, stride=proj_stride)
+
+    if atom_selection is None:
+        atom_selection = _np.arange(geom_smpl.top.n_atoms)
+    elif isinstance(atom_selection, str):
+        atom_selection = geom_smpl.top.select(atom_selection)
+    elif isinstance(atom_selection, (list, _np.ndarray)):
+        assert _np.all([_is_int(ii) for ii in atom_selection])
+    geom_smpl = geom_smpl.atom_slice(atom_selection)
 
     if n_geom_samples>1:
         geom_smpl = _re_warp(geom_smpl, [n_geom_samples] * cl.n_clusters)

@@ -34,6 +34,12 @@ class MyTestCase(unittest.TestCase):
     def test_generate_sample(self):
         molpx.generate.sample(self.MD_trajectory, self.topology, self.projected_file)
 
+    def test_generate_sample_atom_selections(self):
+        molpx.generate.sample(self.MD_trajectory, self.topology, self.projected_file, atom_selection='symbol != H')
+
+        __, geom_smpl = molpx.generate.sample(self.MD_trajectory, self.topology, self.projected_file, atom_selection=np.array([2,4,6,8]))
+        assert geom_smpl[0].n_atoms == 4
+
     # Cannot get the widget to run outside the notebook because it needs an interact bar
     def test_visualize_qsample(self):
         pos, geom_smpl = molpx.generate.sample(self.MD_trajectory, self.topology, self.projected_file)

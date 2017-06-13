@@ -12,7 +12,7 @@ from pyemma.coordinates import \
     cluster_regspace as _cluster_regspace, \
     save_traj as _save_traj
 
-from pyemma.coordinates.data.feature_reader import  FeatureReader as _FeatureReader
+from pyemma.coordinates.data.feature_reader import FeatureReader as _FeatureReader
 from pyemma.coordinates.data.featurization.featurizer import MDFeaturizer as _MDFeaturizer
 from pyemma.coordinates.transform import TICA as _TICA, PCA as _PCA
 from pyemma.util.discrete_trajectories import index_states as _index_states
@@ -531,11 +531,12 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
                               band_width=None,
                               radius=False,
                               directionality=None,
-                              exclude_coord=None):
+                              exclude_coord=None,
+                              ):
     r"""
     Initial idea for this function comes from @arose, the rest is @gph82
 
-    Paramters
+    Parameters
     ---------
     band_with : None or float,
         band_width is in units of the axis of (it will be tranlated to pts internally)
@@ -553,6 +554,7 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
     exclude_coord : None or int , default is None
         The excluded coordinate will not be considered when computing the nearest-point-to-click.
         Typical use case is for visualize.traj to only compute distances horizontally along the time axis
+
     """
 
     assert directionality in [None, 'a2w', 'w2a'], "The directionality parameter has to be in [None, 'a2w', 'w2a'] " \
@@ -568,6 +570,26 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
         ("Mismatching frame numbers %u vs %u"%( nglwidget.trajectory_0.n_frames, pos.shape[0]))
 
     x, y = pos.T
+
+    sticky = False
+    # Are we in a sticky situation?
+    if hasattr(nglwidget, '_hidden_sticky_frames'):
+        from matplotlib.cm import get_cmap as _get_cmap
+        from matplotlib.colors import rgb2hex as _rgb2hex
+        cmap = _get_cmap('rainbow')
+        cmap_table = _np.linspace(0, 1, len(x))
+        sticky_overlays_by_frame = transpose_geom_list(nglwidget._hidden_sticky_frames)
+        overlay_iterator_by_frame = {ff: iter(sgeom) for ff, sgeom in enumerate(sticky_overlays_by_frame)}
+        # TODO: create a path through the colors that maximizes distance between averages (otherwise some colors
+        # are too close
+        sticky_colors_hex = [_rgb2hex(cmap(ii)) for ii in _np.random.permutation(cmap_table)]
+
+        sticky_rep = 'cartoon'
+        if nglwidget._hidden_sticky_frames[0].top.n_residues < 10:
+            sticky_rep = 'ball+stick'
+
+        sticky = True
+
 
     # Basic interactive objects
     showclick_objs = []
@@ -597,7 +619,8 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
                           ms=_np.round(band_width_in_pts),
                           c='green', alpha=.25, markeredgecolor='None')[0]
             setattr(rad, 'whatisthis', 'dot')
-            closest_to_click_obj.append(rad)
+            if not sticky:
+                closest_to_click_obj.append(rad)
         else:
             band_call = [ax.axvline, ax.axhline][coord_idx]
             band_init = [ax.get_xbound, ax.get_ybound][coord_idx]
@@ -621,7 +644,16 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
             update2Dlines(idot,x[index],y[index])
 
         nglwidget.isClick = True
-        nglwidget.frame = index
+        if not sticky:
+            nglwidget.frame = index
+        else:
+            nglwidget.add_trajectory(next(overlay_iterator_by_frame[index]))
+            nglwidget.clear_representations(component=nglwidget.n_components)
+            nglwidget.add_representation(sticky_rep,
+                                         component=nglwidget.n_components,
+                                         color=sticky_colors_hex[index],
+                                         )
+            ax.plot(pos[index, 0], pos[index, 1], 'o', c=sticky_colors_hex[index], ms=7)
 
     def my_observer(change):
         r"""Here comes the code that you want to execute
@@ -1140,3 +1172,30 @@ def transpose_geom_list(geom_list):
         geom_list_T.append(igeom)
 
     return(geom_list_T)
+
+def geom_list_2_geom(geom_list):
+    r"""
+    Join a list of md.Trajectory objects to one single trajectory
+
+
+    Parameters
+    ----------
+
+    geom_list : list of md.Trajectory objects, each can have the arbitrary geom.n_frames
+
+
+    Returns
+    -------
+
+    geom : of md.Trajectory object
+    """
+
+    assert isinstance(geom_list, list)
+
+    geom = geom_list[0]
+    #TODO: avoid joining via copy_not_join
+    for jgeom in geom_list[1:]:
+        geom = geom.join(jgeom)
+
+
+    return(geom)

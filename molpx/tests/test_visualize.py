@@ -69,13 +69,9 @@ class TestTrajInputs(unittest.TestCase):
             pass
 
     def test_weights_on_biased_FES(self):
-        try:
-            weights = np.exp(np.loadtxt(self.metad_colvar_file[0])[:,7])
-            visualize.FES(self.metad_trajectory_file[0], self.metad_topology_file[0], self.metad_colvar_file[0],
-                          proj_idxs=[1,2], weights=weights)
-        except NotImplementedError:
-            pass
-
+        weights = np.exp(np.loadtxt(self.metad_colvar_file[0])[:,7])
+        visualize.FES(self.metad_trajectory_file[0], self.metad_topology_file[0], self.metad_colvar_file[0],
+                      proj_idxs=[1,2], weights=weights)
 
 class TestCorrelationsInput(unittest.TestCase):
 

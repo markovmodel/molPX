@@ -82,9 +82,11 @@ class _mock_nglwidget(object):
 
 
 
-def FES(MD_trajectories, MD_top, projected_trajectory,
+def FES(MD_trajectories, MD_top, projected_trajectories,
         proj_idxs = [0,1],
-        nbins=100, n_sample = 100, weights=None,
+        nbins=100,
+        n_sample = 100,
+        weights=None,
         proj_labels='proj',
         n_overlays=1,
         atom_selection=None,
@@ -102,10 +104,10 @@ def FES(MD_trajectories, MD_top, projected_trajectory,
 
     MD_top : str to topology filename or directly an :obj:`mdtraj.Topology` object
 
-    projected_trajectory : str to a filename or numpy ndarray of shape (n_frames, n_dims)
-        Time-series with the projection(s) that want to be explored. If these have been computed externally,
-        you can provide .npy-filenames or readable asciis (.dat, .txt etc).
-        NOTE: molpx assumes that there is no time column.
+    projected_trajectories : numpy ndarray (or lists thereof) of shape (n_frames, n_dims) with the time-series
+    of the projection(s) that want to be explored. Alternatively, strings or list of string with .npy or ascii filenames
+     filenames (.dat, .txt etc)
+    NOTE: molpx assumes that there is no time column.
 
     proj_idxs: int, list or ndarray
         Selection of projection idxs (zero-idxd) to visualize.
@@ -163,14 +165,14 @@ def FES(MD_trajectories, MD_top, projected_trajectory,
     # Prepare for 1D case
     proj_idxs = _listify_if_int(proj_idxs)
 
-    data_sample, geoms, data = generate.sample(MD_trajectories, MD_top, projected_trajectory,
+    data_sample, geoms, data = generate.sample(MD_trajectories, MD_top, projected_trajectories,
                                                atom_selection=atom_selection,
                                                proj_idxs=proj_idxs,
                                                n_points=n_sample,
                                                return_data=True,
                                                n_geom_samples=n_overlays,
                                                keep_all_samples=keep_all_samples
-                                         )
+                                               )
 
     data = _np.vstack(data)
 
@@ -275,10 +277,10 @@ def traj(MD_trajectories,
 
     MD_top : str to topology filename or directly :obj:`mdtraj.Topology` object
 
-    projected_trajectories : str to a filename or numpy ndarray of shape (n_frames, n_dims)
-        Time-series with the projection(s) that want to be explored. If these have been computed externally,
-        you can provide .npy-filenames or readable asciis (.dat, .txt etc).
-        NOTE: molpx assumes that there is no time column.
+    projected_trajectories : numpy ndarray (or lists thereof) of shape (n_frames, n_dims) with the time-series
+    of the projection(s) that want to be explored. Alternatively, strings or list of string with .npy or ascii filenames
+     filenames (.dat, .txt etc)
+    NOTE: molpx assumes that there is no time column.
 
     active_traj : int, default 0
         Index of the trajectory that will be responsive. (zero-indexing)

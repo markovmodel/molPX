@@ -426,7 +426,7 @@ def traj(MD_trajectories,
         iax.set_ylabel('\n'.join(_re_warp(ilabel, 16)), fontsize=smallfontsize)
         iax.set_ylim([ifeat_val.min(),
                       ifeat_val.max(),
-                      ] + [-1, 1] * _np.diff(ylims[:, ii]) * .05)
+                      ] + _np.array([-1, 1]) * (ifeat_val.max()-ifeat_val.min()) * .05)
 
         # Link widget
         fdata_sample = _np.vstack((time_feat, ifeat_val)).T

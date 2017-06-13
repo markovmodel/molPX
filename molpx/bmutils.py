@@ -1070,7 +1070,7 @@ def add_atom_idxs_widget(atom_idxs, widget, color_list=None):
 
     Returns
     -------
-    widget : Input widget with the representations addesßd
+    widget : Input widget with the representations added
 
     """
 

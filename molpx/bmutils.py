@@ -940,7 +940,7 @@ def most_corr(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_a
     vals : list of lists of floats
         List with lists of correlation values (e [-1,1]) belonging to the feature indices in :obj:`most_corr_idxs'
 
-    labels :  list lists of strings
+    labels :  list of lists of strings
         The labels of the most correlated features. If a string was parsed as prefix in :obj:`feat_name`, these
         labels will be ['feat_name_%u'%i for i in most_corr_idxs']. Otherwise it will be the full feature
         description found in :obj:`pyemma.coordinates.

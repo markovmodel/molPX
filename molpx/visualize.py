@@ -106,7 +106,7 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
 
     MD_top : str to topology filename or directly an :obj:`mdtraj.Topology` object
 
-    projected_trajectories : numpy ndarray (or lists thereof) of shape (n_frames, n_dims) with the time-series
+    projected_trajectories : numpy ndarray (or list thereof) of shape (n_frames, n_dims) with the time-series
     of the projection(s) that want to be explored. Alternatively, strings or list of string with .npy or ascii filenames
      filenames (.dat, .txt etc)
     NOTE: molpx assumes that there is no time column.
@@ -121,9 +121,9 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
         The number of geometries that will be used to represent the FES. The higher the number, the higher the spatial
         resolution of the "click"-action.
 
-    weights : iterable of floats (or lists thereof) each of shape (n_frames, 1) or (n_frames)
-        The sample weights, typically coming from a metadynamics run. Has to have the same length as the :py:obj:`projected_trajectories`
-        argument.
+    weights : iterable of floats (or list thereof) each of shape (n_frames, 1) or (n_frames)
+        The sample weights, typically coming from a metadynamics run. Has to have the same length
+        as the :py:obj:`projected_trajectories` argument.
 
     proj_labels : either string or list of strings
         The projection plots will get this paramter for labeling their yaxis. If a str is
@@ -179,10 +179,11 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
 
     data = _np.vstack(data)
 
-    weights = _listfiy_if_not_list(weights)
-    if weights[0].ndim == 1:
-        weights = [_np.array(iw, ndmin=2).T for iw in weights]
-    weights = _np.vstack(weights).squeeze()
+    if weights is not None:
+        weights = _listfiy_if_not_list(weights)
+        if weights[0].ndim == 1:
+            weights = [_np.array(iw, ndmin=2).T for iw in weights]
+        weights = _np.vstack(weights).squeeze()
 
     if isinstance(proj_labels, str):
        axlabels = ['$\mathregular{%s_{%u}}$'%(proj_labels, ii) for ii in proj_idxs]
@@ -284,9 +285,9 @@ def traj(MD_trajectories,
 
     MD_top : str to topology filename or directly :obj:`mdtraj.Topology` object
 
-    projected_trajectories : numpy ndarray (or lists thereof) of shape (n_frames, n_dims) with the time-series
+    projected_trajectories : numpy ndarray (or list thereof) of shape (n_frames, n_dims) with the time-series
     of the projection(s) that want to be explored. Alternatively, strings or list of string with .npy or ascii filenames
-     filenames (.dat, .txt etc)
+    (.dat, .txt etc)
     NOTE: molpx assumes that there is no time column.
 
     active_traj : int, default 0

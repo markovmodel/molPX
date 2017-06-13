@@ -247,10 +247,9 @@ def sample(MD_trajectories, MD_top, projected_trajectories,
 
     MD_top : str to topology filename or directly :obj:`mdtraj.Topology` object
 
-    projected_trajectories : (lists of) strings or (lists of) numpy ndarrays of shape (n_frames, n_dims)
-        Time-series with the projection(s) that want to be explored. If these have been computed externally,
-        you can provide .npy-filenames or readable asciis (.dat, .txt etc). Alternatively, you can feed in
-        your own clustering object.
+    projected_trajectories : (list of) strings or (list of) numpy ndarrays of shape (n_frames, n_dims)
+        Time-series with the projection(s) that want to be explored. You can provide .npy-filenames or readable asciis
+        (.dat, .txt etc). Alternatively, you can feed in your own PyEMMA-clustering object
         NOTE: molpx assumes that there is no time column.
 
     atom_selection : string or iterable of integers, default is None

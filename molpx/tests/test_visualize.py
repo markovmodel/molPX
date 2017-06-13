@@ -18,7 +18,7 @@ class TestTrajInputs(unittest.TestCase):
 
     def setUp(self):
         self.MD_trajectory_files = glob(molpx._molpxdir(join='notebooks/data/c-alpha_centered.stride.1000*xtc'))
-        self.MD_topology_file = glob(molpx._molpxdir(join='notebooks/data/*pdb'))[0]
+        self.MD_topology_file = molpx._molpxdir(join='notebooks/data/bpti-c-alpha_centered.pdb')
         self.MD_geoms = [md.load(ff, top=self.MD_topology_file) for ff in self.MD_trajectory_files]
         self.MD_top = self.MD_geoms[0].topology
         self.tempdir = tempfile.mkdtemp('test_molpx')
@@ -81,7 +81,7 @@ class TestCorrelationsInput(unittest.TestCase):
 
     def setUp(self):
         self.MD_trajectory_files = glob(molpx._molpxdir(join='notebooks/data/c-alpha_centered.stride.1000*xtc'))[:1]
-        self.MD_topology_file = glob(molpx._molpxdir(join='notebooks/data/*pdb'))[0]
+        self.MD_topology_file = molpx._molpxdir(join='notebooks/data/bpti-c-alpha_centered.pdb')
         self.MD_geoms = [md.load(ff, top=self.MD_topology_file) for ff in self.MD_trajectory_files]
         self.MD_top = self.MD_geoms[0].topology
         self.tempdir = tempfile.mkdtemp('test_molpx')
@@ -91,6 +91,7 @@ class TestCorrelationsInput(unittest.TestCase):
         self.feat.add_all()
         source = pyemma.coordinates.source(self.MD_trajectory_files, features=self.feat)
         self.tica = pyemma.coordinates.tica(source, lag=1, dim=10)
+        self.pca = pyemma.coordinates.pca(source)
         self.Y = self.tica.get_output()
         self.F = source.get_output()
         [np.save(ifile, iY) for ifile, iY in zip(self.projected_files, self.Y)]
@@ -99,8 +100,14 @@ class TestCorrelationsInput(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.tempdir)
 
-    def test_correlations_inputs(self):
+    def test_correlations_input_tica(self):
         visualize.correlations(self.tica)
+
+    def test_correlations_input_pca(self):
+        visualize.correlations(self.pca)
+
+    def test_correlations_input_feat(self):
+        visualize.correlations(self.feat)
 
     def test_correlations_inputs_verbose(self):
         visualize.correlations(self.tica, verbose=True)

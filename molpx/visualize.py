@@ -119,8 +119,9 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
         The number of geometries that will be used to represent the FES. The higher the number, the higher the spatial
         resolution of the "click"-action.
 
-    weights : ndarray(n_frames), default = None
-        sample weights. By default all samples have the same weight
+    weights : iterable of floats (or lists thereof) each of shape (n_frames, 1) or (n_frames)
+        The sample weights, typically coming from a metadynamics run. Has to have the same length as the :py:obj:`projected_trajectories`
+        argument.
 
     proj_labels : either string or list of strings
         The projection plots will get this paramter for labeling their yaxis. If a str is

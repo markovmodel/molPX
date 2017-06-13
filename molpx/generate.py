@@ -15,7 +15,7 @@ from .bmutils import (regspace_cluster_to_target as _cluster_to_target,
                       minimize_rmsd2ref_in_sample as _minimize_rmsd2ref_in_sample,
                       save_traj_wrapper as _save_traj_wrapper,
                       transpose_geom_list as _transpose_geom_list,
-                      listify_if_int as _listify_if_int, listfiy_if_not_list as _listfiy_if_not_list
+                      listify_if_int as _listify_if_int, listfiy_if_not_list as _listfiy_if_not_list, _is_int
                       )
 from collections import defaultdict as _defdict
 import mdtraj as _md
@@ -321,7 +321,7 @@ def sample(MD_trajectories, MD_top, projected_trajectories,
     elif isinstance(atom_selection, str):
         atom_selection = geom_smpl.top.select(atom_selection)
     elif isinstance(atom_selection, (list, _np.ndarray)):
-        assert _np.all([isinstance(ii, int) for ii in atom_selection])
+        assert _np.all([_is_int(ii) for ii in atom_selection])
     geom_smpl = geom_smpl.atom_slice(atom_selection)
 
     if n_geom_samples>1:

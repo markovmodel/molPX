@@ -13,7 +13,8 @@ from .bmutils import link_ax_w_pos_2_nglwidget as _link_ax_w_pos_2_nglwidget, \
     add_atom_idxs_widget as _add_atom_idxs_widget, \
     matplotlib_colors_no_blue as _bmcolors, \
     get_ascending_coord_idx as _get_ascending_coord_idx, \
-    listify_if_int as _listify_if_int, listfiy_if_not_list as _listfiy_if_not_list
+    listify_if_int as _listify_if_int, listfiy_if_not_list as _listfiy_if_not_list, \
+    _is_int
 
 from . import generate
 
@@ -809,7 +810,7 @@ def _sample(positions, geoms, ax,
     elif isinstance(superpose, str):
         sel = geoms[0].top.select(superpose)
     elif isinstance(superpose, (list, _np.ndarray)):
-        assert _np.all([isinstance(ii, int) for ii in superpose])
+        assert _np.all([_is_int(ii) for ii in superpose])
         sel = superpose
 
     if sel is not None:

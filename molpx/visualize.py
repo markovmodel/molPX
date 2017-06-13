@@ -76,11 +76,13 @@ class _mock_nglwidget(object):
         print("The method 'remove_cartoon' of a mock nglwidget is called. "
               "Ignore this message if testing, otherwise refer to molPX documentation.")
 
+    def remove_backbone(self):
+        print("The method 'remove_backbone' of a mock nglwidget is called. "
+              "Ignore this message if testing, otherwise refer to molPX documentation.")
+
     def add_ball_and_stick(self):
         print("The method 'add_ball_and_stick' of a mock nglwidget is called. "
               "Ignore this message if testing, otherwise refer to molPX documentation.")
-
-
 
 def FES(MD_trajectories, MD_top, projected_trajectories,
         proj_idxs = [0,1],

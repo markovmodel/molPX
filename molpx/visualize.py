@@ -76,15 +76,19 @@ class _mock_nglwidget(object):
         print("The method 'remove_cartoon' of a mock nglwidget is called. "
               "Ignore this message if testing, otherwise refer to molPX documentation.")
 
+    def remove_backbone(self):
+        print("The method 'remove_backbone' of a mock nglwidget is called. "
+              "Ignore this message if testing, otherwise refer to molPX documentation.")
+
     def add_ball_and_stick(self):
         print("The method 'add_ball_and_stick' of a mock nglwidget is called. "
               "Ignore this message if testing, otherwise refer to molPX documentation.")
 
-
-
-def FES(MD_trajectories, MD_top, projected_trajectory,
+def FES(MD_trajectories, MD_top, projected_trajectories,
         proj_idxs = [0,1],
-        nbins=100, n_sample = 100,
+        nbins=100,
+        n_sample = 100,
+        weights=None,
         proj_labels='proj',
         n_overlays=1,
         atom_selection=None,
@@ -102,10 +106,10 @@ def FES(MD_trajectories, MD_top, projected_trajectory,
 
     MD_top : str to topology filename or directly an :obj:`mdtraj.Topology` object
 
-    projected_trajectory : str to a filename or numpy ndarray of shape (n_frames, n_dims)
-        Time-series with the projection(s) that want to be explored. If these have been computed externally,
-        you can provide .npy-filenames or readable asciis (.dat, .txt etc).
-        NOTE: molpx assumes that there is no time column.
+    projected_trajectories : numpy ndarray (or list thereof) of shape (n_frames, n_dims) with the time-series
+    of the projection(s) that want to be explored. Alternatively, strings or list of string with .npy or ascii filenames
+     filenames (.dat, .txt etc)
+    NOTE: molpx assumes that there is no time column.
 
     proj_idxs: int, list or ndarray
         Selection of projection idxs (zero-idxd) to visualize.
@@ -116,6 +120,10 @@ def FES(MD_trajectories, MD_top, projected_trajectory,
     n_sample : int, default is 100
         The number of geometries that will be used to represent the FES. The higher the number, the higher the spatial
         resolution of the "click"-action.
+
+    weights : iterable of floats (or list thereof) each of shape (n_frames, 1) or (n_frames)
+        The sample weights, typically coming from a metadynamics run. Has to have the same length
+        as the :py:obj:`projected_trajectories` argument.
 
     proj_labels : either string or list of strings
         The projection plots will get this paramter for labeling their yaxis. If a str is
@@ -160,17 +168,22 @@ def FES(MD_trajectories, MD_top, projected_trajectory,
     # Prepare for 1D case
     proj_idxs = _listify_if_int(proj_idxs)
 
-    data_sample, geoms, data = generate.sample(MD_trajectories, MD_top, projected_trajectory,
+    data_sample, geoms, data = generate.sample(MD_trajectories, MD_top, projected_trajectories,
                                                atom_selection=atom_selection,
                                                proj_idxs=proj_idxs,
                                                n_points=n_sample,
                                                return_data=True,
                                                n_geom_samples=n_overlays,
                                                keep_all_samples=keep_all_samples
-                                         )
+                                               )
 
     data = _np.vstack(data)
 
+    if weights is not None:
+        weights = _listfiy_if_not_list(weights)
+        if weights[0].ndim == 1:
+            weights = [_np.array(iw, ndmin=2).T for iw in weights]
+        weights = _np.vstack(weights).squeeze()
 
     if isinstance(proj_labels, str):
        axlabels = ['$\mathregular{%s_{%u}}$'%(proj_labels, ii) for ii in proj_idxs]
@@ -180,8 +193,8 @@ def FES(MD_trajectories, MD_top, projected_trajectory,
        raise TypeError("Parameter proj_labels has to be of type str or list, not %s"%type(proj_labels))
 
     ax, FES_data, edges = _plot_ND_FES(data[:,proj_idxs],
-                                       axlabels,
-                                       bins=nbins)
+                                       axlabels,                                       
+                                       weights=weights, bins=nbins)
     if edges[0] is not None:
         # We have the luxury of sorting!
         sorts_data = data_sample[:,0].argsort()
@@ -198,7 +211,7 @@ def FES(MD_trajectories, MD_top, projected_trajectory,
 
     return _plt.gca(), _plt.gcf(), iwd, data_sample, geoms
 
-def _plot_ND_FES(data, ax_labels, bins=50):
+def _plot_ND_FES(data, ax_labels, weights=None, bins=50):
     r""" A wrapper for pyemmas FESs plotting function that can also plot 1D
 
     Parameters
@@ -223,14 +236,14 @@ def _plot_ND_FES(data, ax_labels, bins=50):
     idata = _np.vstack(data)
     ax.set_xlabel(ax_labels[0])
     if idata.shape[1] == 1:
-        h, edges = _np.histogramdd(idata, bins=bins, normed=True)
+        h, edges = _np.histogramdd(idata, weights=weights, bins=bins, normed=True)
         FES_data = -_np.log(h)
         FES_data -= FES_data.min()
         ax.plot(edges[0][:-1], FES_data)
         ax.set_ylabel('$\Delta G / \kappa T $')
 
     elif idata.shape[1] == 2:
-        _plot_free_energy(idata[:,0], idata[:,1], nbins=bins, ax=ax)
+        _plot_free_energy(idata[:,0], idata[:,1], weights=weights, nbins=bins, ax=ax)
         ax.set_ylabel(ax_labels[1])
         edges, FES_data = [None], None
         # TODO: retrieve the actual edges from pyemma's "plot_free_energy"'s axes
@@ -248,6 +261,7 @@ def traj(MD_trajectories,
          proj_idxs=[0,1],
          proj_labels='proj',
          plot_FES=False,
+         weights=None,
          panel_height = 1,
          sharey_traj=True,
          dt = 1.0,
@@ -271,10 +285,10 @@ def traj(MD_trajectories,
 
     MD_top : str to topology filename or directly :obj:`mdtraj.Topology` object
 
-    projected_trajectories : str to a filename or numpy ndarray of shape (n_frames, n_dims)
-        Time-series with the projection(s) that want to be explored. If these have been computed externally,
-        you can provide .npy-filenames or readable asciis (.dat, .txt etc).
-        NOTE: molpx assumes that there is no time column.
+    projected_trajectories : numpy ndarray (or list thereof) of shape (n_frames, n_dims) with the time-series
+    of the projection(s) that want to be explored. Alternatively, strings or list of string with .npy or ascii filenames
+    (.dat, .txt etc)
+    NOTE: molpx assumes that there is no time column.
 
     active_traj : int, default 0
         Index of the trajectory that will be responsive. (zero-indexing)
@@ -303,6 +317,9 @@ def traj(MD_trajectories,
 
     plot_FES : bool, default is False
         Plot (and interactively link) the FES as well
+
+    weights : ndarray(n_frames), default = None
+        sample weights. By default all samples have the same weight (used for FES calculation only)
 
     panel_height : int, default  1
         Height, in inches, of each panel of each trajectory subplots
@@ -496,7 +513,7 @@ def traj(MD_trajectories,
         widget = _add_atom_idxs_widget([corr_dict["atom_idxs"][iproj][ifeat]], widget, color_list=[icol])
 
     if plot_FES:
-        ax, FES_data, edges = _plot_ND_FES(data, ylabels)
+        ax, FES_data, edges = _plot_ND_FES(data, ylabels, weights=weights)
         if edges[0] is not None:
             print(edges)
             FES_data = [FES_data[_np.digitize(idata, edges[0][:-2])] for idata in data]
@@ -609,6 +626,7 @@ def correlations(correlation_input,
                 print(line)
 
     return corr_dict, widget
+
 
 def sample(positions, geom, ax,
            plot_path=False,
@@ -818,9 +836,11 @@ def _sample(positions, geoms, ax,
 
     # Create ngl_viewer widget
     if widget is None:
-        iwd = _nglwidget_wrapper(geoms[0], )
+        iwd = _nglwidget_wrapper(geoms[0])
         for igeom in geoms[1:]:
             iwd.add_trajectory(igeom)
+
+
     else:
         iwd = widget
 

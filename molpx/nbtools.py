@@ -110,15 +110,36 @@ class TemporaryDirectory(object):
         except OSError:
             pass
 
-def example_notebook(extra_flags_as_one_string=None, nb_file='Projection_Explorer.ipynb'):
+def example_notebook(extra_flags_as_one_string=None, nb_file='Projection_Explorer.ipynb', just_show_available_nbs=False):
     r"""
-    Open the example notebook in the default browser.
-    The ipython terminal stays active while the notebook is still active. Ctr+C in the ipython terminal will
-    close the notebook.
+    Open the example notebook in the default browser. The ipython terminal stays active while the notebook is still active.
+    Ctr+C in the ipython terminal will close the notebook.
 
-    Note: This notebook is a working copy of the original notebook. Feel free to mess around with it
-    
+    Note: The displayed notebook is a working copy of the original notebook. Feel free to mess around with it
+
+    Parameters
+    ----------
+
+    extra_flags_as_one_string : str
+        Any flags you would parse along to the "jupyter notebook" command, like --no-browser etc
+
+    nb_file : str, default is "Projection_Explorer.ipynb"
+        The notebook file that will be opened. If you want to choose from other notebooks, set
+         :py:obj:`just_show_available_nbs` to True
+
+    just_show_available_nbs` : bool, default is False
+        Show a list of available notebooks and exit.
     """
+
+    from glob import glob
+
+    if just_show_available_nbs:
+        print("List of available notebooks found in molpx's notebook directory %s"%_molpxdir(join='notebooks/'))
+        print("You can use any of them as 'nb_file' to open them in a safe environment")
+        for ff in glob(_molpxdir(join='notebooks/*.ipynb')):
+            print('* %s'%ff.replace(_molpxdir(join='notebooks/'),''))
+        return
+
     from IPython.terminal.interactiveshell import TerminalInteractiveShell
     import shutil, os
     origfile = _molpxdir('notebooks/%s'%nb_file)
@@ -130,14 +151,14 @@ def example_notebook(extra_flags_as_one_string=None, nb_file='Projection_Explore
 
         nbstring = open(tmpfile).read()
         f = open(tmpfile,'w')
-        f.write(nbstring.replace("# molPX intro", "<font color='red', size=1>"
-                                                  "This is a temporary copy of the original notebook found in `%s`. "
-                                                  "This temporary copy is located in `%s`. "
-                                                  "Feel free to play around, modify or even break this notebook. "
-                                                  "It wil be deleted on exit it and a new one created next time you issue "
-                                                  "`molpx.example_notebook()`</font>\\n\\n"
-                                                  "# molPX intro"
-                                                   %(origfile, tmpfile)))
+        f.write(nbstring.replace("# ", "<font color='red', size=1>"
+                                       "This is a temporary copy of the original notebook found in `%s`. "
+                                       "This temporary copy is located in `%s`. "
+                                       "Feel free to play around, modify or even break this notebook. "
+                                       "It wil be deleted on exit it and a new one created next time you issue "
+                                       "`molpx.example_notebook()`</font>\\n\\n"
+                                       "# "
+                                 %(origfile, tmpfile),1))
         f.close()
         cmd = 'jupyter notebook %s'%tmpfile
         if isinstance(extra_flags_as_one_string,str):

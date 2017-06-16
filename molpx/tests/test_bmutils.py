@@ -66,6 +66,38 @@ class TestReadingInput(unittest.TestCase):
                                       self.Y])
         assert np.all([np.allclose(self.Y, iY) for iY in Ys])
 
+    def test_moldata_from_input(self):
+        # Traj and top strings
+        moldata = bmutils.moldata_from_input(self.MD_trajectory, MD_top=self.MD_topology)
+        assert isinstance(moldata, bmutils._FeatureReader)
+
+        # Source object directly
+        moldata = bmutils.moldata_from_input(moldata)
+        assert isinstance(moldata, bmutils._FeatureReader)
+
+        # Typerror:
+        try:
+            bmutils.moldata_from_input(11)
+        except TypeError:
+            pass
+
+        # List of trajectories
+        geom = md.load(self.MD_trajectory, top=self.MD_topology)
+        moldata = bmutils.moldata_from_input(geom)
+        assert isinstance(moldata[0], md.Trajectory), moldata
+
+    def test_assert_moldata_belong_data(self):
+        # Traj vs data
+        geom = md.load(self.MD_trajectory, top=self.MD_topology)
+        bmutils.assert_moldata_belong_data([geom], [self.Y])
+
+        # src vs data
+        moldata = bmutils.moldata_from_input(self.MD_trajectory, MD_top=self.MD_topology)
+        bmutils.assert_moldata_belong_data(moldata, [self.Y])
+
+        # With stride
+        bmutils.assert_moldata_belong_data([geom], [iY[::5] for iY in [self.Y]], data_stride=5)
+
     def test_most_corr_info_works(self):
         most_corr = bmutils.most_corr(self.tica)
 

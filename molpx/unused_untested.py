@@ -27,15 +27,17 @@ class path_object(object):
 
     """
 
-    def __init__(self, fname):
+    def __init__(self, fname, basedir=''):
         ipath = _np.load(fname)['arr_0'][()]
-        lag_str, idata, tcorr, tica_mean, l, U = _opentica_npz(ipath["ticfile"])
+        ticfile = os.path.join(basedir, ipath["ticfile"])
+        lag_str, idata, tcorr, tica_mean, l, U = _opentica_npz(ticfile)
 
         ipath = {int(key): val for key, val in ipath.items() if _np.chararray.isnumeric(key)}
         for key, val in ipath.items():
             for ikey, jval in val.items():
                 if isinstance(jval["geom"], str):
-                    jval["geom"] = _md.load(jval["geom"])
+                    gfile = os.path.join(basedir, jval["geom"])
+                    jval["geom"] = _md.load(gfile)
 
         self._paths = ipath
         self.feat = _featurizer(jval["geom"].top)

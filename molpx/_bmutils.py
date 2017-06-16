@@ -8,6 +8,8 @@ try:
 except ImportError:
     from sklearn.mixture import GMM as _GMM
 
+from .unused_untested import _sort_nicely, path_object
+
 # From pyemma's coordinates
 from pyemma.coordinates import \
     source as _source, \

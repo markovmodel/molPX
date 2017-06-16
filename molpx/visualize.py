@@ -5,18 +5,9 @@ __author__ = 'gph82'
 
 from pyemma.plots import plot_free_energy as _plot_free_energy
 import numpy as _np
-from .bmutils import link_ax_w_pos_2_nglwidget as _link_ax_w_pos_2_nglwidget, \
-    data_from_input as _data_from_input, \
-    smooth_geom as _smooth_geom,\
-    most_corr as _most_corr_info, \
-    re_warp as _re_warp, \
-    add_atom_idxs_widget as _add_atom_idxs_widget, \
-    matplotlib_colors_no_blue as _bmcolors, \
-    get_ascending_coord_idx as _get_ascending_coord_idx, \
-    listify_if_int as _listify_if_int, listfiy_if_not_list as _listfiy_if_not_list, \
-    _is_int
 
 from . import generate
+from . import bmutils as _bmutils
 
 from matplotlib import pylab as _plt, rcParams as _rcParams
 import nglview as _nglview
@@ -166,7 +157,7 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
         keep_all_samples = False
 
     # Prepare for 1D case
-    proj_idxs = _listify_if_int(proj_idxs)
+    proj_idxs = _bmutils.listify_if_int(proj_idxs)
 
     data_sample, geoms, data = generate.sample(MD_trajectories, MD_top, projected_trajectories,
                                                atom_selection=atom_selection,
@@ -180,7 +171,7 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
     data = _np.vstack(data)
 
     if weights is not None:
-        weights = _listfiy_if_not_list(weights)
+        weights = _bmutils.listify_if_not_list(weights)
         if weights[0].ndim == 1:
             weights = [_np.array(iw, ndmin=2).T for iw in weights]
         weights = _np.vstack(weights).squeeze()
@@ -370,12 +361,12 @@ def traj(MD_trajectories,
 
     """
 
-    proj_idxs = _listify_if_int(proj_idxs)
+    proj_idxs = _bmutils.listify_if_int(proj_idxs)
 
     # Parse input
-    data = [iY[:,proj_idxs] for iY in _data_from_input(projected_trajectories)]
+    data = [iY[:,proj_idxs] for iY in _bmutils.data_from_input(projected_trajectories)]
 
-    MD_trajectories = _listfiy_if_not_list(MD_trajectories)
+    MD_trajectories = _bmutils.listify_if_not_list(MD_trajectories)
 
     assert len(data) == len(MD_trajectories), "Mismatch between number of MD-trajectories " \
                                            "and projected trajectores %u vs %u"%(len(MD_trajectories), len(data))
@@ -383,7 +374,7 @@ def traj(MD_trajectories,
                                             " but your input has only %u trajs. Note: the parameter active_traj " \
                                             "is zero-indexed"%(active_traj, len(MD_trajectories))
 
-    traj_selection = _listify_if_int(traj_selection)
+    traj_selection = _bmutils.listify_if_int(traj_selection)
 
     if traj_selection is None:
         traj_selection = _np.arange(len(data))
@@ -426,7 +417,7 @@ def traj(MD_trajectories,
 
     # Do we have usable projection information?
     if projection is not None:
-        corr_dict = _most_corr_info(projection, geoms=geoms, proj_idxs=proj_idxs, n_args=n_feats)
+        corr_dict = _bmutils.most_corr_info(projection, geoms=geoms, proj_idxs=proj_idxs, n_args=n_feats)
         if corr_dict["feats"] != []:
             # Then extend the trajectory selection to include the active trajectory twice
             traj_selection = _np.insert(traj_selection,
@@ -481,7 +472,7 @@ def traj(MD_trajectories,
     first_empty_axis = _np.argwhere([active_traj==ii for ii in traj_selection])[0]*len(proj_idxs)+len(proj_idxs)
     last_empty_axis = first_empty_axis+ len(proj_idxs) * n_feats
     rows, cols = _np.unravel_index(_np.arange(first_empty_axis,last_empty_axis), myax.shape)
-    colors = _bmcolors()
+    colors = _bmutils.matplotlib_colors_no_blue()
     smallfontsize = int(_rcParams['font.size']/2)
     for kk, (ir, ic)  in enumerate(zip(rows, cols)):
         # Determine axis
@@ -494,7 +485,7 @@ def traj(MD_trajectories,
         # Plot
         lines = iax.plot(time_feat, ifeat_val, color=icol)[0]
         #Cosmetics
-        iax.set_ylabel('\n'.join(_re_warp(ilabel, 16)), fontsize=smallfontsize)
+        iax.set_ylabel('\n'.join(_bmutils.re_warp(ilabel, 16)), fontsize=smallfontsize)
         iax.set_ylim([ifeat_val.min(),
                       ifeat_val.max(),
                       ] + _np.array([-1, 1]) * (ifeat_val.max()-ifeat_val.min()) * .05)
@@ -510,7 +501,7 @@ def traj(MD_trajectories,
                    fontsize=smallfontsize, loc='best', frameon=False)
 
         # Add visualization (let the method decide if it's possible or not)
-        widget = _add_atom_idxs_widget([corr_dict["atom_idxs"][iproj][ifeat]], widget, color_list=[icol])
+        widget = _bmutils.add_atom_idxs_widget([corr_dict["atom_idxs"][iproj][ifeat]], widget, color_list=[icol])
 
     if plot_FES:
         ax, FES_data, edges = _plot_ND_FES(data, ylabels, weights=weights)
@@ -593,12 +584,10 @@ def correlations(correlation_input,
     :return:
     most_corr_idxs, most_corr_vals, most_corr_labels, most_corr_feats, most_corr_atom_idxs, lines, widget, lines
     """
-    # todo document
-    # todo test
     # todo consider kwargs for most_corr_info
-
-    corr_dict = _most_corr_info(correlation_input,
-                                geoms=geoms, proj_idxs=proj_idxs, feat_name=feat_name, n_args=n_feats, featurizer=featurizer
+    corr_dict = _bmutils.most_corr(correlation_input,
+                                   geoms=geoms, proj_idxs=proj_idxs, feat_name=feat_name, n_args=n_feats,
+                                   featurizer=featurizer
                                 )
 
     # Create ngl_viewer widget
@@ -615,7 +604,7 @@ def correlations(correlation_input,
     # Add the represenation
     if widget is not None:
         for idxs, icol in zip(corr_dict["atom_idxs"], proj_color_list):
-            _add_atom_idxs_widget(idxs, widget, color_list=[icol])
+            _bmutils.add_atom_idxs_widget(idxs, widget, color_list=[icol])
 
     if verbose:
         for ii, line in enumerate(corr_dict["info"]):
@@ -627,6 +616,61 @@ def correlations(correlation_input,
 
     return corr_dict, widget
 
+def feature(feat,
+            widget,
+            idxs=0,
+            color_list=None
+               ):
+    r"""
+    Provide a visual representation of a PyEMMA feature. PyEMMA's features are found as a list of the MDFeaturizers's
+    active_features attribute
+
+    Parameters
+    ----------
+
+    featurizer : py:obj:`_MDFeautrizer`
+        A PyEMMA MDFeaturizer object
+
+    widget : None or nglview widget
+        Provide an already existing widget to visualize the correlations on top of. This is only for expert use,
+        because no checks are done to see if :obj:`correlation_input` and the geometry contained in the
+        widget **actually match**. Use with caution.
+
+    idxs: int or iterable of integers, default is 0
+        Features can have many contributions, e.g. a distance feature can include many distances. Use this parameter
+        to control which one of them gets represented.
+
+    color_list: list, default is None
+        list of colors to represent each feature in feat_idxs. The default None yields blue for everything.
+        In principle, the list can contain one color for each projection (= as many colors as len(feat_idxs)
+        but if your list is short it will just default to the last color. This way, color_list=['black'] will paint
+        all black regardless len(proj_idxs)
+
+
+    Returns :
+
+    widget :
+        the input widget with the features in :py:obj:`idxs` represented as either distances (for distance features)
+        or CPK spheres (for angular features)
+
+    """
+
+    idxs = _bmutils.listify_if_int(idxs)
+    atom_idxs = _bmutils.atom_idxs_from_feature(feat)[idxs]
+
+    if color_list is None:
+        color_list = ['blue'] * len(idxs)
+
+    elif isinstance(color_list, list) and len(color_list)<len(idxs):
+        color_list += [color_list[-1]] * (len(idxs) - len(color_list))
+    elif not isinstance(color_list, list):
+        raise TypeError("parameter color_list should be either None "
+                        "or a list, not %s of type %s"%(color_list, type(color_list)))
+
+    # Add the represenation
+    _bmutils.add_atom_idxs_widget(atom_idxs, widget, color_list=color_list)
+
+    return widget
 
 def sample(positions, geom, ax,
            plot_path=False,
@@ -723,7 +767,7 @@ def sample(positions, geom, ax,
         iwd = _nglwidget_wrapper(geom[0].superpose(geom[0]))
         iwd.component_0.clear()
         iwd._hidden_sticky_frames = [igeom.superpose(geom[0][0]) for igeom in geom]
-        _link_ax_w_pos_2_nglwidget(ax,
+        _bmutils.link_ax_w_pos_2_nglwidget(ax,
                                    positions,
                                    iwd,
                                    directionality='a2w',
@@ -811,7 +855,7 @@ def _sample(positions, geoms, ax,
     # Dow I need to smooth things out?
     if n_smooth > 0:
         if isinstance(geoms, _md.Trajectory): # smoothing only makes sense for paths, and paths cannot be lists at the moment
-            geoms, positions = _smooth_geom(geoms, n_smooth, geom_data=positions)
+            geoms, positions = _bmutils.smooth_geom(geoms, n_smooth, geom_data=positions)
             mean_smooth_radius = _np.diff(positions, axis=0).mean(0) * n_smooth
             band_width = 2 * mean_smooth_radius
     else:
@@ -828,7 +872,7 @@ def _sample(positions, geoms, ax,
     elif isinstance(superpose, str):
         sel = geoms[0].top.select(superpose)
     elif isinstance(superpose, (list, _np.ndarray)):
-        assert _np.all([_is_int(ii) for ii in superpose])
+        assert _np.all([_bmutils.is_int(ii) for ii in superpose])
         sel = superpose
 
     if sel is not None:
@@ -840,7 +884,6 @@ def _sample(positions, geoms, ax,
         for igeom in geoms[1:]:
             iwd.add_trajectory(igeom)
 
-
     else:
         iwd = widget
 
@@ -851,7 +894,7 @@ def _sample(positions, geoms, ax,
         ax.plot(positions[:,0], positions[:,1], '-g', lw=3)
 
     # Link the axes widget with the ngl widget
-    ax_wdg = _link_ax_w_pos_2_nglwidget(ax,
+    ax_wdg = _bmutils.link_ax_w_pos_2_nglwidget(ax,
                                         positions,
                                         iwd,
                                         band_width=band_width,
@@ -860,13 +903,13 @@ def _sample(positions, geoms, ax,
 
     # Do we have usable projection information?
     if projection is not None:
-        corr_dict = _most_corr_info(projection, n_args=n_feats)
+        corr_dict = _bmutils.most_corr(projection, n_args=n_feats)
         if corr_dict["labels"] != []:
-            iproj = _get_ascending_coord_idx(positions)
+            iproj = _bmutils.get_ascending_coord_idx(positions)
             for ifeat in range(n_feats):
                 ilabel = corr_dict["labels"][iproj][ifeat]
                 print(ilabel)
-                iwd = _add_atom_idxs_widget([corr_dict["atom_idxs"][iproj][ifeat]], iwd,
+                iwd = _bmutils.add_atom_idxs_widget([corr_dict["atom_idxs"][iproj][ifeat]], iwd,
                                             color_list=['green']
                                             )
 

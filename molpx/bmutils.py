@@ -8,13 +8,24 @@ try:
 except ImportError:
     from sklearn.mixture import GMM as _GMM
 
+# From pyemma's coordinates
 from pyemma.coordinates import \
+    source as _source, \
     cluster_regspace as _cluster_regspace, \
     save_traj as _save_traj
 
-from pyemma.coordinates.data.feature_reader import FeatureReader as _FeatureReader
-from pyemma.coordinates.data.featurization.featurizer import MDFeaturizer as _MDFeaturizer
+# From coor.data
+from pyemma.coordinates.data.fragmented_trajectory_reader import FragmentedTrajectoryReader as _FragmentedTrajectoryReader
+from pyemma.coordinates.data.feature_reader               import FeatureReader as _FeatureReader
+from pyemma.coordinates.data.featurization.featurizer     import MDFeaturizer as _MDFeaturizer
+from pyemma.coordinates.data.featurization.distances import DistanceFeature as _DF, \
+    ResidueMinDistanceFeature as _ResMinDF
+from pyemma.coordinates.data.featurization.misc import SelectionFeature as _SF
+from pyemma.coordinates.data.featurization.angles import DihedralFeature as _DihF
+from pyemma.coordinates.data.featurization.angles import AngleFeature as _AF
+# From coor.transform
 from pyemma.coordinates.transform import TICA as _TICA, PCA as _PCA
+# From coor.util
 from pyemma.util.discrete_trajectories import index_states as _index_states
 from pyemma.util.types import is_string as _is_string,  is_int as _is_int
 
@@ -26,11 +37,50 @@ def listify_if_int(inp):
 
     return inp
 
-def listfiy_if_not_list(inp):
-    if not isinstance(inp, list):
+def listify_if_not_list(inp, except_for_these_types=None):
+    # TODO test
+    r"""
+    :param inp:
+    :param except_for_these_types: tuple, default is None
+
+    :return: [inp] iff inp was not a list or any of the types in except_for_these_types
+    """
+    types = (list,)
+    if except_for_these_types is not None:
+        # listify inside of listify...
+        if not isinstance(except_for_these_types, (list, tuple)):
+            except_for_these_types = [except_for_these_types]
+        for itype in except_for_these_types:
+            types += (itype,)
+
+    if not isinstance(inp, types):
         inp = [inp]
 
     return inp
+
+def source_from_input(inp, MD_top=None):
+    """
+
+    :param inp: str, md.Trajectories, list of strs, list of md.Trajectories or even a pyemma FeatureReader
+
+    :param MD_top: filename or md.Topology object needed to construct a :py:obj:`pyemma.coordinates.source` type
+     of object
+
+    :return:
+    """
+    # TODO test
+    # Do we have a reader?
+    if isinstance(inp, (_FeatureReader, _FragmentedTrajectoryReader)):
+        src = inp
+    # Everything else gets listified
+    else:
+        inp = listify_if_not_list(inp)
+        if isinstance(inp[0], _md.Trajectory):
+            src = inp
+        else:
+            src = _source(inp, top=MD_top)
+
+    return src
 
 def matplotlib_colors_no_blue():
     # Until we get the colorcyle thing working, this is a workaround:
@@ -496,11 +546,10 @@ def save_traj_wrapper(traj_inp, indexes, outfile, top=None, stride=1, chunksize=
     """
 
      # Listify the input in case its needed
-    if not isinstance(traj_inp, list) and not isinstance(traj_inp, _FeatureReader):
-        traj_inp = [traj_inp]
+    traj_inp = listify_if_not_list(traj_inp, except_for_these_types=(_FeatureReader, _FragmentedTrajectoryReader))
 
     # Do the normal thing in case of Feature_reader or list of strings
-    if isinstance(traj_inp, _FeatureReader) or _is_string(traj_inp[0]):
+    if isinstance(traj_inp, (_FeatureReader, _FragmentedTrajectoryReader)) or _is_string(traj_inp[0]):
         geom_smpl = _save_traj(traj_inp, indexes, None, top=top, stride=stride,
                                chunksize=chunksize, image_molecules=image_molecules, verbose=verbose)
     elif isinstance(traj_inp[0], _md.Trajectory):
@@ -983,7 +1032,6 @@ def most_corr(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_a
     elif isinstance(correlation_input, _MDFeaturizer):
         corr = _np.eye(correlation_input.dimension())
         featurizer = correlation_input
-        avail_FT = True
     else:
         raise TypeError('correlation_input has to be either %s, not %s'%([_TICA, _PCA, _np.ndarray, _MDFeaturizer], type(correlation_input)))
 
@@ -993,6 +1041,8 @@ def most_corr(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_a
             avail_FT = True
         except(AttributeError):
             avail_FT = False
+    else:
+        avail_FT = True
 
     dim = corr.shape[1]
 
@@ -1056,12 +1106,6 @@ def atom_idxs_from_feature(ifeat):
     atom_indices : list with the atoms indices representative of this feature, whatever the feature
     """
 
-    from pyemma.coordinates.data.featurization.distances import DistanceFeature as _DF, \
-        ResidueMinDistanceFeature as _ResMinDF
-    from pyemma.coordinates.data.featurization.misc import SelectionFeature as _SF
-    from pyemma.coordinates.data.featurization.angles import DihedralFeature as _DihF
-    from pyemma.coordinates.data.featurization.angles import AngleFeature as _AF
-
     if isinstance(ifeat, _DF) and not isinstance(ifeat, _ResMinDF):
         return ifeat.distance_indexes
     elif isinstance(ifeat, _SF):
@@ -1106,7 +1150,7 @@ def add_atom_idxs_widget(atom_idxs, widget, color_list=None):
 
     """
 
-    if color_list is None:
+    if color_list in [None, [None]]:
         color_list = ['blue']*len(atom_idxs)
     elif isinstance(color_list, list) and len(color_list)<len(atom_idxs):
         color_list += [color_list[-1]]*(len(atom_idxs)-len(color_list))

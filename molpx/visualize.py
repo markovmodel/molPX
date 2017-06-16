@@ -7,7 +7,7 @@ from pyemma.plots import plot_free_energy as _plot_free_energy
 import numpy as _np
 
 from . import generate
-from . import bmutils as _bmutils
+from . import _bmutils
 
 from matplotlib import pylab as _plt, rcParams as _rcParams
 import nglview as _nglview
@@ -532,9 +532,8 @@ def correlations(correlation_input,
 
     correlation_input : anything
         Something that could, in principle, be a :obj:`pyemma.coordinates.transformer,
-        like a TICA, PCA or featurizer object or directly a correlation matrix, with a row for each feature and a column
+        like a TICA, PCA object or directly a correlation matrix, with a row for each feature and a column
         for each projection, very much like the :obj:`feature_TIC_correlation` of the TICA object of pyemma.
-
 
     geoms : None or obj:`md.Trajectory`, default is None
         The values of the most correlated features will be returned for the geometires in this object. If widget is
@@ -560,7 +559,6 @@ def correlations(correlation_input,
         In principle, the list can contain one color for each projection (= as many colors as len(proj_idxs)
         but if your list is short it will just default to the last color. This way, proj_color_list=['black'] will paint
         all black regardless len(proj_idxs)
-
 
     proj_idxs: None, or int, or iterable of integers, default is None
         The indices of the projections for which the most correlated feture will be returned
@@ -818,11 +816,9 @@ def _sample(positions, geoms, ax,
         you can provide an already instantiated nglviewer widget here (avanced use)
 
     superpose : boolean, default is True
-        # TODO: false is not implemented yet
         The geometries in :obj:`geoms` may or may not be oriented, depending on where they were generated.
         Since this method is mostly for visualization purposes, the default behaviour is to orient them all to
-        maximally overlap with the first frame (of the first :obj:`mdtraj.Trajectory` object, in case :obj:`geoms`
-        is a list)
+        maximally overlap with the frame that is most compact (=a heuristic to identify folded frames)
     projection : object that generated the projection, default is None
         The projected coordinates may come from a variety of sources. When working with :ref:`pyemma` a number of objects
         might have generated this projection, like a
@@ -874,9 +870,13 @@ def _sample(positions, geoms, ax,
     elif isinstance(superpose, (list, _np.ndarray)):
         assert _np.all([_bmutils.is_int(ii) for ii in superpose])
         sel = superpose
+    elif superpose is False:
+        sel = None
 
     if sel is not None:
-        geoms = [igeom.superpose(geoms[0], atom_indices=sel) for igeom in geoms]
+        ref = _bmutils.geom_list_2_geom(geoms)
+        ref = ref[_md.compute_rg(ref).argmin()]
+        geoms = [igeom.superpose(ref, atom_indices=sel) for igeom in geoms]
 
     # Create ngl_viewer widget
     if widget is None:

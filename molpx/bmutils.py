@@ -58,29 +58,71 @@ def listify_if_not_list(inp, except_for_these_types=None):
 
     return inp
 
-def source_from_input(inp, MD_top=None):
+def moldata_from_input(inp, MD_top=None):
+    r"""
+
+    Parameters
+    ----------
+
+    inp : str, md.Trajectory, list of strs, list of md.Trajectories or even a pyemma FeatureReader
+        Where the molecular trajectory data is coming from
+
+    MD_top : filename or md.Topology object
+        If :py:obj:`inp` is needed to construct a :py:obj:`pyemma.coordinates.source` type of object,
+        you have to parse it here
+
+    Returns
+    -------
+
+    moldata: pyemma FeatureReader or list of md.Trajectories, depending on the input
     """
 
-    :param inp: str, md.Trajectories, list of strs, list of md.Trajectories or even a pyemma FeatureReader
-
-    :param MD_top: filename or md.Topology object needed to construct a :py:obj:`pyemma.coordinates.source` type
-     of object
-
-    :return:
-    """
-    # TODO test
-    # Do we have a reader?
     if isinstance(inp, (_FeatureReader, _FragmentedTrajectoryReader)):
-        src = inp
+        moldata = inp
+
     # Everything else gets listified
     else:
         inp = listify_if_not_list(inp)
+        # We have geometries so don't do anything
         if isinstance(inp[0], _md.Trajectory):
-            src = inp
+            moldata = inp
+        elif isinstance(inp[0], str):
+            moldata = _source(inp, top=MD_top)
+        # TODO consider letting pyemma fail here instead of catching this
         else:
-            src = _source(inp, top=MD_top)
+            raise TypeError("Please revise tyour input, it should be a str ",type(inp[0]))
+    return moldata
 
-    return src
+def assert_moldata_belong_data(moldata, data, data_stride=1):
+    r"""
+
+    Parameters :
+    ------------
+
+        moldata : list or pyemma FeatureReader or FragmentedTrajectoryReader
+
+        data : list of ndarrays
+
+        data_stride : int, stride of the data vs. the moldata
+
+    Returns :
+    ---------
+
+        boolean
+    """
+    try:
+        n_traj = moldata.number_of_trajectories()
+        traj_lengths = moldata.trajectory_lengths()
+    except  AttributeError:
+        n_traj = len(moldata)
+        traj_lengths = [ii.n_frames for ii in moldata]
+
+    # Stride:
+    traj_lengths = [len(_np.arange(ii)[::data_stride]) for ii in traj_lengths]
+
+
+    assert n_traj == len(data), ("Wrong number of molecular traj vs. data trajs: %u vs %u"%(n_traj, len(data)))
+    assert _np.allclose(traj_lengths, [len(ii) for ii in data]), "Mismatch in the lengths of individual molecular trajs and data trajs"
 
 def matplotlib_colors_no_blue():
     # Until we get the colorcyle thing working, this is a workaround:

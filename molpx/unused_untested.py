@@ -16,13 +16,43 @@ try:
     from pyemma.util.linalg import eig_corr
 except ImportError:
     from pyemma._ext.variational.solvers.direct import eig_corr
-from pyemma.coordinates import source as _source, \
-    cluster_regspace as _cluster_regspace, \
-    save_traj as _save_traj
-from pyemma.coordinates.data.feature_reader import  FeatureReader as _FeatureReader
-from pyemma.util.discrete_trajectories import index_states as _index_states
+from pyemma.coordinates import source as _source, featurizer as _featurizer
 from scipy.spatial import cKDTree as _cKDTree
 #from myMDvisuals import customvmd
+
+class path_object(object):
+    r"""
+    Object that can produce geoms, paths, correlations and features from
+    a project file
+
+    """
+
+    def __init__(self, fname):
+        ipath = _np.load(fname)['arr_0'][()]
+        lag_str, idata, tcorr, tica_mean, l, U = _opentica_npz(ipath["ticfile"])
+
+        ipath = {int(key): val for key, val in ipath.items() if _np.chararray.isnumeric(key)}
+        for key, val in ipath.items():
+            for ikey, jval in val.items():
+                if isinstance(jval["geom"], str):
+                    jval["geom"] = _md.load(jval["geom"])
+
+        self._paths = ipath
+        self.feat = _featurizer(jval["geom"].top)
+        self.feat.add_distances(_mdcontacts2CAidxs(jval["geom"]))
+        self.feature_TIC_correlation = tcorr
+        self.data = idata
+        self.fname = fname
+        self._lag_str = lag_str
+
+    def path(self,path_type='min_rmsd', proj_idx=0):
+        out_geom = self._paths[proj_idx][path_type]["geom"]
+        out_path = self._paths[proj_idx][path_type]["proj"]
+        return  out_geom, out_path
+
+    @property
+    def lagtime(self):
+        return int(self._lag_str)
 
 def _dictionarize_list(list, input_dict, output_dict = None):
     if output_dict is None:

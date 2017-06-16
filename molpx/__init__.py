@@ -3,16 +3,16 @@ r"""
 molPX - Molecular Projection Explorer
 =====================================
 """
-from __future__ import print_function
+from __future__ import print_function as _
 
 __author__ = 'gph82'
 
 
 from . import generate
 from . import visualize
-from .nbtools import example_notebook, _molpxdir
+from . import _bmutils
 
-
+from ._nbtools import example_notebook, _molpxdir
 
 def _report_status():
     r"""

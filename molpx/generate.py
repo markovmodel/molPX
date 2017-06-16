@@ -7,7 +7,7 @@ __author__ = 'gph82'
 from pyemma.coordinates import source as _source
 
 import numpy as _np
-from . import bmutils as _bmutils
+from . import _bmutils
 from collections import defaultdict as _defdict
 import mdtraj as _md
 

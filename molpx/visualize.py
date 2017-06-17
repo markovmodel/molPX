@@ -417,7 +417,7 @@ def traj(MD_trajectories,
 
     # Do we have usable projection information?
     if projection is not None:
-        corr_dict = _bmutils.most_corr_info(projection, geoms=geoms, proj_idxs=proj_idxs, n_args=n_feats)
+        corr_dict = _bmutils.most_corr(projection, geoms=geoms, proj_idxs=proj_idxs, n_args=n_feats)
         if corr_dict["feats"] != []:
             # Then extend the trajectory selection to include the active trajectory twice
             traj_selection = _np.insert(traj_selection,

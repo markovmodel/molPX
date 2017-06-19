@@ -852,7 +852,7 @@ def _sample(positions, geoms, ax,
     if n_smooth > 0:
         if isinstance(geoms, _md.Trajectory): # smoothing only makes sense for paths, and paths cannot be lists at the moment
             geoms, positions = _bmutils.smooth_geom(geoms, n_smooth, geom_data=positions)
-            mean_smooth_radius = _np.diff(positions, axis=0).mean(0) * n_smooth
+            mean_smooth_radius = _np.abs(_np.diff(positions, axis=0).mean(0) * n_smooth)
             band_width = 2 * mean_smooth_radius
     else:
         band_width = None

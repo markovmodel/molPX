@@ -320,3 +320,70 @@ def sample(MD_trajectories, MD_top, projected_trajectories,
         return pos, geom_smpl
     else:
         return pos, geom_smpl, idata
+
+
+def MEP_auto(Y, MD_trajectories, V=None,
+             resolution=1000, step_size=100, endpoints=None, top=None
+             ):
+    # TODO document
+
+    # Cluster
+    cl = _bmutils.regspace_cluster_to_target(Y, resolution, n_try_max=10,
+                                             #verbose=True
+                                             )
+
+    # Energy
+    if V is None:
+        V = -_np.log([len(ii) for ii in cl.index_clusters])
+
+    # Generate endpoints if needed
+    if endpoints is None:
+        endpoints = _bmutils.auto_GMM_model(_np.vstack(Y)).means_
+    elif _bmutils._is_int(endpoints):
+        endpoints = _bmutils.auto_GMM_model(_np.vstack(Y), ncs=[endpoints]).means_
+    elif isinstance(endpoints, list):
+        endpoints = _np.vstack(endpoints)
+
+    # Iterate over endpoint connections
+    paths_dict = _defdict(dict)
+    for ii, jj in _np.vstack(_np.triu_indices(len(endpoints), k=1)).T:
+        # Closest points to start and end
+        start_idx = _np.sum((cl.clustercenters - endpoints[ii]) ** 2, 1).argmin()
+        end_idx =   _np.sum((cl.clustercenters - endpoints[jj]) ** 2, 1).argmin()
+
+        # Naive MEP
+        path_idxs = _bmutils.MEP_naive(cl.clustercenters, V, start_idx, end_idx, step_size=step_size)
+
+        # (file, frame) samples corresponding to this path
+        cat_smpl = cl.sample_indexes_by_cluster(path_idxs, 100)
+
+        # Translated to geometries
+        geom_smpl = _bmutils.save_traj_wrapper(MD_trajectories, _np.vstack(cat_smpl), None, top=top)
+        geom_smpl = _bmutils.re_warp(geom_smpl, [100] * len(path_idxs))
+        path_smpl, __ = _bmutils.visual_path(cat_smpl, geom_smpl,
+                                             start_pos=0,
+                                             # start_frame=istart_frame,
+                                             path_type='min_rmsd',
+                                             history_aware=True,
+                                             # selection=geom_smpl[0].top.select(minRMSD_selection)
+                                             )
+        igeom = _bmutils.save_traj_wrapper(MD_trajectories, path_smpl, None, top=top)
+
+        try:
+            paths_dict[ii][jj]["geom"] = igeom
+            paths_dict[ii][jj]["proj"] = cl.clustercenters[path_idxs]
+        except KeyError:
+            paths_dict[ii][jj] = {}
+            paths_dict[ii][jj]["geom"] = igeom
+            paths_dict[ii][jj]["proj"] = cl.clustercenters[path_idxs]
+
+        # Now the inverse path
+        try:
+            paths_dict[jj][ii]["geom"] = igeom[::-1]
+            paths_dict[jj][ii]["proj"] = cl.clustercenters[path_idxs][::-1]
+        except KeyError:
+            paths_dict[jj][ii] = {}
+            paths_dict[jj][ii]["geom"] = igeom[::-1]
+            paths_dict[jj][ii]["proj"] = cl.clustercenters[path_idxs][::-1]
+
+    return paths_dict

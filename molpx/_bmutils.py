@@ -199,7 +199,7 @@ def regspace_cluster_to_target(data, n_clusters_target,
     dmin = (cmax-cmin)/(n_clusters_target+1)
 
     err = _np.ceil(n_clusters_target*delta)
-    cl = _cluster_regspace(data, dmin=dmin)
+    cl = _cluster_regspace(data, dmin=dmin, max_centers=5000)
     for cc in range(n_try_max):
         n_cl_now = cl.n_clusters
         delta_cl_now = _np.abs(n_cl_now - n_clusters_target)
@@ -701,13 +701,8 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
 
     # Other objects, related to smoothing options
     if band_width is not None:
-        #print("Band_width(x,y) is %s" % (band_width))
-        coord_idx= get_ascending_coord_idx(pos)
-
-        band_width_in_pts = int(_np.round(pts_per_axis_unit(ax)[coord_idx] * band_width[coord_idx]))
-        #print("Band_width in %s is %s pts"%('xy'[coord_idx], band_width_in_pts))
-
         if radius:
+            band_width_in_pts = int(_np.round(pts_per_axis_unit(ax).mean() * band_width.mean()))
             rad = ax.plot(pos[0, 0], pos[0, 1], 'o',
                           ms=_np.round(band_width_in_pts),
                           c='green', alpha=.25, markeredgecolor='None')[0]
@@ -715,6 +710,12 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
             if not sticky:
                 closest_to_click_obj.append(rad)
         else:
+            # print("Band_width(x,y) is %s" % (band_width))
+            coord_idx = get_ascending_coord_idx(pos)
+            band_width_in_pts = int(_np.round(pts_per_axis_unit(ax)[coord_idx] * band_width[coord_idx]))
+            # print("Band_width in %s is %s pts"%('xy'[coord_idx], band_width_in_pts))
+
+
             band_call = [ax.axvline, ax.axhline][coord_idx]
             band_init = [ax.get_xbound, ax.get_ybound][coord_idx]
             band_type = ['linev',  'lineh'][coord_idx]
@@ -1287,3 +1288,84 @@ def geom_list_2_geom(geom_list):
 
 
     return(geom)
+
+def auto_GMM_model(Y, ncs=_np.arange(2, 7)):
+    bics = []
+    for nc in ncs:
+        igmm = _GMM(n_components=nc)
+        igmm.fit(Y)
+        bics.append(igmm.bic(Y))
+    nc = ncs[_np.argmin(bics)]
+    if len(ncs) > 1:
+        igmm = _GMM(n_components=nc)
+        igmm.fit(Y)
+
+    return igmm
+
+def MEP_naive(euc_points, V, start_idx, end_idx, step_size=10, allow_jumps=True):
+    r"""
+    return the indices of a path that connects the start and end points miniminzing the energy
+
+    Parameters
+    ----------
+
+    euc_points : np.ndarray of shape (n, m)
+        n points of dimension m in euclidean space that the path can consist of
+
+    V : iterable of floats of len(n)
+        energy value for each of the points in :py:obj:`euc_points`
+
+    start_idx : int
+        where the path is supossed to start
+
+    end_idx : int
+        where the path is supossed to end
+
+    step_size : int, default is 10
+        parameter of the method, something like the radius of the hypershpere around the current path point
+        for next-step search
+    """
+
+    from scipy.spatial.distance import pdist, squareform
+
+    assert _np.ndim(euc_points) == 2
+    assert len(V) == euc_points.shape[0], (len(V), euc_points.shape)
+
+    # Distance matrix with infinity in the diagonal
+    D = squareform(pdist(euc_points)) + _np.diag(_np.ones(euc_points.shape[0]) + _np.inf)
+
+    imax = 1000
+    path = [start_idx]
+
+    for ii in range(imax):
+        # Update actual distance to final step
+        d2end = D[path[-1], end_idx]
+
+        # Closest candidates
+        cands = D[path[-1]].argsort()[:step_size]
+        if end_idx in cands:
+            path.append(end_idx)
+            break
+        # print(ii, ":", path[-1], cands, end_idx, end_idx in cands)
+
+        # Take those who reduce the distance (advanced cands) and have note yet been selected
+        cands = [ii for ii in cands if D[end_idx][ii] <= d2end and ii not in path]
+
+        # Take the one with the minimum energy among the advanced cands
+        try:
+            path.append(cands[_np.argmin([V[ii] for ii in cands])])
+        except ValueError:
+            if allow_jumps:
+                cands = [ii for ii in D[path[-1]].argsort()]  # Don't use step_size
+                cands = [ii for ii in cands if ii not in path]  # Do not revisit
+                cands = [ii for ii in cands if D[ii, end_idx] < d2end]  # Go fwd
+                cands = [ii for ii in cands if D[ii, start_idx] > D[path[-1], start_idx]]  # Don't go bckwd
+                path.append(cands[0])
+            else:
+                print("Path interrupted because of need to jump.\n", \
+                      "Please inspect this result and decide for larger step_size or simply allowing for jumps")
+                break
+
+        if end_idx == path[-1]:
+            break
+    return path

@@ -12,7 +12,7 @@ from . import generate
 from . import visualize
 from . import _bmutils
 
-from ._nbtools import example_notebook, _molpxdir
+from ._nbtools import example_notebooks, _molpxdir
 
 def _report_status():
     r"""

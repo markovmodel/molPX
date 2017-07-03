@@ -213,7 +213,7 @@ def example_notebooks(dry_run=False, extra_flags_as_one_string=None):
                                            "This temporary copy is located in `%s`. "
                                            "Feel free to play around, modify or even break this notebook. "
                                            "It wil be deleted on exit it and a new one created next time you issue "
-                                           "`molpx.example_notebook()`</font>\\n\\n"
+                                           "`molpx.example_notebooks()`</font>\\n\\n"
                                            "# "
                                      %(nb_file, tmpfile),1))
             f.close()

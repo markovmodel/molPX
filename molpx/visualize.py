@@ -413,6 +413,13 @@ def traj(MD_trajectories,
     for ii, __ in enumerate(proj_idxs):
         ylims[0, ii] = _np.min([idata[:,ii].min() for idata in data])
         ylims[1, ii] = _np.max([idata[:,ii].max() for idata in data])
+    # TODO TEST
+    try:
+        proj_labels.describe()
+        proj_labels = [proj_labels.describe()[ii] for ii in proj_idxs]
+    except AttributeError:
+        pass
+
     if isinstance(proj_labels, str):
        ylabels = ['$\mathregular{%s_{%u}}$'%(proj_labels, ii) for ii in proj_idxs]
     elif isinstance(proj_labels, list):

@@ -85,7 +85,7 @@ def projection_paths(MD_trajectories, MD_top, projected_trajectories,
 
             * :obj:`paths_dict[idxs][type_of_path]["proj"]` : ndarray of shape (n_points, proj_dim) with the coordinates of the projection along the path
 
-            * :obj:`paths_dict[idxs][type_of_path]["geom"]` : :any:`mdtraj.Trajectory` geometries along the path
+            * :obj:`paths_dict[idxs][type_of_path]["geom"]` : :obj:`mdtraj.Trajectory` geometries along the path
 
 
     idata :

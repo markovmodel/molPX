@@ -465,7 +465,7 @@ def get_good_starting_point(cl, geom_samples, cl_order=None, strategy='smallest_
     strategy : str, default is 'smallest_Rgyr'
          Which property gets optimized
             * *smallest_Rgyr*:
-              look for the geometries with smallest radius of gyration(:any:`mdtraj.compute_rg`),
+              look for the geometries with smallest radius of gyration(:obj:`mdtraj.compute_rg`),
               regardless of the population
 
             * *most_pop*:

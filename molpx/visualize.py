@@ -269,9 +269,7 @@ def traj(MD_trajectories,
          n_feats = 1,
          ):
     r"""Link one or many :obj:`projected trajectories`, [Y_0(t), Y_1(t)...], with the :obj:`MD_trajectories` that
-    originated them.
-
-    Optionally plot also the resulting FES.
+    originated them. Optionally plot also the resulting FES.
 
     Parameters
     -----------
@@ -336,7 +334,7 @@ def traj(MD_trajectories,
         Note: the data used for the FES will always include all trajectories, regardless of this value
 
     projection : object that generated the projection, default is None
-        The projected coordinates may come from a variety of sources. When working with :ref:`pyemma` a number of objects
+        The projected coordinates may come from a variety of sources. When working with :obj:`pyemma` a number of objects
         might have generated this projection, like a
         * :obj:`pyemma.coordinates.transform.TICA` or a
         * :obj:`pyemma.coordinates.transform.PCA` or a
@@ -530,24 +528,22 @@ def correlations(correlation_input,
                  n_feats=1,
                  verbose=False,
                  featurizer=None):
-    r"""
-    Provide a visual and textual representation of the linear correlations between projected coordinates (PCA, TICA)
-     and original features.
+    r""" Provide a visual and textual representation of the linear correlations between projected coordinates (PCA, TICA) and original features.
 
     Parameters
     ---------
 
     correlation_input : anything
-        Something that could, in principle, be a :obj:`pyemma.coordinates.transformer,
+        Something that could, in principle, be a :obj:`pyemma.coordinates.transformer`,
         like a TICA, PCA object or directly a correlation matrix, with a row for each feature and a column
         for each projection, very much like the :obj:`feature_TIC_correlation` of the TICA object of pyemma.
 
-    geoms : None or obj:`md.Trajectory`, default is None
+    geoms : None or :obj:`mdtraj.Trajectory`, default is None
         The values of the most correlated features will be returned for the geometires in this object. If widget is
         left to its default, None, :obj:`correlations` will create a new widget and try to show the most correlated
-          features on top of the widget
+        features on top of the widget
 
-    widget : None or nglview widget
+    widget : None or :obj:`nglview NGLWidget`
         Provide an already existing widget to visualize the correlations on top of. This is only for expert use,
         because no checks are done to see if :obj:`correlation_input` and the geometry contained in the
         widget **actually match**. Use with caution.
@@ -561,13 +557,13 @@ def correlations(correlation_input,
 
             Use with caution and clean bookkeeping!
 
-    proj_color_list: list, default is None
+    proj_color_list : list, default is None
         projection specific list of colors to provide the representations with. The default None yields blue.
         In principle, the list can contain one color for each projection (= as many colors as len(proj_idxs)
         but if your list is short it will just default to the last color. This way, proj_color_list=['black'] will paint
         all black regardless len(proj_idxs)
 
-    proj_idxs: None, or int, or iterable of integers, default is None
+    proj_idxs : None, or int, or iterable of integers, default is None
         The indices of the projections for which the most correlated feture will be returned
         If none it will default to the dimension of the correlation_input object
 
@@ -581,13 +577,43 @@ def correlations(correlation_input,
     featurizer : optional featurizer, default is None
         If :obj:`correlation_input` is not an :obj:`_MDFeautrizer` itself or doesn't have a
         data_producer.featurizer attribute, the user can input one here. If both an _MDfeaturizer *and* an :obj:`featurizer`
-         are provided, the latter will be ignored.
+        are provided, the latter will be ignored.
 
     verbose : Bool, default is True
         print to standard output
 
-    :return:
-    most_corr_idxs, most_corr_vals, most_corr_labels, most_corr_feats, most_corr_atom_idxs, lines, widget, lines
+    Returns
+    -------
+    corr_dict and iwd
+
+    corr_dict:
+        A dictionary with items:
+
+        idxs :
+            List of length len(proj_idxs) with lists of length n_feat with the idxs of the most correlated features
+
+        vals :
+            List of length len(proj_idxs) with lists of length n_feat with the corelation values of the
+            most correlated features
+
+        labels :
+            List of length len(proj_idxs) with lists of length n_feat with the labels of the
+            most correlated features
+
+        feats :
+            If an :obj:`mdtraj.Trajectory` is passed as an :obj:`geom` argument, the most correlated features will
+            be evaluated for that geom and returned as list of length len(proj_idxs) with arrays with shape
+
+        atom_idxs :
+            List of length len(proj_idxs) each with an nd.array of shape (nfeat, m), where m is the number of atoms needed
+            to describe each feature (1 of cartesian, 2 for distances, 3 for angles, 4 for dihedrals)
+
+        info :
+            List of length len(proj_idxs) with lists of length n_feat with strings describing the correlations
+
+    widget :
+        obj:`nglview.NGLwidget` with the correlations visualized on top of it
+
     """
     # todo consider kwargs for most_corr_info
     corr_dict = _bmutils.most_corr(correlation_input,
@@ -718,7 +744,7 @@ def sample(positions, geom, ax,
 
     n_smooth : int, default is 0,
         if n_smooth > 0, the shown geometries and paths will be smoothed out by 2*n frames.
-        See :any:`bmutils.smooth_geom` for more information
+        See :obj:`molpx._bmutils.smooth_geom` for more information
 
     widget : None or existing nglview widget
         you can provide an already instantiated nglviewer widget here (avanced use)
@@ -730,7 +756,7 @@ def sample(positions, geom, ax,
         maximally overlap with the first frame (of the first :obj:`mdtraj.Trajectory` object, in case :obj:`geom`
         is a list)
     projection : object that generated the projection, default is None
-        The projected coordinates may come from a variety of sources. When working with :ref:`pyemma` a number of objects
+        The projected coordinates may come from a variety of sources. When working with :obj:`pyemma` a number of objects
         might have generated this projection, like a
         * :obj:`pyemma.coordinates.transform.TICA` or a
         * :obj:`pyemma.coordinates.transform.PCA` or a
@@ -831,7 +857,7 @@ def _sample(positions, geoms, ax,
         Since this method is mostly for visualization purposes, the default behaviour is to orient them all to
         maximally overlap with the frame that is most compact (=a heuristic to identify folded frames)
     projection : object that generated the projection, default is None
-        The projected coordinates may come from a variety of sources. When working with :ref:`pyemma` a number of objects
+        The projected coordinates may come from a variety of sources. When working with :obj:`pyemma` a number of objects
         might have generated this projection, like a
         * :obj:`pyemma.coordinates.transform.TICA` or a
         * :obj:`pyemma.coordinates.transform.PCA` or a

@@ -29,9 +29,14 @@ installation directory.
     lacking the most visually appealing part of ``molpx``.
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 0
 
    Projection_Explorer_Copy.ipynb
+   Di-Ala_Copy.ipynb
+   Di-Ala_Metadynamics_Copy.ipynb
+   PyEMMA_Features_Copy.ipynb
+
+
 
 
 3. Watch:

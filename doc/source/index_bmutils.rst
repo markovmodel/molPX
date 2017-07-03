@@ -11,10 +11,10 @@ This module contains methods that allow :any:`molpx.generate` to work
 .. autosummary::
    :toctree: autosummaries
 
-   molpx.bmutils.get_good_starting_point
+   molpx._bmutils.get_good_starting_point
 
 
 
-.. automodule:: molpx.bmutils
+.. automodule:: molpx._bmutils
    
 

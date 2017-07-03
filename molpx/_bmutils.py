@@ -1166,7 +1166,7 @@ def atom_idxs_from_feature(ifeat):
     else:
         raise NotImplementedError('bmutils.atom_idxs_from_feature cannot interpret the atoms behind %s yet'%ifeat)
 
-def add_atom_idxs_widget(atom_idxs, widget, color_list=None):
+def add_atom_idxs_widget(atom_idxs, widget, color_list=None, radius=1):
     r"""
     provided a list of atom_idxs and a widget, try to represent them as well as possible in the widget
     It is assumed that this method is called once per feature, ie. the number of atoms defines the
@@ -1189,6 +1189,9 @@ def add_atom_idxs_widget(atom_idxs, widget, color_list=None):
         but if your list is short it will just default to the last color. This way, color_list=['black'] will paint
         all black regardless len(atom_idxs)
 
+    radius : float, default is 1
+        radius of the spacefill representation
+
     Returns
     -------
     widget : Input widget with the representations added
@@ -1203,14 +1206,14 @@ def add_atom_idxs_widget(atom_idxs, widget, color_list=None):
     if atom_idxs is not []:
         for iidxs, color in zip(atom_idxs, color_list):
             if _is_int(iidxs):
-                widget.add_spacefill(selection=[iidxs], radius=1, color=color)
+                widget.add_spacefill(selection=[iidxs], radius=radius, color=color)
             elif _np.ndim(iidxs)>0 and len(iidxs)==2:
                 widget.add_distance(atom_pair=[[ii for ii in iidxs]], # yes it has to be this way for now
                  color=color,
                  #label_color='black',
                  label_size=0)
             elif _np.ndim(iidxs) > 0 and len(iidxs) in [3,4]:
-                widget.add_spacefill(selection=iidxs, radius=1, color=color)
+                widget.add_spacefill(selection=iidxs, radius=radius, color=color)
             else:
                 print("Cannot represent features involving more than 5 atoms per single feature")
 

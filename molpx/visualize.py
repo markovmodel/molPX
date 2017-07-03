@@ -116,7 +116,7 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
         The sample weights, typically coming from a metadynamics run. Has to have the same length
         as the :py:obj:`projected_trajectories` argument.
 
-    proj_labels : either string or list of strings
+    proj_labels : either string or list of strings or (experimental PyEMMA featurizer)
         The projection plots will get this paramter for labeling their yaxis. If a str is
         provided, that will be the base name proj_labels='%s_%u'%(proj_labels,ii) for each
         projection. If a list, the list will be used. If not enough labels are there
@@ -158,6 +158,13 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
 
     # Prepare for 1D case
     proj_idxs = _bmutils.listify_if_int(proj_idxs)
+
+    # TODO TEST
+    try:
+        proj_labels.describe()
+        proj_labels = [proj_labels.describe()[ii] for ii in proj_idxs]
+    except AttributeError:
+        pass
 
     data_sample, geoms, data = generate.sample(MD_trajectories, MD_top, projected_trajectories,
                                                atom_selection=atom_selection,
@@ -617,7 +624,8 @@ def correlations(correlation_input,
 def feature(feat,
             widget,
             idxs=0,
-            color_list=None
+            color_list=None,
+            **kwargs
                ):
     r"""
     Provide a visual representation of a PyEMMA feature. PyEMMA's features are found as a list of the MDFeaturizers's
@@ -644,12 +652,15 @@ def feature(feat,
         but if your list is short it will just default to the last color. This way, color_list=['black'] will paint
         all black regardless len(proj_idxs)
 
+    **kwargs : optional keyword arguments for _bmutils.add_atom_idxs_widget
+        currently, only "radius" is left for the user to determine
 
     Returns :
+    --------
 
     widget :
         the input widget with the features in :py:obj:`idxs` represented as either distances (for distance features)
-        or CPK spheres (for angular features)
+        or "spacefill" spheres (for angular features)
 
     """
 
@@ -666,7 +677,7 @@ def feature(feat,
                         "or a list, not %s of type %s"%(color_list, type(color_list)))
 
     # Add the represenation
-    _bmutils.add_atom_idxs_widget(atom_idxs, widget, color_list=color_list)
+    _bmutils.add_atom_idxs_widget(atom_idxs, widget, color_list=color_list, **kwargs)
 
     return widget
 

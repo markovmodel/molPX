@@ -703,5 +703,56 @@ class TestIndexFromFeatures(unittest.TestCase):
         ref = np.tile(self.dih_idxs, 2).reshape(-1,4)
         assert np.allclose(ref, ai)
 
+class TestInputManipulationShaping(unittest.TestCase):
+
+    def test_listify(self):
+        input = [1,2,3,4]
+        output = _bmutils.listify_if_not_list(input)
+        # Doesn't do anything to a list
+        assert isinstance(output, list)
+        assert np.all([ii==jj for ii, jj in zip(input, output)])
+        # Does do to a tuple
+        input = (1,2,3,4)
+        output = _bmutils.listify_if_not_list(input)
+        assert isinstance(output, list)
+        assert np.all([ii == jj for ii, jj in zip(input, output[0])])
+        # Not if we exclude it, though
+        assert not isinstance(_bmutils.listify_if_not_list(input, except_for_these_types=tuple), list)
+        # And the exclusion is a list
+        assert not isinstance(_bmutils.listify_if_not_list(input, except_for_these_types=[tuple, 'str']), list)
+        input = 1
+        output = _bmutils.listify_if_not_list(input)
+        assert isinstance(output, list)
+        assert output[0] == input
+
+    def test_labelize(self):
+        # Labels get constructed
+        labels = _bmutils.labelize('test',[0,1])
+        assert labels[0] == '$\mathregular{test_{0}}$', labels[0]
+        assert labels[1] == '$\mathregular{test_{1}}$', labels[1]
+
+        # Labels get accepted as they are and nothing happpens
+        labels = _bmutils.labelize(['mylabel0', 'mylabel1'], [0, 1])
+        assert labels[0] == "mylabel0", labels[0]
+        assert labels[1] == "mylabel1", labels[1]
+
+        # features objects can function
+        feat = pyemma.coordinates.featurizer(os.path.join(pyemma.__path__[0], 'coordinates/tests/data/bpti_ca.pdb'))
+        feat.add_all()
+        labels = _bmutils.labelize(feat, [0,1])
+        assert labels[0] == feat.describe()[0]
+        assert labels[1] == feat.describe()[1]
+
+    def test_superpose_list_of_geoms(self):
+        geom = md.load(os.path.join(pyemma.__path__[0], 'coordinates/tests/data/bpti_ca.pdb'))
+
+        # Nothing happens
+        _bmutils.superpose_to_most_compact_in_list(False, [geom])
+        # Something happens
+        _bmutils.superpose_to_most_compact_in_list(True, [geom])
+        # Something more specific happens
+        _bmutils.superpose_to_most_compact_in_list('residue 10 or residue 11', [geom])
+        _bmutils.superpose_to_most_compact_in_list(np.arange(10), [geom])
+
 if __name__ == '__main__':
     unittest.main()

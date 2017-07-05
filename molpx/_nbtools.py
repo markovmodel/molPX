@@ -2,6 +2,11 @@ from __future__ import print_function
 
 import warnings as _warnings
 import os as _os
+import sys as _sys
+from glob import glob
+from inspect import getfile
+import shutil
+from time import sleep
 
 from tempfile import mkdtemp
 
@@ -15,15 +20,13 @@ def _molpxdir(join=None):
     :return: directory or filename where the data for the notebook lies
     """
 
-    from os.path import join as pjoin, dirname
-    from inspect import getfile
     import molpx
 
     if join is None:
-        return dirname(getfile(molpx))
+        return _os.path.dirname(getfile(molpx))
     else:
         assert isinstance(join,str), ("parameter join can only be a string", type(join))
-        return pjoin(dirname(getfile(molpx)), join)
+        return _os.path.join(_os.path.dirname(getfile(molpx)), join)
 
 
 
@@ -110,8 +113,7 @@ class TemporaryDirectory(object):
         except OSError:
             pass
 
-# TODO ADD DEPRECTION LABEL
-def _example_notebook(extra_flags_as_one_string=None, nb_file='Projection_Explorer.ipynb', just_show_available_nbs=False):
+def example_notebook(extra_flags_as_one_string=None, nb_file='Projection_Explorer.ipynb', just_show_available_nbs=False):
     r"""
     Open the example notebook in the default browser. The ipython terminal stays active while the notebook is still active.
     Ctr+C in the ipython terminal will close the notebook.
@@ -132,7 +134,9 @@ def _example_notebook(extra_flags_as_one_string=None, nb_file='Projection_Explor
         Show a list of available notebooks and exit.
     """
 
-    from glob import glob
+    # TODO create deprecation annotator?
+    _warnings.warn('molpx.example_notebooks will be deprecated in future releases. Use molpx.example_notebooks() instead.')
+    sleep(5)
 
     if just_show_available_nbs:
         print("List of available notebooks found in molpx's notebook directory %s"%_molpxdir(join='notebooks/'))
@@ -142,12 +146,11 @@ def _example_notebook(extra_flags_as_one_string=None, nb_file='Projection_Explor
         return
 
     from IPython.terminal.interactiveshell import TerminalInteractiveShell
-    import shutil, os
     origfile = _molpxdir('notebooks/%s'%nb_file)
 
 
     with TemporaryDirectory(suffix='_test_molpx_notebook') as tmpdir:
-        tmpfile = os.path.abspath(os.path.join(tmpdir, nb_file))
+        tmpfile = _os.path.abspath(_os.path.join(tmpdir, nb_file))
         shutil.copy(origfile, tmpfile)
 
         nbstring = open(tmpfile).read()
@@ -187,15 +190,12 @@ def example_notebooks(dry_run=False, extra_flags_as_one_string=None):
 
     """
 
-    from glob import glob
-    import shutil, os
-
     avail_nbs = glob(_molpxdir(join='notebooks/*.ipynb'))
     if dry_run:
         print("List of available notebooks found in molpx's notebook directory %s"%_molpxdir(join='notebooks/'))
         print("You can use any of them as 'nb_file' to open them in a safe environment")
         for ff in avail_nbs:
-            print('* %s'%os.path.basename(ff))
+            print('* %s'%_os.path.basename(ff))
         return
 
     from IPython.terminal.interactiveshell import TerminalInteractiveShell
@@ -203,7 +203,7 @@ def example_notebooks(dry_run=False, extra_flags_as_one_string=None):
 
     with TemporaryDirectory(suffix='_test_molpx_notebook') as tmpdir:
         for nb_file in avail_nbs:
-            tmpfile = os.path.join(tmpdir, os.path.basename(nb_file))
+            tmpfile = _os.path.join(tmpdir, _os.path.basename(nb_file))
             shutil.copy(nb_file, tmpfile)
 
             nbstring = open(tmpfile).read()

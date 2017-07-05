@@ -10,7 +10,8 @@
 
    molpx.visualize <index_visualize>
    molpx.generate  <index_generate>
-   Example Jupyter Notebook <index_notebooks>
+   Example Jupyter Notebooks <index_notebooks>
+
    About & YouTube Introduction <about>
    Installation Guide <INSTALL>
    Changelog <CHANGELOG>

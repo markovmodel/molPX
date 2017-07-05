@@ -20,7 +20,7 @@ At the moment the API consists of two subpackages:
 
 **TL;DR**: see molPX in action through the
 
-* :doc:`Example Jupyter Notebook </index_notebooks>`
+* :doc:`Example Jupyter Notebooks </index_notebooks>`
 
 Find more about the people behind molPX here:
 

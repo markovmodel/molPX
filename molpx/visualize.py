@@ -878,7 +878,7 @@ def _sample(positions, geoms, ax,
     if isinstance(geoms, _md.Trajectory):
         geoms = [geoms]
 
-    geoms = _bmutils.superpose_sel(superpose,geoms)
+    geoms = _bmutils.superpose_to_most_compact_in_list(superpose, geoms)
 
     # Create ngl_viewer widget
     if widget is None:

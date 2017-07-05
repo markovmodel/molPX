@@ -159,13 +159,6 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
     # Prepare for 1D case
     proj_idxs = _bmutils.listify_if_int(proj_idxs)
 
-    # TODO TEST
-    try:
-        proj_labels.describe()
-        proj_labels = [proj_labels.describe()[ii] for ii in proj_idxs]
-    except AttributeError:
-        pass
-
     data_sample, geoms, data = generate.sample(MD_trajectories, MD_top, projected_trajectories,
                                                atom_selection=atom_selection,
                                                proj_idxs=proj_idxs,
@@ -183,15 +176,8 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
             weights = [_np.array(iw, ndmin=2).T for iw in weights]
         weights = _np.vstack(weights).squeeze()
 
-    if isinstance(proj_labels, str):
-       axlabels = ['$\mathregular{%s_{%u}}$'%(proj_labels, ii) for ii in proj_idxs]
-    elif isinstance(proj_labels, list):
-       axlabels = proj_labels
-    else:
-       raise TypeError("Parameter proj_labels has to be of type str or list, not %s"%type(proj_labels))
-
     ax, FES_data, edges = _plot_ND_FES(data[:,proj_idxs],
-                                       axlabels,                                       
+                                       _bmutils.labelize(proj_labels, proj_idxs),
                                        weights=weights, bins=nbins)
     if edges[0] is not None:
         # We have the luxury of sorting!
@@ -306,7 +292,7 @@ def traj(MD_trajectories,
         Indices of the projected coordinates to use in the various representations
 
     proj_labels : either string or list of strings
-	The projection plots will get this paramter for labeling their yaxis. If a str is 
+	    The projection plots will get this paramter for labeling their yaxis. If a str is
         provided, that will be the base name proj_labels='%s_%u'%(proj_labels,ii) for each 
         projection. If a list, the list will be used. If not enough labels are there
         the module will complain
@@ -336,9 +322,8 @@ def traj(MD_trajectories,
     projection : object that generated the projection, default is None
         The projected coordinates may come from a variety of sources. When working with :obj:`pyemma` a number of objects
         might have generated this projection, like a
-        * :obj:`pyemma.coordinates.transform.TICA` or a
-        * :obj:`pyemma.coordinates.transform.PCA` or a
-
+            :obj:`pyemma.coordinates.transform.TICA` or a
+            :obj:`pyemma.coordinates.transform.PCA`
         Pass this object along and observe and the features that are most correlated with the projections
         will be plotted for the active trajectory, allowing the user to establish a visual connection between the
         projected coordinate and the original features (distances, angles, contacts etc)
@@ -413,19 +398,8 @@ def traj(MD_trajectories,
     for ii, __ in enumerate(proj_idxs):
         ylims[0, ii] = _np.min([idata[:,ii].min() for idata in data])
         ylims[1, ii] = _np.max([idata[:,ii].max() for idata in data])
-    # TODO TEST
-    try:
-        proj_labels.describe()
-        proj_labels = [proj_labels.describe()[ii] for ii in proj_idxs]
-    except AttributeError:
-        pass
 
-    if isinstance(proj_labels, str):
-       ylabels = ['$\mathregular{%s_{%u}}$'%(proj_labels, ii) for ii in proj_idxs]
-    elif isinstance(proj_labels, list):
-       ylabels = proj_labels
-    else:
-       raise TypeError("Parameter proj_labels has to be of type str or list, not %s"%type(proj_labels))
+    ylabels = _bmutils.labelize(proj_labels, proj_idxs)
 
     # Do we have usable projection information?
     if projection is not None:
@@ -757,7 +731,6 @@ def sample(positions, geom, ax,
         you can provide an already instantiated nglviewer widget here (avanced use)
 
     superpose : boolean, default is True
-        # TODO: false is not implemented yet
         The geometries in :obj:`geom` may or may not be oriented, depending on where they were generated.
         Since this method is mostly for visualization purposes, the default behaviour is to orient them all to
         maximally overlap with the first frame (of the first :obj:`mdtraj.Trajectory` object, in case :obj:`geom`
@@ -806,7 +779,7 @@ def sample(positions, geom, ax,
     else:
         if isinstance(geom, _md.Trajectory):
             geom=[geom]
-        iwd = _nglwidget_wrapper(geom[0].superpose(geom[0]))
+        iwd = _nglwidget_wrapper(geom[0])
         iwd.component_0.clear()
         iwd._hidden_sticky_frames = [igeom.superpose(geom[0][0]) for igeom in geom]
         _bmutils.link_ax_w_pos_2_nglwidget(ax,
@@ -905,29 +878,13 @@ def _sample(positions, geoms, ax,
     if isinstance(geoms, _md.Trajectory):
         geoms = [geoms]
 
-    # Superpose if needed
-    sel = None
-    if superpose is True:
-        sel = _np.arange(geoms[0].n_atoms)
-    elif isinstance(superpose, str):
-        sel = geoms[0].top.select(superpose)
-    elif isinstance(superpose, (list, _np.ndarray)):
-        assert _np.all([_bmutils.is_int(ii) for ii in superpose])
-        sel = superpose
-    elif superpose is False:
-        sel = None
-
-    if sel is not None:
-        ref = _bmutils.geom_list_2_geom(geoms)
-        ref = ref[_md.compute_rg(ref).argmin()]
-        geoms = [igeom.superpose(ref, atom_indices=sel) for igeom in geoms]
+    geoms = _bmutils.superpose_sel(superpose,geoms)
 
     # Create ngl_viewer widget
     if widget is None:
         iwd = _nglwidget_wrapper(geoms[0])
         for igeom in geoms[1:]:
             iwd.add_trajectory(igeom)
-
     else:
         iwd = widget
 

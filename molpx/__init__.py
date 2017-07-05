@@ -12,7 +12,7 @@ from . import generate
 from . import visualize
 from . import _bmutils
 
-from ._nbtools import example_notebooks, _molpxdir
+from ._nbtools import example_notebooks, example_notebook, _molpxdir
 
 def _report_status():
     r"""
@@ -92,7 +92,6 @@ def _version_check(current, testing=False):
 from ._version import get_versions
 __version__ = get_versions()['version']
 del get_versions
-
 
 # start check in background
 _version_check(__version__).start()

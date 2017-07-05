@@ -157,6 +157,7 @@ def projection_paths(MD_trajectories, MD_top, projected_trajectories,
             istart_Y = _np.vstack([idata[ii][jj] for ii,jj in cat_smpl[istart_idx]])
             istart_Y = _np.delete(istart_Y, coord, axis=1)
             istart_frame = _np.sum(istart_Y**2,1).argmin()
+            # TODO consider starting of the most populated value and see which one diffuses the least
 
             # Starting from the sampled geometries,
             # create a path minimising minRMSD between frames.
@@ -167,13 +168,14 @@ def projection_paths(MD_trajectories, MD_top, projected_trajectories,
                                          history_aware=history_aware,
                                          selection=geom_smpl[0].top.select(minRMSD_selection))
 
+            # Compute the diffusion along the path
             y = _np.vstack([idata[ii][jj] for ii,jj in path_smpl])
             y[:,coord] = 0
             path_diffusion = _np.sqrt(_np.sum(_np.diff(y.T).T**2,1).mean())
             #print('Strategy %s starting at %g diffuses %g in %uD proj-space'%(strategy,
             #                                                                  cl.clustercenters[sorts_coord][istart_idx],
             #                                                                  path_diffusion,
-            #                                                                  args.proj_dim),
+            #                                                                  proj_dim),
             #      flush=True)
 
             # Store the results of the minRMSD sampling with this strategy in a dictionary
@@ -193,10 +195,11 @@ def projection_paths(MD_trajectories, MD_top, projected_trajectories,
                                                         stride=proj_stride, top=MD_top)
 
         # With the starting point the creates the minimally diffusive path,
-        # create a path minimising displacemnt in the projected space (minimally diffusing path)
+        # create a path minimising displacement in the projected space (minimally diffusing path)
         istart_Y = cat_cont[istart_idx]
         istart_Y[:,coord] = 0
         istart_frame = _np.sum(istart_Y**2,1).argmin()
+        # TODO IMPLEMENT ANOTHER STRATEGY (max pop?) FOR THE STARTING FRAME
         path, __ = _bmutils.visual_path(cat_idxs, cat_cont,
                                start_pos=istart_idx,
                                start_frame=istart_frame,

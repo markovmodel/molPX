@@ -8,8 +8,6 @@ try:
 except ImportError:
     from sklearn.mixture import GMM as _GMM
 
-from .unused_untested import _sort_nicely, path_object
-
 # From pyemma's coordinates
 from pyemma.coordinates import \
     source as _source, \
@@ -40,7 +38,6 @@ def listify_if_int(inp):
     return inp
 
 def listify_if_not_list(inp, except_for_these_types=None):
-    # TODO test
     r"""
     :param inp:
     :param except_for_these_types: tuple, default is None
@@ -1374,3 +1371,76 @@ def MEP_naive(euc_points, V, start_idx, end_idx, step_size=10, allow_jumps=True)
         if end_idx == path[-1]:
             break
     return path
+
+def labelize(proj_labels, proj_idxs):
+    r"""
+    Returns a list of strings of axis labels constructed from proj_labels and proj_idxs
+
+    Parameters
+    ----------
+
+     proj_labels: string, list of strings, or a :obj:`pyemma.MDFeaturizer` object with a .describe method
+
+     proj_idxs: list of integers with the projections
+
+
+    Returns:
+     proj_labels : list of strings of length len(proj_idxs)
+
+    """
+    # TODO TEST
+    try:
+        proj_labels.describe()
+        proj_labels = [proj_labels.describe()[ii] for ii in proj_idxs]
+    except AttributeError:
+        pass
+
+    if isinstance(proj_labels, str):
+       proj_labels = ['$\mathregular{%s_{%u}}$'%(proj_labels, ii) for ii in proj_idxs]
+    elif isinstance(proj_labels, list):
+       pass
+    else:
+       raise TypeError("Parameter proj_labels has to be of type str or list, not %s"%type(proj_labels))
+
+    return proj_labels
+
+def superpose_to_most_compact_in_list(superpose_info, geom_list):
+    r"""
+    Provided a list of `mdtraj.Trajectory` objects, orient them to the most compact possible
+    structure according to :obj:`superpose_info`
+
+    Parameters
+    ----------
+
+    superpose_info : boolean, str, or iterable of integers
+        boolean : "True" orients with all atoms or "False" won't do anything
+        str  : superpose according to anything :obj:`mdtraj.Topology.select` can understand (http://mdtraj.org/latest/atom_selection.html)
+        iterable of integers : superpose according to these atom idxs
+
+    geom_list : list of :obj:`mdtraj.Trajectory` objects
+
+
+    Returns
+    -------
+
+    geom_list : list of :obj:`mdtraj.Trajectory` objects
+    """
+    # Superpose if wanted
+    sel = None
+    if superpose_info is True:
+        sel = _np.arange(geom_list[0].n_atoms)
+    elif superpose_info is False:
+        pass
+    elif isinstance(superpose_info, str):
+        sel = geom_list[0].top.select(superpose_info)
+    elif isinstance(superpose_info, (list, _np.ndarray)):
+        assert _np.all([_is_int(ii) for ii in superpose_info])
+        sel = superpose_info
+    # else, let md.superpose fail
+
+    if sel is not None:
+        ref = geom_list_2_geom(geom_list)
+        ref = ref[_md.compute_rg(ref).argmin()]
+        geom_list = [igeom.superpose(ref, atom_indices=sel) for igeom in geom_list]
+
+    return geom_list

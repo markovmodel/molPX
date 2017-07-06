@@ -301,13 +301,9 @@ def sample(MD_trajectories, MD_top, projected_trajectories,
 
     geom_smpl = _bmutils.save_traj_wrapper(src, _np.vstack(cat_smpl), None, top=MD_top, stride=proj_stride)
 
-    if atom_selection is None:
-        atom_selection = _np.arange(geom_smpl.top.n_atoms)
-    elif isinstance(atom_selection, str):
-        atom_selection = geom_smpl.top.select(atom_selection)
-    elif isinstance(atom_selection, (list, _np.ndarray)):
-        assert _np.all([_bmutils._is_int(ii) for ii in atom_selection])
-    geom_smpl = geom_smpl.atom_slice(atom_selection)
+    atom_slice = _bmutils.parse_atom_sel(atom_selection, geom_smpl.top)
+    if atom_slice is not None:
+        geom_smpl = geom_smpl.atom_slice(atom_slice)
 
     if n_geom_samples>1:
         geom_smpl = _bmutils.re_warp(geom_smpl, [n_geom_samples] * cl.n_clusters)

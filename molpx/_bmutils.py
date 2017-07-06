@@ -1140,13 +1140,21 @@ def atom_idxs_from_feature(ifeat):
     Parameters
     ----------
 
-    ifeat : input feature, :any:`pyemma.coordinates.featurizer` object
+    ifeat : input feature, can be of two types:
+        a :any:`pyemma.coordinates.featurizer` (Distancefeaturizer, AngleFeaturizer etc) or
+        a :any:`pyemma.coordinates.data.featurization.featurizer.MDFeaturizer` itself, in which case the first of the
+        obj:`ifeat.active_features` will be used
 
     Returns
     -------
 
     atom_indices : list with the atoms indices representative of this feature, whatever the feature
     """
+
+    try:
+        ifeat = ifeat.active_features[0]
+    except AttributeError:
+        pass
 
     if isinstance(ifeat, _DF) and not isinstance(ifeat, _ResMinDF):
         return ifeat.distance_indexes
@@ -1211,6 +1219,7 @@ def add_atom_idxs_widget(atom_idxs, widget, color_list=None, radius=1):
                      #label_color='black',
                      label_size=0,
                     component=cc)
+                    # TODO add line thickness as **kwarg
                 elif _np.ndim(iidxs) > 0 and len(iidxs) in [3,4]:
                     widget.add_spacefill(selection=iidxs, radius=radius, color=color, component=cc)
                 else:
@@ -1426,17 +1435,7 @@ def superpose_to_most_compact_in_list(superpose_info, geom_list):
     geom_list : list of :obj:`mdtraj.Trajectory` objects
     """
     # Superpose if wanted
-    sel = None
-    if superpose_info is True:
-        sel = _np.arange(geom_list[0].n_atoms)
-    elif superpose_info is False:
-        pass
-    elif isinstance(superpose_info, str):
-        sel = geom_list[0].top.select(superpose_info)
-    elif isinstance(superpose_info, (list, _np.ndarray)):
-        assert _np.all([_is_int(ii) for ii in superpose_info])
-        sel = superpose_info
-    # else, let md.superpose fail
+    sel = parse_atom_sel(superpose_info, geom_list[0].top)
 
     if sel is not None:
         ref = geom_list_2_geom(geom_list)
@@ -1444,3 +1443,37 @@ def superpose_to_most_compact_in_list(superpose_info, geom_list):
         geom_list = [igeom.superpose(ref, atom_indices=sel) for igeom in geom_list]
 
     return geom_list
+
+def parse_atom_sel(atom_selection, top):
+    r"""
+    Provided an `mdtraj.Topology` and :obj:`superpose_info` get the atoms that are needed
+    to a subsequent superposition operation
+
+    Parameters
+    ----------
+
+    atom_selection : boolean, str, or iterable of integers
+        boolean : "True" orients with all atoms or "False" won't do anything
+        str  : superpose according to anything :obj:`mdtraj.Topology.select` can understand (http://mdtraj.org/latest/atom_selection.html)
+        iterable of integers : superpose according to these atom idxs
+
+    top : :obj:`mdtraj.Topology` object
+
+
+    Returns
+    -------
+
+    sel : iterable of integers or None
+    """
+    # Superpose if wanted
+    sel = None
+    if atom_selection is True:
+        sel = _np.arange(top.n_atoms)
+    elif atom_selection is False:
+        pass
+    elif isinstance(atom_selection, str):
+        sel = top.select(atom_selection)
+    elif isinstance(atom_selection, (list, _np.ndarray)):
+        assert _np.all([_is_int(ii) for ii in atom_selection])
+        sel = atom_selection
+    return sel

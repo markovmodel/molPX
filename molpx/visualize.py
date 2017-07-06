@@ -14,14 +14,27 @@ import nglview as _nglview
 import mdtraj as _md
 
 # All calls to nglview call actually this function
-def _nglwidget_wrapper(geom, mock=True):
+def _nglwidget_wrapper(geom, mock=True, iwd=None, n_small=10):
     r""" Wrapper to nlgivew.show_geom's method that allows for some other automatic choice of
     representation and avoids the actual widget if one is calling from terminal (for unit tests)
 
+    Parameters
+    ----------
+
+    geom : :obj:`mdtraj.Trajectory` object or str with a filename to anything that :obj:`mdtraj` can read
+
+
     :return: :nglview.widget object
     """
+
+    if isinstance(geom, str):
+        geom = _md.load(geom)
     try:
-        iwd = _nglview.show_mdtraj(geom)
+        if iwd is None:
+            iwd = _nglview.show_mdtraj(geom)
+        else:
+            iwd.add_trajectory(geom)
+
     except:
         if mock:
             print("molPX has to be used inside a notebook, not from terminal. A mock nglwidget is being returned."
@@ -33,10 +46,13 @@ def _nglwidget_wrapper(geom, mock=True):
 
     # Let' some customization take place
     ## Do we need a ball+stick representation?
-    if geom.top.n_residues < 10:
-        iwd.remove_cartoon()
-        iwd.remove_backbone()
-        iwd.add_ball_and_stick()
+    if geom.top.n_residues < n_small:
+        for ic in range(len(iwd._ngl_component_ids)):
+            # TODO FIND OUT WHY THIS FAILS FOR THE LAST REPRESENTATION
+            #print("removing reps for component",ic)
+            iwd.remove_cartoon(component=ic)
+            iwd.clear_representations(component=ic)
+            iwd.add_ball_and_stick(component=ic)
 
     return iwd
 
@@ -128,18 +144,21 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
 
     atom_selection : string or iterable of integers, default is None
         The geometries of the original trajectory files will be filtered down to these atoms. It can be any DSL string
-        that   mdtraj.Topology.select could understand or directly the iterable of integers.
+        that   :obj:`mdtraj.Topology.select` could understand or directly the iterable of integers.
         If :py:obj`MD_trajectories` is already a (list of) md.Trajectory objects, the atom-slicing can take place
         before calling this method.
 
     sample_kwargs : dictionary of named arguments, optional
-        named arguments for the function :obj:`visualize.sample`. Non-expert users can safely ignore this option.
+        named arguments for the function :obj:`visualize.sample`. Non-expert users can safely ignore this option. Examples
+        are superpose
 
     Returns
     --------
 
     ax :
         :obj:`pylab.Axis` object
+    fig :
+        :obj:`pylab.Figure` object
     iwd :
         :obj:`nglview.NGLWidget`
     data_sample:
@@ -169,7 +188,6 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
                                                )
 
     data = _np.vstack(data)
-
     if weights is not None:
         weights = _bmutils.listify_if_not_list(weights)
         if weights[0].ndim == 1:
@@ -642,7 +660,7 @@ def feature(feat,
     ----------
 
     featurizer : py:obj:`_MDFeautrizer`
-        A PyEMMA MDFeaturizer object
+        A PyEMMA MDFeaturizer object (either a feature or a featurizer, works with both)
 
     widget : None or nglview widget
         Provide an already existing widget to visualize the correlations on top of. This is only for expert use,
@@ -781,7 +799,13 @@ def sample(positions, geom, ax,
             geom=[geom]
         iwd = _nglwidget_wrapper(geom[0])
         iwd.component_0.clear()
-        iwd._hidden_sticky_frames = [igeom.superpose(geom[0][0]) for igeom in geom]
+        sel = _bmutils.parse_atom_sel(superpose, geom[0].top)
+        # TODO rewrite parse_atom_sel. This if condition is very BAD
+        if sel is not None:
+            geom = [igeom.superpose(geom[0][0], atom_indices=sel) for igeom in geom]
+        else:
+            geom = [igeom.superpose(geom[0][0]) for igeom in geom]
+        iwd._hidden_sticky_frames = geom
         _bmutils.link_ax_w_pos_2_nglwidget(ax,
                                    positions,
                                    iwd,
@@ -884,7 +908,8 @@ def _sample(positions, geoms, ax,
     if widget is None:
         iwd = _nglwidget_wrapper(geoms[0])
         for igeom in geoms[1:]:
-            iwd.add_trajectory(igeom)
+            # TODO THIS IS THE PLACE TO CORRECT FOR NOT SEEING OVERLAYS OF SMALL MOLECUlES
+            iwd = _nglwidget_wrapper(igeom, iwd=iwd)
     else:
         iwd = widget
 

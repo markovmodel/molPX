@@ -95,6 +95,7 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
         proj_idxs = [0,1],
         nbins=100,
         n_sample = 100,
+        proj_stride=1,
         weights=None,
         proj_labels='proj',
         n_overlays=1,
@@ -128,6 +129,12 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
         The number of geometries that will be used to represent the FES. The higher the number, the higher the spatial
         resolution of the "click"-action.
 
+    proj_stride : int, default is 1
+        Stride value that was used in the :obj:`projected_trajectories` relative to the :obj:`MD_trajectories`
+        If the original :obj:`MD_trajectories` were stored every 5 ps but the projected trajectories were stored
+        every 50 ps, :obj:`proj_stride` = 10 has to be provided, otherwise an exception will be thrown informing
+        the user that the :obj:`MD_trajectories` and the :obj:`projected_trajectories` have different number of frames.
+
     weights : iterable of floats (or list thereof) each of shape (n_frames, 1) or (n_frames)
         The sample weights, typically coming from a metadynamics run. Has to have the same length
         as the :py:obj:`projected_trajectories` argument.
@@ -150,7 +157,7 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
 
     sample_kwargs : dictionary of named arguments, optional
         named arguments for the function :obj:`visualize.sample`. Non-expert users can safely ignore this option. Examples
-        are superpose
+        are superpose or proj_
 
     Returns
     --------
@@ -184,7 +191,8 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
                                                n_points=n_sample,
                                                return_data=True,
                                                n_geom_samples=n_overlays,
-                                               keep_all_samples=keep_all_samples
+                                               keep_all_samples=keep_all_samples,
+                                               proj_stride=proj_stride
                                                )
 
     data = _np.vstack(data)
@@ -210,10 +218,11 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
         data_sample = _np.hstack((data_sample, FES_sample))
 
     iwd = sample(data_sample, geoms, ax, clear_lines=False, **sample_kwargs)
+    iwd._set_size(*['%fin' % inches for inches in ax.get_figure().get_size_inches()])
 
     return _plt.gca(), _plt.gcf(), iwd, data_sample, geoms
 
-def _plot_ND_FES(data, ax_labels, weights=None, bins=50):
+def _plot_ND_FES(data, ax_labels, weights=None, bins=50, figsize=(7,7)):
     r""" A wrapper for pyemmas FESs plotting function that can also plot 1D
 
     Parameters
@@ -233,7 +242,7 @@ def _plot_ND_FES(data, ax_labels, weights=None, bins=50):
     edges : tuple containimg the axes along which FES is to be plotted (only in the 1D case so far, else it's None)
 
     """
-    _plt.figure()
+    _plt.figure(figsize=figsize)
     ax = _plt.gca()
     idata = _np.vstack(data)
     ax.set_xlabel(ax_labels[0])
@@ -507,6 +516,8 @@ def traj(MD_trajectories,
         # Add visualization (let the method decide if it's possible or not)
         widget = _bmutils.add_atom_idxs_widget([corr_dict["atom_idxs"][iproj][ifeat]], widget, color_list=[icol])
 
+        widget._set_size(*['%fin' % inches for inches in iax.get_figure().get_size_inches()])
+
     if plot_FES:
         ax, FES_data, edges = _plot_ND_FES(data, ylabels, weights=weights)
         if edges[0] is not None:
@@ -515,6 +526,9 @@ def traj(MD_trajectories,
             data = [_np.hstack((idata, iFES_data)) for idata, iFES_data in zip(data, FES_data)]
 
         widget = sample(data[active_traj], geoms.superpose(geoms[0]), ax, widget=widget, clear_lines=False)
+
+    widget_w = ax.get_figure().get_size_inches()[0]
+    widget._set_size('%fin'%widget_w, '4in')
 
     return _plt.gca(), _plt.gcf(), widget, geoms
 
@@ -631,6 +645,11 @@ def correlations(correlation_input,
     elif not isinstance(proj_color_list, list):
         raise TypeError("parameter proj_color_list should be either None or a list, not %s of type %s"%(proj_color_list, type(proj_color_list)))
 
+    if len(corr_dict["atom_idxs"]) == 0:
+        # TODO : WRITE PROPER WARNINGS
+        print("Warning: Not enough information to display atoms on widget. Turning verbose on.")
+        verbose = True
+
     # Add the represenation
     if widget is not None:
         for idxs, icol in zip(corr_dict["atom_idxs"], proj_color_list):
@@ -640,7 +659,7 @@ def correlations(correlation_input,
         for ii, line in enumerate(corr_dict["info"]):
             print('%s is most correlated with '%(line["name"] ))
             for line in line["lines"]:
-                if widget is not None:
+                if widget is not None and len(corr_dict["atom_idxs"]) != 0:
                     line += ' (in %s in the widget)'%(proj_color_list[ii])
                 print(line)
 
@@ -798,7 +817,7 @@ def sample(positions, geom, ax,
         if isinstance(geom, _md.Trajectory):
             geom=[geom]
         iwd = _nglwidget_wrapper(geom[0])
-        iwd.component_0.clear()
+        iwd.component_0.clear() #somehow not working properly
         sel = _bmutils.parse_atom_sel(superpose, geom[0].top)
         # TODO rewrite parse_atom_sel. This if condition is very BAD
         if sel is not None:

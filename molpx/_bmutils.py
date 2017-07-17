@@ -692,7 +692,7 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
         setattr(linev, 'whatisthis', 'linev')
         showclick_objs.append(linev)
 
-    dot = ax.plot(pos[0,0],pos[0,1], 'o', c='red', ms=7)[0]
+    dot = ax.plot(pos[0,0],pos[0,1], 'o', c='red', ms=7, zorder=100)[0]
     setattr(dot,'whatisthis','dot')
     closest_to_click_obj = [dot]
 
@@ -1121,8 +1121,13 @@ def most_corr(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_a
     for ii, iproj in enumerate(proj_names):
         info.append({"lines":[], "name":iproj})
         for jj, jidx in enumerate(most_corr_idxs[ii]):
-            istr = 'Corr[%s|feat] = %2.1f for %-30s (feat nr. %u, atom idxs %s' % \
-                   (iproj, most_corr_vals[ii][jj], most_corr_labels[ii][jj], jidx, most_corr_atom_idxs[ii][jj])
+            if avail_FT:
+                istr = 'Corr[%s|feat] = %2.1f for %-30s (feat nr. %u, atom idxs %s' % \
+                       (iproj, most_corr_vals[ii][jj], most_corr_labels[ii][jj], jidx, most_corr_atom_idxs[ii][jj])
+            else:
+                istr = 'Corr[%s|feat] = %2.1f (feat nr. %u)' % \
+                       (iproj, most_corr_vals[ii][jj],jidx)
+
             info[-1]["lines"].append(istr)
 
     corr_dict = {'idxs': most_corr_idxs,

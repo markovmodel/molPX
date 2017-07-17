@@ -267,6 +267,11 @@ def sample(MD_trajectories, MD_top, projected_trajectories,
         it changes the return type of :obj:`geom_smpl` from the default (an :obj:`mdtraj.Trajectory` with :obj:`n_points`-frames)
         to a list list of length :obj:`n_geom_samples`, each element is an :obj:`mdtraj.Trajectory` object of :obj:`n_points`-frames
 
+    proj_stride : int, default is 1
+        Stride value that was used in the :obj:`projected_trajectories` relative to the :obj:`MD_trajectories`
+        If the original :obj:`MD_trajectories` were stored every 5 ps but the projected trajectories were stored
+        every 50 ps, :obj:`proj_stride` = 10 has to be provided, otherwise an exception will be thrown informing
+        the user that the :obj:`MD_trajectories` and the :obj:`projected_trajectories` have different number of frames.
 
     Returns
     --------

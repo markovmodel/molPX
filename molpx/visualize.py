@@ -527,8 +527,12 @@ def traj(MD_trajectories,
 
         widget = sample(data[active_traj], geoms.superpose(geoms[0]), ax, widget=widget, clear_lines=False)
 
-    widget_w = ax.get_figure().get_size_inches()[0]
-    widget._set_size('%fin'%widget_w, '4in')
+    widget_w = iax.get_figure().get_size_inches()[0]
+    try:
+        widget._set_size('%fin'%widget_w, '4in')
+    except AttributeError:
+        pass
+
 
     return _plt.gca(), _plt.gcf(), widget, geoms
 

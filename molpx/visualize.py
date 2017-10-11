@@ -632,7 +632,7 @@ def correlations(correlation_input,
         obj:`nglview.NGLwidget` with the correlations visualized on top of it
 
     """
-    # todo consider kwargs for most_corr_info
+    # todo consider kwargs for most_corr
     corr_dict = _bmutils.most_corr(correlation_input,
                                    geoms=geoms, proj_idxs=proj_idxs, feat_name=feat_name, n_args=n_feats,
                                    featurizer=featurizer

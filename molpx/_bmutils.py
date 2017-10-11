@@ -622,6 +622,7 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
                               radius=False,
                               directionality=None,
                               exclude_coord=None,
+                              color_list=None,
                               ):
     r"""
     Initial idea for this function comes from @arose, the rest is @gph82
@@ -645,6 +646,11 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
         The excluded coordinate will not be considered when computing the nearest-point-to-click.
         Typical use case is for visualize.traj to only compute distances horizontally along the time axis
 
+    color_list : None or list of len(pos)
+        The colors with which the sticky frames will be plotted.
+        Can by anything that yields matplotlib.colors.is_color_like == True
+
+
     """
 
     assert directionality in [None, 'a2w', 'w2a'], "The directionality parameter has to be in [None, 'a2w', 'w2a'] " \
@@ -665,15 +671,20 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
     # Are we in a sticky situation?
     if hasattr(nglwidget, '_hidden_sticky_frames'):
         from matplotlib.cm import get_cmap as _get_cmap
-        from matplotlib.colors import rgb2hex as _rgb2hex
+        from matplotlib.colors import rgb2hex as _rgb2hex, to_rgb as _to_rgb, to_hex as _to_hex
         cmap = _get_cmap('rainbow')
         cmap_table = _np.linspace(0, 1, len(x))
         sticky_overlays_by_frame = transpose_geom_list(nglwidget._hidden_sticky_frames)
         overlay_iterator_by_frame = {ff: iter(sgeom) for ff, sgeom in enumerate(sticky_overlays_by_frame)}
         # TODO: create a path through the colors that maximizes distance between averages (otherwise some colors
         # are too close
-        sticky_colors_hex = [_rgb2hex(cmap(ii)) for ii in _np.random.permutation(cmap_table)]
-
+        if color_list is None:
+            sticky_colors_hex = [_rgb2hex(cmap(ii)) for ii in _np.random.permutation(cmap_table)]
+        elif isinstance(color_list, list) and len(color_list)==len(pos):
+            sticky_colors_hex = [_to_hex(cc) for cc in color_list]
+        else:
+            raise TypeError('argument color_list should be either None or a list of len(pos), '
+                            'instead of type %s and len %u'%(type(color_list), len(color_list)))
         sticky_rep = 'cartoon'
         if nglwidget._hidden_sticky_frames[0].top.n_residues < 10:
             sticky_rep = 'ball+stick'
@@ -1088,6 +1099,9 @@ def most_corr(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_a
 
     dim = corr.shape[1]
 
+    if avail_FT:
+        assert featurizer.dimension()==corr.shape[0], "The provided featurizer and the number of rows of the " \
+                                                      "correlation matrix differ in size %u vs %u"%(featurizer.dimension(), corr.shape[0])
     if proj_idxs is None:
         proj_idxs = _np.arange(dim)
 

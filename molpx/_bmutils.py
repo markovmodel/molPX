@@ -626,6 +626,7 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
                               directionality=None,
                               exclude_coord=None,
                               color_list=None,
+                              list_of_repr_dicts = None
                               ):
     r"""
     Initial idea for this function comes from @arose, the rest is @gph82
@@ -655,6 +656,11 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
     color_list : None or list of len(pos)
         The colors with which the sticky frames will be plotted.
         Can by anything that yields matplotlib.colors.is_color_like == True
+
+    list_of_repr_dicts : None or list of dictionaries having at least keys 'repr_type' and 'selection' keys.
+        Other **kwargs are currently ignored but will be implemented in the future (see nglview.add_representation
+        for more info). Only active for sticky widgets
+    #TODO consider implementing list_of_repr_dicts in visualize.sample
     """
 
     assert directionality in [None, 'a2w', 'w2a'], "The directionality parameter has to be in [None, 'a2w', 'w2a'] " \
@@ -690,7 +696,8 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
         sticky_rep = 'cartoon'
         if nglwidget._hidden_sticky_frames[0].top.n_residues < 10:
             sticky_rep = 'ball+stick'
-
+        if list_of_repr_dicts is None:
+            list_of_repr_dicts = [{'repr_type': sticky_rep, 'selection': 'all'}]
         sticky = True
 
     # Basic interactive objects
@@ -757,10 +764,12 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
         else:
             nglwidget.add_trajectory(next(overlay_iterator_by_frame[index]))
             nglwidget.clear_representations(component=nglwidget.n_components)
-            nglwidget.add_representation(sticky_rep,
-                                         component=nglwidget.n_components,
-                                         color=sticky_colors_hex[index],
-                                         )
+            for irepr in list_of_repr_dicts:
+                nglwidget.add_representation(irepr['repr_type'],
+                                             selection=irepr['selection'],
+                                             component=nglwidget.n_components,
+                                             color=sticky_colors_hex[index],
+                                             )
             ax.plot(pos[index, 0], pos[index, 1], 'o', c=sticky_colors_hex[index], ms=7)
 
     def my_observer(change):

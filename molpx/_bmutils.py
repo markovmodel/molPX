@@ -618,6 +618,7 @@ def minimize_rmsd2ref_in_sample(sample, ref):
 
 def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
                               crosshairs=True,
+                              dot_color='red',
                               band_width=None,
                               radius=False,
                               directionality=None,
@@ -636,6 +637,9 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
         If True, a crosshair will show where the mouse-click ocurred. If 'h' or 'v', only the horizontal or
         vertical line of the crosshair will be shown, respectively. If False, no crosshair will appear
 
+    dot_color : Anything that yields matplotlib.colors.is_color_like(dot_color)==True
+        Default is 'red'. dot_color='None' yields no dot
+
     directionality : str or None, default is None
         If not None, directionality can be either 'a2w' or 'w2a', meaning that connectivity
          between axis and widget will be only established as
@@ -649,8 +653,6 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
     color_list : None or list of len(pos)
         The colors with which the sticky frames will be plotted.
         Can by anything that yields matplotlib.colors.is_color_like == True
-
-
     """
 
     assert directionality in [None, 'a2w', 'w2a'], "The directionality parameter has to be in [None, 'a2w', 'w2a'] " \
@@ -671,7 +673,7 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
     # Are we in a sticky situation?
     if hasattr(nglwidget, '_hidden_sticky_frames'):
         from matplotlib.cm import get_cmap as _get_cmap
-        from matplotlib.colors import rgb2hex as _rgb2hex, to_rgb as _to_rgb, to_hex as _to_hex
+        from matplotlib.colors import rgb2hex as _rgb2hex, is_color_like as _is_color_like, to_hex as _to_hex
         cmap = _get_cmap('rainbow')
         cmap_table = _np.linspace(0, 1, len(x))
         sticky_overlays_by_frame = transpose_geom_list(nglwidget._hidden_sticky_frames)
@@ -691,7 +693,6 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
 
         sticky = True
 
-
     # Basic interactive objects
     showclick_objs = []
     if crosshairs in [True, 'h']:
@@ -703,7 +704,12 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
         setattr(linev, 'whatisthis', 'linev')
         showclick_objs.append(linev)
 
-    dot = ax.plot(pos[0,0],pos[0,1], 'o', c='red', ms=7, zorder=100)[0]
+    if _is_color_like(dot_color):
+        pass
+    else:
+        raise TypeError('dot_color should be a matplotlib color')
+
+    dot = ax.plot(pos[0,0],pos[0,1], 'o', c=dot_color, ms=7, zorder=100)[0]
     setattr(dot,'whatisthis','dot')
     closest_to_click_obj = [dot]
 

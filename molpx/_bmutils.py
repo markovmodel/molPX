@@ -2,6 +2,8 @@ from __future__ import print_function
 import numpy as _np
 import mdtraj as _md
 from matplotlib.widgets import AxesWidget as _AxesWidget
+from matplotlib.cm import get_cmap as _get_cmap
+from matplotlib.colors import rgb2hex as _rgb2hex, is_color_like as _is_color_like, to_hex as _to_hex
 
 try:
     from sklearn.mixture import GaussianMixture as _GMM
@@ -672,8 +674,6 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
     sticky = False
     # Are we in a sticky situation?
     if hasattr(nglwidget, '_hidden_sticky_frames'):
-        from matplotlib.cm import get_cmap as _get_cmap
-        from matplotlib.colors import rgb2hex as _rgb2hex, is_color_like as _is_color_like, to_hex as _to_hex
         cmap = _get_cmap('rainbow')
         cmap_table = _np.linspace(0, 1, len(x))
         sticky_overlays_by_frame = transpose_geom_list(nglwidget._hidden_sticky_frames)

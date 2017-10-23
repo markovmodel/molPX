@@ -33,10 +33,8 @@ test:
     - molpx
   commands:
     - pip install git+https://github.com/computationalmodelling/nbval
-    - pip install nglview==1.0b5
-    - pytest -vv --pyargs molpx --cov=molpx --cov-report=xml --current-env #--nbval-lax
-   # --ignore=TICA_Fast_Folding_Analysis.ipynb #--ignore=../_t_env/lib/python3.4/site-packages/molpx/notebooks/TICA_Fast_Folding_Analysis.ipynb --ignore=../_t_env/lib/python3.5/site-packages/molpx/notebooks/TICA_Fast_Folding_Analysis.ipynb
-    - python -c "import shutil, os; shutil.copy('coverage.xml', os.path.expanduser('~'))" 
+    - pytest -vv --pyargs molpx --cov=molpx --cov-report=xml --current-env --nbval-lax
+    - python -c "import shutil, os; shutil.copy('coverage.xml', os.path.expanduser('~'))"
 about:
   home: https://github.com/gph82/projection_explorer
   license: GNU Lesser Public License v3+

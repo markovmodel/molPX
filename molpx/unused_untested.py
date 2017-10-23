@@ -18,43 +18,6 @@ except ImportError:
     from pyemma._ext.variational.solvers.direct import eig_corr
 from pyemma.coordinates import source as _source, featurizer as _featurizer
 from scipy.spatial import cKDTree as _cKDTree
-#from myMDvisuals import customvmd
-
-class path_object(object):
-    r"""
-    Object that can produce geoms, paths, correlations and features from
-    a project file
-
-    """
-
-    def __init__(self, fname, basedir=''):
-        ipath = _np.load(fname)['arr_0'][()]
-        ticfile = os.path.join(basedir, ipath["ticfile"])
-        lag_str, idata, tcorr, tica_mean, l, U = _opentica_npz(ticfile)
-
-        ipath = {int(key): val for key, val in ipath.items() if _np.chararray.isnumeric(key)}
-        for key, val in ipath.items():
-            for ikey, jval in val.items():
-                if isinstance(jval["geom"], str):
-                    gfile = os.path.join(basedir, jval["geom"])
-                    jval["geom"] = _md.load(gfile)
-
-        self._paths = ipath
-        self.feat = _featurizer(jval["geom"].top)
-        self.feat.add_distances(_mdcontacts2CAidxs(jval["geom"]))
-        self.feature_TIC_correlation = tcorr
-        self.data = idata
-        self.fname = fname
-        self._lag_str = lag_str
-
-    def path(self,path_type='min_rmsd', proj_idx=0):
-        out_geom = self._paths[proj_idx][path_type]["geom"]
-        out_path = self._paths[proj_idx][path_type]["proj"]
-        return  out_geom, out_path
-
-    @property
-    def lagtime(self):
-        return int(self._lag_str)
 
 def _dictionarize_list(list, input_dict, output_dict = None):
     if output_dict is None:

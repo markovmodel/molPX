@@ -33,8 +33,6 @@ from pyemma.util.types import is_string as _is_string,  is_int as _is_int
 
 from scipy.spatial import cKDTree as _cKDTree
 
-from .unused_untested import _sort_nicely, path_object
-
 def listify_if_int(inp):
     if _is_int(inp):
         inp = [inp]

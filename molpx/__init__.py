@@ -8,8 +8,12 @@ from __future__ import print_function as _
 __author__ = 'gph82'
 
 # To be able to run with a development version of nglview
-import os
-os.system('pip install nglview==1.0b5')
+# TODO PIN TO NGLVIEW 1.0 once it's released
+try:
+    import nglview
+except ImportError:
+    import os
+    os.system('pip install nglview==1.0b5')
 
 from . import generate
 from . import visualize

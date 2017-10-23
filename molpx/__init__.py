@@ -16,7 +16,7 @@ try:
         raise ImportError
 except ImportError:
     import os
-    os.system('pip install nglview>=%s'%pre_release)
+    os.system('pip install nglview==%s'%pre_release)
 
 
 from . import generate

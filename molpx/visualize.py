@@ -2,12 +2,12 @@ from __future__ import print_function
 
 __author__ = 'gph82'
 
-
 from pyemma.plots import plot_free_energy as _plot_free_energy
 import numpy as _np
 
 from . import generate
 from . import _bmutils
+from . import _linkutils
 
 from matplotlib import pylab as _plt, rcParams as _rcParams
 import nglview as _nglview
@@ -29,9 +29,13 @@ def _nglwidget_wrapper(geom, mock=True, iwd=None, n_small=10):
 
     if isinstance(geom, str):
         geom = _md.load(geom)
+
     try:
         if iwd is None:
-            iwd = _nglview.show_mdtraj(geom)
+            if geom is None:
+                iwd = _nglview.NGLWidget()
+            else:
+                iwd = _nglview.show_mdtraj(geom)
         else:
             iwd.add_trajectory(geom)
 
@@ -46,13 +50,14 @@ def _nglwidget_wrapper(geom, mock=True, iwd=None, n_small=10):
 
     # Let' some customization take place
     ## Do we need a ball+stick representation?
-    if geom.top.n_residues < n_small:
-        for ic in range(len(iwd._ngl_component_ids)):
-            # TODO FIND OUT WHY THIS FAILS FOR THE LAST REPRESENTATION
-            #print("removing reps for component",ic)
-            iwd.remove_cartoon(component=ic)
-            iwd.clear_representations(component=ic)
-            iwd.add_ball_and_stick(component=ic)
+    if geom is not None:
+        if geom.top.n_residues < n_small:
+            for ic in range(len(iwd._ngl_component_ids)):
+                # TODO FIND OUT WHY THIS FAILS FOR THE LAST REPRESENTATION
+                #print("removing reps for component",ic)
+                iwd.remove_cartoon(component=ic)
+                iwd.clear_representations(component=ic)
+                iwd.add_ball_and_stick(component=ic)
 
     return iwd
 
@@ -222,7 +227,7 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
 
     return _plt.gca(), _plt.gcf(), iwd, data_sample, geoms
 
-def _plot_ND_FES(data, ax_labels, weights=None, bins=50, figsize=(7,7)):
+def _plot_ND_FES(data, ax_labels, weights=None, bins=50, figsize=(4,4)):
     r""" A wrapper for pyemmas FESs plotting function that can also plot 1D
 
     Parameters
@@ -519,7 +524,7 @@ def traj(MD_trajectories,
         widget._set_size(*['%fin' % inches for inches in iax.get_figure().get_size_inches()])
 
     if plot_FES:
-        ax, FES_data, edges = _plot_ND_FES(data, ylabels, weights=weights)
+        ax, FES_data, edges = _plot_ND_FES(data, ylabels, weights=weights, cmap='nipy_spectral')
         if edges[0] is not None:
             print(edges)
             FES_data = [FES_data[_np.digitize(idata, edges[0][:-2])] for idata in data]
@@ -738,6 +743,8 @@ def sample(positions, geom, ax,
            projection = None,
            n_feats = 1,
            sticky=False,
+           list_of_repr_dicts=None,
+           color_list=None,
            **link_ax2wdg_kwargs
            ):
 
@@ -796,6 +803,14 @@ def sample(positions, geom, ax,
         If set to True, the widget the generated visualizations will be sticky in that they do not disappear with
         the next click event. Particularly useful for represeting more minima simultaneously.
 
+    color_list : None or list of len(pos)
+        The colors with which the sticky frames will be plotted.
+        Can by anything that yields matplotlib.colors.is_color_like == True
+
+    list_of_repr_dicts : None or list of dictionaries having at least keys 'repr_type' and 'selection' keys.
+        Other **kwargs are currently ignored but will be implemented in the future (see nglview.add_representation
+        for more info). Only active for sticky widgets
+
     link_ax2wdg_kwargs: dictionary of named arguments, optional
         named arguments for the function :obj:`_link_ax_w_pos_2_nglwidget`, which is the one that internally
         provides the interactivity. Non-expert users can safely ignore this option.
@@ -818,21 +833,48 @@ def sample(positions, geom, ax,
                        n_feats = n_feats,
                        **link_ax2wdg_kwargs)
     else:
+        # TODO MOVE THESE IMPORTS
+        from matplotlib.cm import get_cmap as _get_cmap
+        from matplotlib.colors import rgb2hex as _rgb2hex, to_hex as _to_hex
         if isinstance(geom, _md.Trajectory):
             geom=[geom]
-        iwd = _nglwidget_wrapper(geom[0])
-        iwd.component_0.clear() #somehow not working properly
+
         sel = _bmutils.parse_atom_sel(superpose, geom[0].top)
         # TODO rewrite parse_atom_sel. This if condition is very BAD
         if sel is not None:
             geom = [igeom.superpose(geom[0][0], atom_indices=sel) for igeom in geom]
         else:
             geom = [igeom.superpose(geom[0][0]) for igeom in geom]
-        iwd._hidden_sticky_frames = geom
-        _bmutils.link_ax_w_pos_2_nglwidget(ax,
+
+        # TODO: create a path through the colors that maximizes distance between averages (otherwise some colors
+        # are too close
+        cmap = _get_cmap('rainbow')
+        cmap_table = _np.linspace(0, 1, len(positions))
+        if color_list is None:
+            sticky_colors_hex = [_rgb2hex(cmap(ii)) for ii in _np.random.permutation(cmap_table)]
+        elif isinstance(color_list, list) and len(color_list) == len(positions):
+            sticky_colors_hex = [_to_hex(cc) for cc in color_list]
+        else:
+            raise TypeError('argument color_list should be either None or a list of len(pos), '
+                            'instead of type %s and len %u' % (type(color_list), len(color_list)))
+        sticky_rep = 'cartoon'
+        if geom[0].top.n_residues < 10:
+            sticky_rep = 'ball+stick'
+        if list_of_repr_dicts is None:
+            list_of_repr_dicts = [{'repr_type': sticky_rep, 'selection': 'all'}]
+
+        # Now instantiate the widget
+        iwd = _nglwidget_wrapper(None, mock=False)
+        # Prepare Geometry_in_widget_list
+        iwd._GeomsInWid = [_linkutils.GeometryInNGLWidget(igeom, iwd,
+                                sticky_color_hex = cc,
+                                list_of_repr_dicts=list_of_repr_dicts) for igeom, cc in zip(_bmutils.transpose_geom_list(geom), sticky_colors_hex)]
+
+        _linkutils.link_ax_w_pos_2_nglwidget(ax,
                                    positions,
                                    iwd,
                                    directionality='a2w',
+                                   dot_color = 'None',
                                    **link_ax2wdg_kwargs
                                    )
         return iwd

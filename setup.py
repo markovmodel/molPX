@@ -22,6 +22,7 @@ setup(name='molPX',
           'scikit-learn',
           'notebook',
           'mdtraj',
+          'ipympl',
       ],
       package_data = {
           'molpx': ['notebooks/*', 'notebooks/data/*'],

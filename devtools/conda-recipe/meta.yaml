@@ -21,6 +21,7 @@ requirements:
     - pyemma
     - scikit-learn
     - notebook
+    - ipympl
 
 test:
   source_files:

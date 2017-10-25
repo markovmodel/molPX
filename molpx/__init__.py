@@ -9,10 +9,11 @@ __author__ = 'gph82'
 
 # To be able to run with a development version of nglview
 # TODO PIN TO NGLVIEW 1.0 once it's released
-pre_release = '1.0.b6'
+pre_release = '1.0.b5'
+from distutils.version import LooseVersion
 try:
     import nglview
-    if nglview.__version__!=pre_release:
+    if LooseVersion(nglview.__version__) < LooseVersion(pre_release):
         raise ImportError
 except ImportError:
     import os

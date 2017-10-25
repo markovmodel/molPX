@@ -9,7 +9,7 @@ __author__ = 'gph82'
 
 # To be able to run with a development version of nglview
 # TODO PIN TO NGLVIEW 1.0 once it's released
-pre_release = '1.0.b5'
+pre_release = '1.0.b6'
 try:
     import nglview
     if nglview.__version__!=pre_release:

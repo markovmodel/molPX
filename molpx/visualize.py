@@ -5,6 +5,9 @@ __author__ = 'gph82'
 from pyemma.plots import plot_free_energy as _plot_free_energy
 import numpy as _np
 
+from matplotlib.cm import get_cmap as _get_cmap
+from matplotlib.colors import rgb2hex as _rgb2hex, to_hex as _to_hex
+
 from . import generate
 from . import _bmutils
 from . import _linkutils
@@ -12,6 +15,8 @@ from . import _linkutils
 from matplotlib import pylab as _plt, rcParams as _rcParams
 import nglview as _nglview
 import mdtraj as _md
+from ipywidgets import HBox as _HBox, VBox as _VBox
+
 
 # All calls to nglview call actually this function
 def _nglwidget_wrapper(geom, mock=True, iwd=None, n_small=10):
@@ -178,6 +183,9 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
     geoms:
         :obj:`mdtraj.Trajectory` object with the geometries n_sample geometries shown by the nglwidget
 
+    widgetbox:
+        :obj:`ipywidgets.HBox` containing both the NGLWidget (iwd) and the interactive figure
+
     """
 
     # Prepare the overlay option
@@ -207,9 +215,12 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
             weights = [_np.array(iw, ndmin=2).T for iw in weights]
         weights = _np.vstack(weights).squeeze()
 
+    _plt.ioff()
     ax, FES_data, edges = _plot_ND_FES(data[:,proj_idxs],
                                        _bmutils.labelize(proj_labels, proj_idxs),
                                        weights=weights, bins=nbins)
+    _plt.ion()
+
     if edges[0] is not None:
         # We have the luxury of sorting!
         sorts_data = data_sample[:,0].argsort()
@@ -222,10 +233,10 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
         FES_sample = FES_data[_np.digitize(data_sample, edges[0][:-2])]
         data_sample = _np.hstack((data_sample, FES_sample))
 
-    iwd = sample(data_sample, geoms, ax, clear_lines=False, **sample_kwargs)
+    iwd, axes_widget = sample(data_sample, geoms, ax, clear_lines=False, **sample_kwargs)
     iwd._set_size(*['%fin' % inches for inches in ax.get_figure().get_size_inches()])
 
-    return _plt.gca(), _plt.gcf(), iwd, data_sample, geoms
+    return _plt.gca(), _plt.gcf(), iwd, data_sample, geoms, _HBox([iwd, axes_widget.canvas])
 
 def _plot_ND_FES(data, ax_labels, weights=None, bins=50, figsize=(4,4)):
     r""" A wrapper for pyemmas FESs plotting function that can also plot 1D
@@ -247,6 +258,7 @@ def _plot_ND_FES(data, ax_labels, weights=None, bins=50, figsize=(4,4)):
     edges : tuple containimg the axes along which FES is to be plotted (only in the 1D case so far, else it's None)
 
     """
+
     _plt.figure(figsize=figsize)
     ax = _plt.gca()
     idata = _np.vstack(data)
@@ -259,14 +271,16 @@ def _plot_ND_FES(data, ax_labels, weights=None, bins=50, figsize=(4,4)):
         ax.set_ylabel('$\Delta G / \kappa T $')
 
     elif idata.shape[1] == 2:
-        _plot_free_energy(idata[:,0], idata[:,1], weights=weights, nbins=bins, ax=ax)
+        _plot_free_energy(idata[:,0], idata[:,1], weights=weights, nbins=bins, ax=ax,
+                          cmap='nipy_spectral'
+                           )
         ax.set_ylabel(ax_labels[1])
         edges, FES_data = [None], None
         # TODO: retrieve the actual edges from pyemma's "plot_free_energy"'s axes
     else:
         raise NotImplementedError('Can only plot 1D or 2D FESs, but data has %s columns' % _np.shape(idata)[0])
 
-    return ax, FES_data, edges,
+    return ax, FES_data, edges
 
 def traj(MD_trajectories,
          MD_top, projected_trajectories,
@@ -445,6 +459,7 @@ def traj(MD_trajectories,
         # squash whatever input we had if the projection-info input wasn't actually usable
         n_feats = 0
 
+    _plt.ioff()
     myfig, myax = _plt.subplots(len(traj_selection)*len(proj_idxs),1, sharex=True, figsize=(7, len(data)*len(proj_idxs)*panel_height), squeeze=False)
     myax = myax.reshape(len(traj_selection), -1)
 
@@ -465,10 +480,10 @@ def traj(MD_trajectories,
             else:
                 if projections_plotted < len(proj_idxs): #projection
                     iax.plot(time, idata)
-                    widget = sample(data_sample, geoms.superpose(geoms[0]), iax,
-                                    clear_lines=False, widget=widget,
-                                    crosshairs='v',
-                                    exclude_coord=1)
+                    widget, axes_traj_widget = sample(data_sample, geoms.superpose(geoms[0]), iax,
+                                                clear_lines=False, widget=widget,
+                                                crosshairs='v',
+                                                exclude_coord=1)
                     projections_plotted += 1
                     time_feat = time
                     # TODO find out why this is needed
@@ -510,7 +525,7 @@ def traj(MD_trajectories,
 
         # Link widget
         fdata_sample = _np.vstack((time_feat, ifeat_val)).T
-        widget = sample(fdata_sample, geoms.superpose(geoms[0]), iax,
+        widget, axes_widget = sample(fdata_sample, geoms.superpose(geoms[0]), iax,
                         clear_lines=False, widget=widget,
                         crosshairs=False, directionality='w2a')
 
@@ -521,25 +536,31 @@ def traj(MD_trajectories,
         # Add visualization (let the method decide if it's possible or not)
         widget = _bmutils.add_atom_idxs_widget([corr_dict["atom_idxs"][iproj][ifeat]], widget, color_list=[icol])
 
-        widget._set_size(*['%fin' % inches for inches in iax.get_figure().get_size_inches()])
+    widget_w = iax.get_figure().get_size_inches()[0]
+    widget._set_size('%fin' % widget_w, '4in')
+    ibox = _VBox([widget, axes_traj_widget.canvas])
 
     if plot_FES:
-        ax, FES_data, edges = _plot_ND_FES(data, ylabels, weights=weights, cmap='nipy_spectral')
+        FES_ax, FES_data, edges = _plot_ND_FES(data, ylabels, weights=weights)
         if edges[0] is not None:
             print(edges)
             FES_data = [FES_data[_np.digitize(idata, edges[0][:-2])] for idata in data]
             data = [_np.hstack((idata, iFES_data)) for idata, iFES_data in zip(data, FES_data)]
 
-        widget = sample(data[active_traj], geoms.superpose(geoms[0]), ax, widget=widget, clear_lines=False)
+        widget, axes_FES_widget = sample(data[active_traj], geoms.superpose(geoms[0]), FES_ax, widget=widget, clear_lines=False)
 
-    widget_w = iax.get_figure().get_size_inches()[0]
-    try:
-        widget._set_size('%fin'%widget_w, '4in')
-    except AttributeError:
-        pass
+        # Some resizing for widget positioning
+        widget_w = iax.get_figure().get_size_inches()[0]/2
+        widget_h = FES_ax.get_figure().get_size_inches()[1]
+        FES_ax.get_figure().set_size_inches(w=widget_w, h=widget_h)
+        widget._set_size('%fin'%widget_w, '%fin'%widget_w )
 
+        FES_HBox = _HBox([widget, axes_FES_widget.canvas])
+        ibox = _VBox([axes_traj_widget.canvas, FES_HBox])
 
-    return _plt.gca(), _plt.gcf(), widget, geoms
+    _plt.ion()
+
+    return _plt.gca(), _plt.gcf(), widget, geoms, ibox
 
 def correlations(correlation_input,
                  geoms=None,
@@ -820,6 +841,8 @@ def sample(positions, geom, ax,
 
     iwd : :obj:`nglview.NGLWidget`
 
+    axes_widget: obj:`matplotlib.Axes.AxesWidget`
+
     """
 
     if not sticky:
@@ -833,9 +856,7 @@ def sample(positions, geom, ax,
                        n_feats = n_feats,
                        **link_ax2wdg_kwargs)
     else:
-        # TODO MOVE THESE IMPORTS
-        from matplotlib.cm import get_cmap as _get_cmap
-        from matplotlib.colors import rgb2hex as _rgb2hex, to_hex as _to_hex
+
         if isinstance(geom, _md.Trajectory):
             geom=[geom]
 
@@ -846,16 +867,18 @@ def sample(positions, geom, ax,
         else:
             geom = [igeom.superpose(geom[0][0]) for igeom in geom]
 
-        # TODO: create a path through the colors that maximizes distance between averages (otherwise some colors
-        # are too close
-        cmap = _get_cmap('rainbow')
-        cmap_table = _np.linspace(0, 1, len(positions))
         if color_list is None:
-            sticky_colors_hex = [_rgb2hex(cmap(ii)) for ii in _np.random.permutation(cmap_table)]
+            sticky_colors_hex = ['Element' for ii in range(len(positions))]
         elif isinstance(color_list, list) and len(color_list) == len(positions):
             sticky_colors_hex = [_to_hex(cc) for cc in color_list]
+        elif isinstance(color_list, str) and color_list.lower().startswith('rand'):
+            # TODO: create a path through the colors that maximizes distance between averages (otherwise some colors
+            # are too close
+            cmap = _get_cmap('rainbow')
+            cmap_table = _np.linspace(0, 1, len(positions))
+            sticky_colors_hex = [_rgb2hex(cmap(ii)) for ii in _np.random.permutation(cmap_table)]
         else:
-            raise TypeError('argument color_list should be either None or a list of len(pos), '
+            raise TypeError('argument color_list should be either None, "random", or a list of len(pos), '
                             'instead of type %s and len %u' % (type(color_list), len(color_list)))
         sticky_rep = 'cartoon'
         if geom[0].top.n_residues < 10:
@@ -867,18 +890,18 @@ def sample(positions, geom, ax,
         iwd = _nglwidget_wrapper(None, mock=False)
         # Prepare Geometry_in_widget_list
         iwd._GeomsInWid = [_linkutils.GeometryInNGLWidget(igeom, iwd,
-                                sticky_color_hex = cc,
-                                list_of_repr_dicts=list_of_repr_dicts) for igeom, cc in zip(_bmutils.transpose_geom_list(geom), sticky_colors_hex)]
+                                                          color_molecule_hex= cc,
+                                                          list_of_repr_dicts=list_of_repr_dicts) for igeom, cc in zip(_bmutils.transpose_geom_list(geom), sticky_colors_hex)]
 
-        _linkutils.link_ax_w_pos_2_nglwidget(ax,
+        axes_widget = _linkutils.link_ax_w_pos_2_nglwidget(ax,
                                    positions,
                                    iwd,
                                    directionality='a2w',
                                    dot_color = 'None',
                                    **link_ax2wdg_kwargs
                                    )
-        return iwd
 
+        return iwd, axes_widget
 
 def _sample(positions, geoms, ax,
             plot_path=False,
@@ -950,6 +973,8 @@ def _sample(positions, geoms, ax,
 
     iwd : :obj:`nglview.NGLWidget`
 
+    axes_widget :obj:`matplotlib.Axes.AxesWidget`
+
     """
 
     assert isinstance(geoms, (list, _md.Trajectory))
@@ -985,9 +1010,9 @@ def _sample(positions, geoms, ax,
         ax.plot(positions[:,0], positions[:,1], '-g', lw=3)
 
     # Link the axes widget with the ngl widget
-    ax_wdg = _bmutils.link_ax_w_pos_2_nglwidget(ax,
-                                        positions,
-                                        iwd,
+    axes_widget = _linkutils.link_ax_w_pos_2_nglwidget(ax,
+                                         positions,
+                                         iwd,
                                         band_width=band_width,
                                         **link_ax2wdg_kwargs
                                         )
@@ -1004,7 +1029,5 @@ def _sample(positions, geoms, ax,
                                             color_list=['green']
                                             )
 
-    # somehow returning the ax_wdg messes the displaying of both widgets
-
-    return iwd
+    return iwd, axes_widget
 

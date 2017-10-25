@@ -3,7 +3,7 @@ import numpy as _np
 
 from matplotlib.widgets import AxesWidget as _AxesWidget
 from matplotlib.colors import is_color_like as _is_color_like
-
+from matplotlib import pylab as _plt
 try:
     from sklearn.mixture import GaussianMixture as _GMM
 except ImportError:
@@ -111,7 +111,7 @@ class ClickOnAxisListener(object):
                 if self.list_of_dots[index] is None:
                     # Plot and store the dot in case there wasn't
                     self.list_of_dots[index] = self.ax.plot(self.pos[index, 0], self.pos[index, 1], 'o',
-                            c=self.nglwidget._GeomsInWid[index].sticky_color_hex, ms=7)[0]
+                            c=self.nglwidget._GeomsInWid[index].color_dot, ms=7)[0]
             elif event.button in [2, 3]:
                 #  Pressed right or middle
                 self.nglwidget._GeomsInWid[index].hide()
@@ -155,7 +155,8 @@ class GeometryInNGLWidget(object):
     The object exposes two methods, show and hide, to automagically know what to do
     """
 
-    def __init__(self, geom, nglwidget, list_of_repr_dicts=None, sticky_color_hex='Element'):
+    def __init__(self, geom, nglwidget, list_of_repr_dicts=None,
+                 color_molecule_hex='Element'):
         self.lives_at_components = []
         self.geom = geom
         self.nglwidget = nglwidget
@@ -168,7 +169,10 @@ class GeometryInNGLWidget(object):
             list_of_repr_dicts = [{'repr_type': sticky_rep, 'selection': 'all'}]
 
         self.list_of_repr_dicts = list_of_repr_dicts
-        self.sticky_color_hex = sticky_color_hex
+        self.color_molecule_hex = color_molecule_hex
+        self.color_dot = color_molecule_hex
+        if isinstance(self.color_molecule_hex, str) and color_molecule_hex == 'Element':
+            self.color_dot = 'blue'
 
     def show(self):
         # Show can mean either
@@ -202,10 +206,10 @@ class GeometryInNGLWidget(object):
                 self.nglwidget.add_representation(irepr['repr_type'],
                                                   selection=irepr['selection'],
                                                   component=component,
-                                                  color=self.sticky_color_hex)
+                                                  color=self.color_molecule_hex)
 
     def hide(self):
-        if self.is_empty() or self.all_reps_are_on():
+        if self.is_empty() or self.all_reps_are_off():
             print("nothing to hide")
             pass
         elif self.any_rep_is_on():  # There's represented components already in the widget
@@ -252,7 +256,7 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
     Initial idea for this function comes from @arose, the rest is @gph82
 
     Parameters
-    ---------
+    ----------
     band_with : None or float,
         band_width is in units of the axis of (it will be tranlated to pts internally)
 
@@ -272,6 +276,11 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
     exclude_coord : None or int , default is None
         The excluded coordinate will not be considered when computing the nearest-point-to-click.
         Typical use case is for visualize.traj to only compute distances horizontally along the time axis
+
+    Returns
+    -------
+
+    axes_widget : :obj:`matplotlib.Axes.Axeswidget` that has been linked to the NGLWidget
     """
 
     assert directionality in [None, 'a2w', 'w2a'], "The directionality parameter has to be in [None, 'a2w', 'w2a'] " \
@@ -283,7 +292,6 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
     if _is_int(exclude_coord):
         ipos[:,exclude_coord] = 0
     kdtree = _cKDTree(ipos)
-    x, y = pos.T
 
     # Are we in a sticky situation?
     if hasattr(nglwidget, '_GeomsInWid'):
@@ -354,4 +362,5 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
     if directionality in [None, 'w2a']:
         nglwidget.observe(NGL_listener, "frame", "change")
 
+    nglwidget.center()
     return axes_widget

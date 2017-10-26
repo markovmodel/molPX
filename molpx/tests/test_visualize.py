@@ -120,7 +120,7 @@ class TestCorrelations_and_Feature_Input(unittest.TestCase):
 
     def test_feature(self):
         plt.figure()
-        iwd = visualize.sample(self.Y[0][:10, :2], self.MD_geoms[0][:10], plt.gca())
+        iwd, axes_wdg = visualize.sample(self.Y[0][:10, :2], self.MD_geoms[0][:10], plt.gca())
         visualize.feature(self.feat.active_features[0], iwd)
 if __name__ == '__main__':
     unittest.main()

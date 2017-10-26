@@ -3,7 +3,7 @@ import numpy as _np
 
 from matplotlib.widgets import AxesWidget as _AxesWidget
 from matplotlib.colors import is_color_like as _is_color_like
-from matplotlib import pylab as _plt
+
 try:
     from sklearn.mixture import GaussianMixture as _GMM
 except ImportError:
@@ -81,9 +81,9 @@ def update2Dlines(iline, x, y):
 
 
 class ClickOnAxisListener(object):
-    def __init__(self, nglwidget, kdtree, crosshairs, showclick_objs, ax, pos,
+    def __init__(self, ngl_wdg, kdtree, crosshairs, showclick_objs, ax, pos,
                  list_mpl_objects_to_update):
-        self.nglwidget = nglwidget
+        self.ngl_wdg = ngl_wdg
         self.kdtree = kdtree
         self.crosshairs = crosshairs
         self.showclick_objs = showclick_objs
@@ -102,26 +102,26 @@ class ClickOnAxisListener(object):
         for idot in self.list_mpl_objects_to_update:
             update2Dlines(idot, self.pos[index, 0], self.pos[index, 1])
 
-        self.nglwidget.isClick = True
-        if hasattr(self.nglwidget, '_GeomsInWid'):
+        self.ngl_wdg.isClick = True
+        if hasattr(self.ngl_wdg, '_GeomsInWid'):
             # We're in a sticky situation
             if event.button == 1:
                 # Pressed left
-                self.nglwidget._GeomsInWid[index].show()
+                self.ngl_wdg._GeomsInWid[index].show()
                 if self.list_of_dots[index] is None:
                     # Plot and store the dot in case there wasn't
                     self.list_of_dots[index] = self.ax.plot(self.pos[index, 0], self.pos[index, 1], 'o',
-                            c=self.nglwidget._GeomsInWid[index].color_dot, ms=7)[0]
+                                                            c=self.ngl_wdg._GeomsInWid[index].color_dot, ms=7)[0]
             elif event.button in [2, 3]:
                 #  Pressed right or middle
-                self.nglwidget._GeomsInWid[index].hide()
+                self.ngl_wdg._GeomsInWid[index].hide()
                 # Delete dot if the geom is not visible anymore
-                if not self.nglwidget._GeomsInWid[index].is_visible() and self.list_of_dots[index] is not None:
+                if not self.ngl_wdg._GeomsInWid[index].is_visible() and self.list_of_dots[index] is not None:
                     self.list_of_dots[index].remove()
                     self.list_of_dots[index] = None
         else:
             # We're not sticky, just go to the frame
-            self.nglwidget.frame = index
+            self.ngl_wdg.frame = index
 
 class ChangeInNGLWidgetListener(object):
 
@@ -130,12 +130,12 @@ class ChangeInNGLWidgetListener(object):
     #for c in change:
     #    print("%s -> %s" % (c, change[c]))
 
-    def __init__(self, nglwidget, list_mpl_objects_to_update, pos):
-        self.nglwidget = nglwidget
+    def __init__(self, ngl_wdg, list_mpl_objects_to_update, pos):
+        self.ngl_wdg = ngl_wdg
         self.list_mpl_objects_to_update = list_mpl_objects_to_update
         self.pos = pos
     def __call__(self, change):
-        self.nglwidget.isClick = False
+        self.ngl_wdg.isClick = False
         _idx = change["new"]
         try:
             for idot in self.list_mpl_objects_to_update:
@@ -155,11 +155,11 @@ class GeometryInNGLWidget(object):
     The object exposes two methods, show and hide, to automagically know what to do
     """
 
-    def __init__(self, geom, nglwidget, list_of_repr_dicts=None,
+    def __init__(self, geom, ngl_wdg, list_of_repr_dicts=None,
                  color_molecule_hex='Element'):
         self.lives_at_components = []
         self.geom = geom
-        self.nglwidget = nglwidget
+        self.ngl_wdg = ngl_wdg
         self.have_repr = []
 
         sticky_rep = 'cartoon'
@@ -187,9 +187,9 @@ class GeometryInNGLWidget(object):
             else:
                 idx = len(self.have_repr)
 
-                self.nglwidget.add_trajectory(self.geom[idx])
-                self.lives_at_components.append(len(self.nglwidget._ngl_component_ids) - 1)
-                self.nglwidget.clear_representations(component=self.lives_at_components[-1])
+                self.ngl_wdg.add_trajectory(self.geom[idx])
+                self.lives_at_components.append(len(self.ngl_wdg._ngl_component_ids) - 1)
+                self.ngl_wdg.clear_representations(component=self.lives_at_components[-1])
                 self.have_repr.append(True)
                 component = self.lives_at_components[-1]
 
@@ -203,10 +203,10 @@ class GeometryInNGLWidget(object):
 
         if component is not None:
             for irepr in self.list_of_repr_dicts:
-                self.nglwidget.add_representation(irepr['repr_type'],
-                                                  selection=irepr['selection'],
-                                                  component=component,
-                                                  color=self.color_molecule_hex)
+                self.ngl_wdg.add_representation(irepr['repr_type'],
+                                                selection=irepr['selection'],
+                                                component=component,
+                                                color=self.color_molecule_hex)
 
     def hide(self):
         if self.is_empty() or self.all_reps_are_off():
@@ -214,7 +214,7 @@ class GeometryInNGLWidget(object):
             pass
         elif self.any_rep_is_on():  # There's represented components already in the widget
             idx = _np.argwhere(self.have_repr)[-1].squeeze()
-            self.nglwidget.clear_representations(component=self.lives_at_components[idx])
+            self.ngl_wdg.clear_representations(component=self.lives_at_components[idx])
             self.have_repr[idx] = False
         else:
             raise Exception("This situation should not arise. This is a bug")
@@ -244,7 +244,7 @@ class GeometryInNGLWidget(object):
         else:
             return True
 
-def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
+def link_ax_w_pos_2_nglwidget(ax, pos, ngl_wdg,
                               crosshairs=True,
                               dot_color='red',
                               band_width=None,
@@ -294,11 +294,11 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
     kdtree = _cKDTree(ipos)
 
     # Are we in a sticky situation?
-    if hasattr(nglwidget, '_GeomsInWid'):
+    if hasattr(ngl_wdg, '_GeomsInWid'):
         sticky = True
     else:
-        assert nglwidget.trajectory_0.n_frames == pos.shape[0], \
-            ("Mismatching frame numbers %u vs %u"%( nglwidget.trajectory_0.n_frames, pos.shape[0]))
+        assert ngl_wdg.trajectory_0.n_frames == pos.shape[0], \
+            ("Mismatching frame numbers %u vs %u" % (ngl_wdg.trajectory_0.n_frames, pos.shape[0]))
         sticky = False
 
     # Basic interactive objects
@@ -347,12 +347,12 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
             setattr(band, 'whatisthis', band_type)
             list_mpl_objects_to_update.append(band)
 
-    nglwidget.isClick = False
+    ngl_wdg.isClick = False
 
-    CLA_listener = ClickOnAxisListener(nglwidget, kdtree, crosshairs, showclick_objs, ax, pos,
-                     list_mpl_objects_to_update)
+    CLA_listener = ClickOnAxisListener(ngl_wdg, kdtree, crosshairs, showclick_objs, ax, pos,
+                                       list_mpl_objects_to_update)
 
-    NGL_listener = ChangeInNGLWidgetListener(nglwidget, list_mpl_objects_to_update, pos)
+    NGL_listener = ChangeInNGLWidgetListener(ngl_wdg, list_mpl_objects_to_update, pos)
     # Connect axes to widget
     axes_widget = _AxesWidget(ax)
     if directionality in [None, 'a2w']:
@@ -360,7 +360,7 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
 
     # Connect widget to axes
     if directionality in [None, 'w2a']:
-        nglwidget.observe(NGL_listener, "frame", "change")
+        ngl_wdg.observe(NGL_listener, "frame", "change")
 
-    nglwidget.center()
+    ngl_wdg.center()
     return axes_widget

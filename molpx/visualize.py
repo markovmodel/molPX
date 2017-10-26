@@ -19,7 +19,7 @@ from ipywidgets import HBox as _HBox, VBox as _VBox
 
 
 # All calls to nglview call actually this function
-def _nglwidget_wrapper(geom, mock=True, iwd=None, n_small=10):
+def _nglwidget_wrapper(geom, mock=True, ngl_wdg=None, n_small=10):
     r""" Wrapper to nlgivew.show_geom's method that allows for some other automatic choice of
     representation and avoids the actual widget if one is calling from terminal (for unit tests)
 
@@ -36,20 +36,20 @@ def _nglwidget_wrapper(geom, mock=True, iwd=None, n_small=10):
         geom = _md.load(geom)
 
     try:
-        if iwd is None:
+        if ngl_wdg is None:
             if geom is None:
-                iwd = _nglview.NGLWidget()
+                ngl_wdg = _nglview.NGLWidget()
             else:
-                iwd = _nglview.show_mdtraj(geom)
+                ngl_wdg = _nglview.show_mdtraj(geom)
         else:
-            iwd.add_trajectory(geom)
+            ngl_wdg.add_trajectory(geom)
 
     except:
         if mock:
             print("molPX has to be used inside a notebook, not from terminal. A mock nglwidget is being returned."
                   "Ignore this message if testing, "
                   "otherwise refer to molPX documentation")
-            iwd = _mock_nglwidget(geom)
+            ngl_wdg = _mock_nglwidget(geom)
         else:
             raise Exception("molPX has to be used inside a notebook, not from terminal")
 
@@ -57,14 +57,14 @@ def _nglwidget_wrapper(geom, mock=True, iwd=None, n_small=10):
     ## Do we need a ball+stick representation?
     if geom is not None:
         if geom.top.n_residues < n_small:
-            for ic in range(len(iwd._ngl_component_ids)):
+            for ic in range(len(ngl_wdg._ngl_component_ids)):
                 # TODO FIND OUT WHY THIS FAILS FOR THE LAST REPRESENTATION
                 #print("removing reps for component",ic)
-                iwd.remove_cartoon(component=ic)
-                iwd.clear_representations(component=ic)
-                iwd.add_ball_and_stick(component=ic)
+                ngl_wdg.remove_cartoon(component=ic)
+                ngl_wdg.clear_representations(component=ic)
+                ngl_wdg.add_ball_and_stick(component=ic)
 
-    return iwd
+    return ngl_wdg
 
 class _mock_nglwidget(object):
     r"""
@@ -176,7 +176,7 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
         :obj:`pylab.Axis` object
     fig :
         :obj:`pylab.Figure` object
-    iwd :
+    ngl_wdg :
         :obj:`nglview.NGLWidget`
     data_sample:
         numpy ndarray of shape (n, n_sample) with the position of the dots in the plot
@@ -184,7 +184,7 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
         :obj:`mdtraj.Trajectory` object with the geometries n_sample geometries shown by the nglwidget
 
     widgetbox:
-        :obj:`ipywidgets.HBox` containing both the NGLWidget (iwd) and the interactive figure
+        :obj:`ipywidgets.HBox` containing both the NGLWidget (ngl_wdg) and the interactive figure
 
     """
 
@@ -233,10 +233,10 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
         FES_sample = FES_data[_np.digitize(data_sample, edges[0][:-2])]
         data_sample = _np.hstack((data_sample, FES_sample))
 
-    iwd, axes_widget = sample(data_sample, geoms, ax, clear_lines=False, **sample_kwargs)
-    iwd._set_size(*['%fin' % inches for inches in ax.get_figure().get_size_inches()])
+    ngl_wdg, axes_widget = sample(data_sample, geoms, ax, clear_lines=False, **sample_kwargs)
+    ngl_wdg._set_size(*['%fin' % inches for inches in ax.get_figure().get_size_inches()])
 
-    return _plt.gca(), _plt.gcf(), iwd, data_sample, geoms, _HBox([iwd, axes_widget.canvas])
+    return _plt.gca(), _plt.gcf(), ngl_wdg, data_sample, geoms, _HBox([ngl_wdg, axes_widget.canvas])
 
 def _plot_ND_FES(data, ax_labels, weights=None, bins=50, figsize=(4,4)):
     r""" A wrapper for pyemmas FESs plotting function that can also plot 1D
@@ -382,14 +382,14 @@ def traj(MD_trajectories,
     Returns
     ---------
 
-    ax, iwd, data_sample, geoms
+    ax, ngl_wdg, data_sample, geoms
         return _plt.gca(), _plt.gcf(), widget, geoms
 
     ax :
         :obj:`pylab.Axis` object
     fig :
         :obj:`pylab.Figure` object
-    iwd :
+    ngl_wdg :
         :obj:`nglview.NGLWidget`
     geoms:
         :obj:`mdtraj.Trajectory` object with the geometries n_sample geometries shown by the nglwidget
@@ -627,7 +627,7 @@ def correlations(correlation_input,
 
     Returns
     -------
-    corr_dict and iwd
+    corr_dict and ngl_wdg
 
     corr_dict:
         A dictionary with items:
@@ -839,7 +839,7 @@ def sample(positions, geom, ax,
     Returns
     --------
 
-    iwd : :obj:`nglview.NGLWidget`
+    ngl_wdg : :obj:`nglview.NGLWidget`
 
     axes_widget: obj:`matplotlib.Axes.AxesWidget`
 
@@ -887,21 +887,21 @@ def sample(positions, geom, ax,
             list_of_repr_dicts = [{'repr_type': sticky_rep, 'selection': 'all'}]
 
         # Now instantiate the widget
-        iwd = _nglwidget_wrapper(None, mock=False)
+        ngl_wdg = _nglwidget_wrapper(None, mock=False)
         # Prepare Geometry_in_widget_list
-        iwd._GeomsInWid = [_linkutils.GeometryInNGLWidget(igeom, iwd,
+        ngl_wdg._GeomsInWid = [_linkutils.GeometryInNGLWidget(igeom, ngl_wdg,
                                                           color_molecule_hex= cc,
                                                           list_of_repr_dicts=list_of_repr_dicts) for igeom, cc in zip(_bmutils.transpose_geom_list(geom), sticky_colors_hex)]
 
         axes_widget = _linkutils.link_ax_w_pos_2_nglwidget(ax,
                                    positions,
-                                   iwd,
+                                   ngl_wdg,
                                    directionality='a2w',
                                    dot_color = 'None',
                                    **link_ax2wdg_kwargs
                                    )
 
-        return iwd, axes_widget
+        return ngl_wdg, axes_widget
 
 def _sample(positions, geoms, ax,
             plot_path=False,
@@ -971,7 +971,7 @@ def _sample(positions, geoms, ax,
     Returns
     --------
 
-    iwd : :obj:`nglview.NGLWidget`
+    ngl_wdg : :obj:`nglview.NGLWidget`
 
     axes_widget :obj:`matplotlib.Axes.AxesWidget`
 
@@ -996,12 +996,12 @@ def _sample(positions, geoms, ax,
 
     # Create ngl_viewer widget
     if widget is None:
-        iwd = _nglwidget_wrapper(geoms[0])
+        ngl_wdg = _nglwidget_wrapper(geoms[0])
         for igeom in geoms[1:]:
             # TODO THIS IS THE PLACE TO CORRECT FOR NOT SEEING OVERLAYS OF SMALL MOLECUlES
-            iwd = _nglwidget_wrapper(igeom, iwd=iwd)
+            ngl_wdg = _nglwidget_wrapper(igeom, ngl_wdg=ngl_wdg)
     else:
-        iwd = widget
+        ngl_wdg = widget
 
     if clear_lines == True:
         [ax.lines.pop() for ii in range(len(ax.lines))]
@@ -1012,7 +1012,7 @@ def _sample(positions, geoms, ax,
     # Link the axes widget with the ngl widget
     axes_widget = _linkutils.link_ax_w_pos_2_nglwidget(ax,
                                          positions,
-                                         iwd,
+                                         ngl_wdg,
                                         band_width=band_width,
                                         **link_ax2wdg_kwargs
                                         )
@@ -1025,9 +1025,9 @@ def _sample(positions, geoms, ax,
             for ifeat in range(n_feats):
                 ilabel = corr_dict["labels"][iproj][ifeat]
                 print(ilabel)
-                iwd = _bmutils.add_atom_idxs_widget([corr_dict["atom_idxs"][iproj][ifeat]], iwd,
+                ngl_wdg = _bmutils.add_atom_idxs_widget([corr_dict["atom_idxs"][iproj][ifeat]], ngl_wdg,
                                             color_list=['green']
                                             )
 
-    return iwd, axes_widget
+    return ngl_wdg, axes_widget
 

@@ -172,7 +172,7 @@ class GeometryInNGLWidget(object):
         self.color_molecule_hex = color_molecule_hex
         self.color_dot = color_molecule_hex
         if isinstance(self.color_molecule_hex, str) and color_molecule_hex == 'Element':
-            self.color_dot = 'blue'
+            self.color_dot = 'red'
 
     def show(self):
         # Show can mean either

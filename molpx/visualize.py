@@ -233,10 +233,10 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
         FES_sample = FES_data[_np.digitize(data_sample, edges[0][:-2])]
         data_sample = _np.hstack((data_sample, FES_sample))
 
-    ngl_wdg, axes_widget = sample(data_sample, geoms, ax, clear_lines=False, **sample_kwargs)
+    ngl_wdg, axes_wdg = sample(data_sample, geoms, ax, clear_lines=False, **sample_kwargs)
     ngl_wdg._set_size(*['%fin' % inches for inches in ax.get_figure().get_size_inches()])
 
-    return _plt.gca(), _plt.gcf(), ngl_wdg, data_sample, geoms, _HBox([ngl_wdg, axes_widget.canvas])
+    return _plt.gca(), _plt.gcf(), ngl_wdg, data_sample, geoms, _HBox([ngl_wdg, axes_wdg.canvas])
 
 def _plot_ND_FES(data, ax_labels, weights=None, bins=50, figsize=(4,4)):
     r""" A wrapper for pyemmas FESs plotting function that can also plot 1D
@@ -525,7 +525,7 @@ def traj(MD_trajectories,
 
         # Link widget
         fdata_sample = _np.vstack((time_feat, ifeat_val)).T
-        widget, axes_widget = sample(fdata_sample, geoms.superpose(geoms[0]), iax,
+        widget, axes_wdg = sample(fdata_sample, geoms.superpose(geoms[0]), iax,
                         clear_lines=False, widget=widget,
                         crosshairs=False, directionality='w2a')
 
@@ -841,7 +841,7 @@ def sample(positions, geom, ax,
 
     ngl_wdg : :obj:`nglview.NGLWidget`
 
-    axes_widget: obj:`matplotlib.Axes.AxesWidget`
+    axes_wdg: obj:`matplotlib.Axes.AxesWidget`
 
     """
 
@@ -893,7 +893,7 @@ def sample(positions, geom, ax,
                                                           color_molecule_hex= cc,
                                                           list_of_repr_dicts=list_of_repr_dicts) for igeom, cc in zip(_bmutils.transpose_geom_list(geom), sticky_colors_hex)]
 
-        axes_widget = _linkutils.link_ax_w_pos_2_nglwidget(ax,
+        axes_wdg = _linkutils.link_ax_w_pos_2_nglwidget(ax,
                                    positions,
                                    ngl_wdg,
                                    directionality='a2w',
@@ -901,7 +901,7 @@ def sample(positions, geom, ax,
                                    **link_ax2wdg_kwargs
                                    )
 
-        return ngl_wdg, axes_widget
+        return ngl_wdg, axes_wdg
 
 def _sample(positions, geoms, ax,
             plot_path=False,
@@ -973,7 +973,7 @@ def _sample(positions, geoms, ax,
 
     ngl_wdg : :obj:`nglview.NGLWidget`
 
-    axes_widget :obj:`matplotlib.Axes.AxesWidget`
+    axes_wdg :obj:`matplotlib.Axes.AxesWidget`
 
     """
 
@@ -1010,7 +1010,7 @@ def _sample(positions, geoms, ax,
         ax.plot(positions[:,0], positions[:,1], '-g', lw=3)
 
     # Link the axes widget with the ngl widget
-    axes_widget = _linkutils.link_ax_w_pos_2_nglwidget(ax,
+    axes_wdg = _linkutils.link_ax_w_pos_2_nglwidget(ax,
                                          positions,
                                          ngl_wdg,
                                         band_width=band_width,
@@ -1029,5 +1029,5 @@ def _sample(positions, geoms, ax,
                                             color_list=['green']
                                             )
 
-    return ngl_wdg, axes_widget
+    return ngl_wdg, axes_wdg
 

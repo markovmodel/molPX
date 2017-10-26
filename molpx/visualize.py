@@ -46,7 +46,7 @@ def _nglwidget_wrapper(geom, mock=True, ngl_wdg=None, n_small=10):
 
     except:
         if mock:
-            print("molPX has to be used inside a notebook, not from terminal. A mock nglwidget is being returned."
+            print("molPX has to be used inside a notebook, not from terminal. A mock ngl_wdg is being returned."
                   "Ignore this message if testing, "
                   "otherwise refer to molPX documentation")
             ngl_wdg = _mock_nglwidget(geom)
@@ -76,29 +76,29 @@ class _mock_nglwidget(object):
     def __init__(self, geom):
         self.trajectory_0 = geom
     def observe(self,*args, **kwargs):
-        print("The method 'observe' of a mock nglwidget is called. "
+        print("The method 'observe' of a mock ngl_wdg is called. "
               "Ignore this message if testing, otherwise refer to molPX documentation.")
 
     def add_spacefill(self, *args, **kwargs):
-        print("The method 'add_spacefill' of a mock nglwidget is called. "
+        print("The method 'add_spacefill' of a mock ngl_wdg is called. "
               "Ignore this message if testing, otherwise refer to molPX documentation.")
 
     @property
     def _ngl_component_ids(self):
-        print("The method '_ngl_component_ids' of a mock nglwidget is called. "
+        print("The method '_ngl_component_ids' of a mock ngl_wdg is called. "
               "Ignore this message if testing, otherwise refer to molPX documentation.")
         return []
 
     def remove_cartoon(self):
-        print("The method 'remove_cartoon' of a mock nglwidget is called. "
+        print("The method 'remove_cartoon' of a mock ngl_wdg is called. "
               "Ignore this message if testing, otherwise refer to molPX documentation.")
 
     def remove_backbone(self):
-        print("The method 'remove_backbone' of a mock nglwidget is called. "
+        print("The method 'remove_backbone' of a mock ngl_wdg is called. "
               "Ignore this message if testing, otherwise refer to molPX documentation.")
 
     def add_ball_and_stick(self):
-        print("The method 'add_ball_and_stick' of a mock nglwidget is called. "
+        print("The method 'add_ball_and_stick' of a mock ngl_wdg is called. "
               "Ignore this message if testing, otherwise refer to molPX documentation.")
 
 def FES(MD_trajectories, MD_top, projected_trajectories,
@@ -181,7 +181,7 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
     data_sample:
         numpy ndarray of shape (n, n_sample) with the position of the dots in the plot
     geoms:
-        :obj:`mdtraj.Trajectory` object with the geometries n_sample geometries shown by the nglwidget
+        :obj:`mdtraj.Trajectory` object with the geometries n_sample geometries shown by the ngl_wdg
 
     widgetbox:
         :obj:`ipywidgets.HBox` containing both the NGLWidget (ngl_wdg) and the interactive figure
@@ -377,7 +377,7 @@ def traj(MD_trajectories,
     n_feats : int, default is 1
         If a :obj:`projection` is passed along, the first n_feats features that most correlate the
         the projected trajectories will be represented, both in form of trajectories feat vs t as well as in
-        the nglwidget. If :obj:`projection` is None, :obj:`nfeats`  will be ignored.
+        the ngl_wdg. If :obj:`projection` is None, :obj:`nfeats`  will be ignored.
 
     Returns
     ---------
@@ -392,7 +392,7 @@ def traj(MD_trajectories,
     ngl_wdg :
         :obj:`nglview.NGLWidget`
     geoms:
-        :obj:`mdtraj.Trajectory` object with the geometries n_sample geometries shown by the nglwidget
+        :obj:`mdtraj.Trajectory` object with the geometries n_sample geometries shown by the ngl_wdg
 
 
     """
@@ -818,7 +818,7 @@ def sample(positions, geom, ax,
     n_feats : int, default is 1
         If a :obj:`projection` is passed along, the first n_feats features that most correlate the
         the projected trajectories will be represented, both in form of trajectories feat vs t as well as in
-        the nglwidget. If :obj:`projection` is None, :obj:`nfeats`  will be ignored.
+        the ngl_wdg. If :obj:`projection` is None, :obj:`nfeats`  will be ignored.
 
     sticky : boolean, default is False,
         If set to True, the widget the generated visualizations will be sticky in that they do not disappear with
@@ -962,7 +962,7 @@ def _sample(positions, geoms, ax,
     n_feats : int, default is 1
         If a :obj:`projection` is passed along, the first n_feats features that most correlate the
         the projected trajectories will be represented, both in form of trajectories feat vs t as well as in
-        the nglwidget. If :obj:`projection` is None, :obj:`nfeats`  will be ignored.
+        the ngl_wdg. If :obj:`projection` is None, :obj:`nfeats`  will be ignored.
 
     link_ax2wdg_kwargs: dictionary of named arguments, optional
         named arguments for the function :obj:`_link_ax_w_pos_2_nglwidget`, which is the one that internally

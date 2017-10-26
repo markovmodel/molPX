@@ -956,9 +956,9 @@ def atom_idxs_from_feature(ifeat):
     else:
         raise NotImplementedError('bmutils.atom_idxs_from_feature cannot interpret the atoms behind %s yet'%ifeat)
 
-def add_atom_idxs_widget(atom_idxs, widget, color_list=None, radius=1):
+def add_atom_idxs_widget(atom_idxs, ngl_wdg, color_list=None, radius=1):
     r"""
-    provided a list of atom_idxs and a widget, try to represent them as well as possible in the widget
+    provided a list of atom_idxs and a ngl_wdg, try to represent them as well as possible in the ngl_wdg
     It is assumed that this method is called once per feature, ie. the number of atoms defines the
     feature. This way, the method decides how to best represent them
     best to represent them. Currently, that means:
@@ -971,7 +971,7 @@ def add_atom_idxs_widget(atom_idxs, widget, color_list=None, radius=1):
 
     atom_idxs : list of iterables of integers. If [], the method won't do anything
 
-    widget : nglview widget on which to represent stuff
+    ngl_wdg : nglview ngl_wdg on which to represent stuff
 
     color_list: list, default is None
         list of colors to provide the representations with. The default None yields blue.
@@ -984,7 +984,7 @@ def add_atom_idxs_widget(atom_idxs, widget, color_list=None, radius=1):
 
     Returns
     -------
-    widget : Input widget with the representations added
+    ngl_wdg : Input ngl_wdg with the representations added
 
     """
 
@@ -994,23 +994,23 @@ def add_atom_idxs_widget(atom_idxs, widget, color_list=None, radius=1):
         color_list += [color_list[-1]]*(len(atom_idxs)-len(color_list))
 
     if atom_idxs is not []:
-        for cc in range(len(widget._ngl_component_ids)):
+        for cc in range(len(ngl_wdg._ngl_component_ids)):
             for iidxs, color in zip(atom_idxs, color_list):
                 if _is_int(iidxs):
-                    widget.add_spacefill(selection=[iidxs], radius=radius, color=color, component=cc)
+                    ngl_wdg.add_spacefill(selection=[iidxs], radius=radius, color=color, component=cc)
                 elif _np.ndim(iidxs)>0 and len(iidxs)==2:
-                    widget.add_distance(atom_pair=[[ii for ii in iidxs]], # yes it has to be this way for now
+                    ngl_wdg.add_distance(atom_pair=[[ii for ii in iidxs]],  # yes it has to be this way for now
                      color=color,
-                     #label_color='black',
+                                         #label_color='black',
                      label_size=0,
-                    component=cc)
+                                         component=cc)
                     # TODO add line thickness as **kwarg
                 elif _np.ndim(iidxs) > 0 and len(iidxs) in [3,4]:
-                    widget.add_spacefill(selection=iidxs, radius=radius, color=color, component=cc)
+                    ngl_wdg.add_spacefill(selection=iidxs, radius=radius, color=color, component=cc)
                 else:
                     print("Cannot represent features involving more than 5 atoms per single feature")
 
-    return widget
+    return ngl_wdg
 
 def transpose_geom_list(geom_list):
     r"""

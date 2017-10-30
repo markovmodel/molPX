@@ -15,7 +15,8 @@ from . import _linkutils
 from matplotlib import pylab as _plt, rcParams as _rcParams
 import nglview as _nglview
 import mdtraj as _md
-from ipywidgets import HBox as _HBox, VBox as _VBox
+from ipywidgets import HBox as _HBox, VBox as _VBox, Label as _Label, Layout as _Layout, Button as _Button
+
 
 
 # All calls to nglview call actually this function
@@ -100,6 +101,12 @@ class _mock_nglwidget(object):
     def add_ball_and_stick(self):
         print("The method 'add_ball_and_stick' of a mock ngl_wdg is called. "
               "Ignore this message if testing, otherwise refer to molPX documentation.")
+
+def _add_y2_label(iax, label):
+    iax2 = iax.twinx()
+    iax2.set_yticklabels('')
+    iax2.set_ylabel(label, rotation = -90, va = 'bottom', ha = 'center')
+
 
 def FES(MD_trajectories, MD_top, projected_trajectories,
         proj_idxs = [0,1],
@@ -282,7 +289,7 @@ def _plot_ND_FES(data, ax_labels, weights=None, bins=50, figsize=(4,4)):
 
     return ax, FES_data, edges
 
-def traj(MD_trajectories,
+def _traj_old(MD_trajectories,
          MD_top, projected_trajectories,
          active_traj=0,
          max_frames=2000,
@@ -464,7 +471,7 @@ def traj(MD_trajectories,
     myax = myax.reshape(len(traj_selection), -1)
 
     # Initialize some things
-    widget = None
+    ngl_wdg = None
     projections_plotted = 0
     for kk, (jj, time, jdata, jax) in enumerate(zip(traj_selection,
                                                     [times[jj] for jj in traj_selection],
@@ -480,10 +487,10 @@ def traj(MD_trajectories,
             else:
                 if projections_plotted < len(proj_idxs): #projection
                     iax.plot(time, idata)
-                    widget, axes_traj_widget = sample(data_sample, geoms.superpose(geoms[0]), iax,
-                                                clear_lines=False, widget=widget,
-                                                crosshairs='v',
-                                                exclude_coord=1)
+                    ngl_wdg, axes_traj_widget = sample(data_sample, geoms.superpose(geoms[0]), iax,
+                                                       clear_lines=False, ngl_wdg=ngl_wdg,
+                                                       crosshairs='v',
+                                                       exclude_coord=1)
                     projections_plotted += 1
                     time_feat = time
                     # TODO find out why this is needed
@@ -525,20 +532,20 @@ def traj(MD_trajectories,
 
         # Link widget
         fdata_sample = _np.vstack((time_feat, ifeat_val)).T
-        widget, axes_wdg = sample(fdata_sample, geoms.superpose(geoms[0]), iax,
-                        clear_lines=False, widget=widget,
-                        crosshairs=False, directionality='w2a')
+        ngl_wdg, axes_wdg = sample(fdata_sample, geoms.superpose(geoms[0]), iax,
+                                   clear_lines=False, ngl_wdg=ngl_wdg,
+                                   crosshairs=False, directionality='w2a')
 
         # Add the correlation value
         iax.legend([lines],['Corr(feat|%s)=%2.1f' % (ylabels[iproj], corr_dict["vals"][iproj][ifeat])],
                    fontsize=smallfontsize, loc='best', frameon=False)
 
         # Add visualization (let the method decide if it's possible or not)
-        widget = _bmutils.add_atom_idxs_widget([corr_dict["atom_idxs"][iproj][ifeat]], widget, color_list=[icol])
+        ngl_wdg = _bmutils.add_atom_idxs_widget([corr_dict["atom_idxs"][iproj][ifeat]], ngl_wdg, color_list=[icol])
 
     widget_w = iax.get_figure().get_size_inches()[0]
-    widget._set_size('%fin' % widget_w, '4in')
-    ibox = _VBox([widget, axes_traj_widget.canvas])
+    ngl_wdg._set_size('%fin' % widget_w, '4in')
+    ibox = _VBox([ngl_wdg, axes_traj_widget.canvas])
 
     if plot_FES:
         FES_ax, FES_data, edges = _plot_ND_FES(data, ylabels, weights=weights)
@@ -547,20 +554,317 @@ def traj(MD_trajectories,
             FES_data = [FES_data[_np.digitize(idata, edges[0][:-2])] for idata in data]
             data = [_np.hstack((idata, iFES_data)) for idata, iFES_data in zip(data, FES_data)]
 
-        widget, axes_FES_widget = sample(data[active_traj], geoms.superpose(geoms[0]), FES_ax, widget=widget, clear_lines=False)
+        ngl_wdg, axes_FES_widget = sample(data[active_traj], geoms.superpose(geoms[0]), FES_ax, ngl_wdg=ngl_wdg, clear_lines=False)
 
         # Some resizing for widget positioning
         widget_w = iax.get_figure().get_size_inches()[0]/2
         widget_h = FES_ax.get_figure().get_size_inches()[1]
         FES_ax.get_figure().set_size_inches(w=widget_w, h=widget_h)
-        widget._set_size('%fin'%widget_w, '%fin'%widget_w )
+        ngl_wdg._set_size('%fin'%widget_w, '%fin'%widget_w )
 
-        FES_HBox = _HBox([widget, axes_FES_widget.canvas])
+        FES_HBox = _HBox([ngl_wdg, axes_FES_widget.canvas])
         ibox = _VBox([axes_traj_widget.canvas, FES_HBox])
 
     _plt.ion()
 
-    return _plt.gca(), _plt.gcf(), widget, geoms, ibox
+    return _plt.gca(), _plt.gcf(), ngl_wdg, geoms, ibox
+
+def traj(MD_trajectories,
+         MD_top, projected_trajectories,
+         max_frames=2000,
+         stride=1,
+         proj_stride=1,
+         proj_idxs=[0,1],
+         proj_labels='proj',
+         plot_FES=False,
+         weights=None,
+         panel_height = 1,
+         sharey_traj=True,
+         dt = 1.0,
+         tunits = 'frames',
+         traj_selection = None,
+         projection = None,
+         n_feats = 1,
+         ):
+    r"""Link one or many :obj:`projected trajectories`, [Y_0(t), Y_1(t)...], with the :obj:`MD_trajectories` that
+    originated them. Optionally plot also the resulting FES.
+
+    Parameters
+    -----------
+
+    MD_trajectories : str, or list of strings with the filename(s) the the molecular dynamics (MD) trajectories.
+        Any file extension that :py:obj:`mdtraj` (.xtc, .dcd etc) can read is accepted.
+
+        Alternatively, a single :obj:`mdtraj.Trajectory` object or a list of them can be given as input.
+
+    MD_top : str to topology filename or directly :obj:`mdtraj.Topology` object
+
+    projected_trajectories : numpy ndarray (or list thereof) of shape (n_frames, n_dims) with the time-series
+    of the projection(s) that want to be explored. Alternatively, strings or list of string with .npy or ascii filenames
+    (.dat, .txt etc)
+    NOTE: molpx assumes that there is no time column.
+
+    max_frames : int, default is 1000
+        If the trajectoy is longer than this, stride to this length (in frames)
+
+    stride : int, default is 1
+        Stride value in case of large datasets. In case of having :obj:`MD_trajectories` and :obj:`projected_trajectories`
+        in memory (and not on disk) the stride can take place also before calling this method.
+
+    proj_stride : int, default is 1
+        Stride value that was used in the :obj:`projected_trajectories` relative to the :obj:`MD_trajectories`
+        If the original :obj:`MD_trajectories` were stored every 5 ps but the projected trajectories were stored
+        every 50 ps, :obj:`proj_stride` = 10 has to be provided, otherwise an exception will be thrown informing
+        the user that the :obj:`MD_trajectories` and the :obj:`projected_trajectories` have different number of frames.
+
+    proj_idxs : iterable of ints, default is [0,1]
+        Indices of the projected coordinates to use in the various representations
+
+    proj_labels : either string or list of strings
+	    The projection plots will get this paramter for labeling their yaxis. If a str is
+        provided, that will be the base name proj_labels='%s_%u'%(proj_labels,ii) for each
+        projection. If a list, the list will be used. If not enough labels are there
+        the module will complain
+
+    plot_FES : bool, default is False
+        Plot (and interactively link) the FES as well
+
+    weights : ndarray(n_frames), default = None
+        sample weights. By default all samples have the same weight (used for FES calculation only)
+
+    panel_height : int, default  1
+        Height, in inches, of each panel of each trajectory subplots
+
+    sharey_traj : bool, default is True
+        Force the panels of each projection to have the same yaxes across trajectories (Note: Not across coordinates)
+
+    dt : float, default is 1.0
+        Physical time-unit equivalent to one frame of the :obj:`projected_trajectories`
+
+    tunits : str, default is 'frames'
+        Name of the physical time unit provided in :obj:`dt`
+
+    traj_selection : None, int, iterable of ints, default is None
+        Don't plot all trajectories but only few of them. The default None implies that all trajs will be plotted.
+        Note: the data used for the FES will always include all trajectories, regardless of this value
+
+    projection : object that generated the projection, default is None
+        The projected coordinates may come from a variety of sources. When working with :obj:`pyemma` a number of objects
+        might have generated this projection, like a
+            :obj:`pyemma.coordinates.transform.TICA` or a
+            :obj:`pyemma.coordinates.transform.PCA`
+        Pass this object along and observe and the features that are most correlated with the projections
+        will be plotted for the active trajectory, allowing the user to establish a visual connection between the
+        projected coordinate and the original features (distances, angles, contacts etc)
+
+    n_feats : int, default is 1
+        If a :obj:`projection` is passed along, the first n_feats features that most correlate the
+        the projected trajectories will be represented, both in form of trajectories feat vs t as well as in
+        the ngl_wdg. If :obj:`projection` is None, :obj:`nfeats`  will be ignored.
+
+    Returns
+    ---------
+
+    ax, ngl_wdg, data_sample, geoms
+        return _plt.gca(), _plt.gcf(), widget, geoms
+
+    ax :
+        :obj:`pylab.Axis` object
+    fig :
+        :obj:`pylab.Figure` object
+    ngl_wdg :
+        :obj:`nglview.NGLWidget`
+    geoms:
+        :obj:`mdtraj.Trajectory` object with the geometries n_sample geometries shown by the ngl_wdg
+
+
+    """
+    smallfontsize = int(_rcParams['font.size'] / 1.5)
+    proj_idxs = _bmutils.listify_if_int(proj_idxs)
+
+    # Parse input
+    Y = _bmutils.data_from_input(projected_trajectories)
+    data = [iY[:,proj_idxs] for iY in Y]
+
+    MD_trajectories = _bmutils.listify_if_not_list(MD_trajectories)
+
+    assert len(data) == len(MD_trajectories), "Mismatch between number of MD-trajectories " \
+                                           "and projected trajectores %u vs %u"%(len(MD_trajectories), len(data))
+
+    traj_selection = _bmutils.listify_if_int(traj_selection)
+
+    if traj_selection is None:
+        traj_selection = _np.arange(len(data))
+
+    n_trajs = len(traj_selection)
+    n_projs = len(proj_idxs)
+
+    assert _np.max(traj_selection) < len(data), "Selected up to traj. nr. %u via the parameter traj_selection, " \
+                                                "but only provided %u trajs"%(_np.max(traj_selection), len(data))
+
+    # Get the geometries as usable mdtraj.Trajectory
+    geoms = []
+    for igeom, idata in zip(MD_trajectories, data):
+        if isinstance(igeom, _md.Trajectory):
+            geoms.append(igeom[::proj_stride])
+        else: # let mdtraj fail
+            geoms.append(_md.load(igeom, stride=proj_stride, top=MD_top))
+
+        # Do the projected trajectory and the data match?
+        assert geoms[-1].n_frames == len(idata), (geoms[-1].n_frames, len(idata))
+
+    # Stride to avoid representing huge vectors
+    times = []
+    for proj_counter in range(len(data)):
+        time = _np.arange(data[proj_counter].shape[0])*dt*proj_stride
+        if len(time[::stride]) > max_frames:
+            stride = int(_np.floor(data[proj_counter].shape[0]/max_frames))
+
+        times.append(time[::stride])
+        data[proj_counter] = data[proj_counter][::stride]
+        geoms[proj_counter] = geoms[proj_counter][::stride]
+
+
+    # For axes-cosmetics later on
+    tmax, tmin = _np.max([time[-1] for time in times]), _np.min([time[0] for time in times])
+    ylims = _np.zeros((2, n_projs))
+    for proj_counter, __ in enumerate(proj_idxs):
+        ylims[0, proj_counter] = _np.min([idata[:,proj_counter].min() for idata in data])
+        ylims[1, proj_counter] = _np.max([idata[:,proj_counter].max() for idata in data])
+    
+    ylabels = _bmutils.labelize(proj_labels, proj_idxs)
+
+    # Do we have usable projection information?
+    corr_dicts = [[]]*n_trajs
+    if projection is not None:
+        corr_dicts = [_bmutils.most_corr(projection, geoms=igeom, proj_idxs=proj_idxs, n_args=n_feats)
+                      for igeom in geoms]
+        if corr_dicts[0]["feats"] != []:
+            colors = _bmutils.matplotlib_colors_no_blue()
+            colors = [colors[ii] for ii in proj_idxs]
+        else:
+            n_feats=0
+    else:
+        # squash whatever input we had if the projection-info input wasn't actually usable
+        n_feats = 0
+
+    _plt.ioff()
+    n_rows = n_trajs*n_projs+n_trajs*n_projs*n_feats
+    if n_rows == 1:
+        panel_height = _np.max((panel_height, 2) )
+
+    myfig, myax = _plt.subplots(n_rows,1, sharex=True, figsize=(5, n_rows*panel_height),
+                                squeeze=True
+                                )
+    if n_rows == 1:
+        myax = [myax]
+
+    # Initialize some things
+    ngl_wdg_list = []
+    axes_iterator = iter(myax)
+
+    vboxes = [_Button(description='NGL widgets', layout=_Layout(width='90%'))]
+    for traj_idx, time, jdata, jgeom, jcorr_dict in zip(traj_selection,
+                                                        [times[jj] for jj in traj_selection],
+                                                        [data[jj] for jj in traj_selection],
+                                                        [geoms[jj] for jj in traj_selection],
+                                                        [corr_dicts[jj] for jj in traj_selection]
+                                                        ):
+        ngl_wdg = _nglwidget_wrapper(jgeom)
+        ngl_wdg_list.append(ngl_wdg)
+        vboxes.append(_VBox([ngl_wdg], layout=_Layout(border='solid')))
+
+        for proj_counter, idata in enumerate(jdata.T):
+            iax = next(axes_iterator)
+            data_sample = _np.vstack((time, idata)).T
+
+            iax.plot(time, idata)
+            ngl_wdg, axes_traj_widget = sample(data_sample, jgeom.superpose(geoms[0]), iax,
+                                               clear_lines=False,
+                                               ngl_wdg=ngl_wdg,
+                                               crosshairs='v',
+                                               exclude_coord=1)
+
+            # Axis-Cosmetics
+            iax.set_ylabel(ylabels[proj_counter])
+            iax.set_xlim([tmin, tmax])
+            _add_y2_label(iax, 'traj %u' % traj_idx)
+
+
+            if sharey_traj:
+                iax.set_ylim(ylims[:,proj_counter]+[-1,1]*_np.diff(ylims[:,proj_counter])*.1)
+
+            # Now go over the correlated features
+            for ifeat in range(n_feats):
+                iax = next(axes_iterator)
+                ifeat_val = jcorr_dict["feats"][proj_counter][:, ifeat]
+                ilabel = jcorr_dict["labels"][proj_counter][ifeat]
+                icol = colors[proj_counter]
+
+                # Plot
+                lines = iax.plot(time, ifeat_val,
+                                 color=icol
+                                 )[0]
+                iax.set_ylabel('\n'.join(_bmutils.re_warp(ilabel, 16)), fontsize=smallfontsize)
+                _add_y2_label(iax, 'traj %u' % traj_idx)
+
+                # Add the correlation value
+                iax.legend([lines], ['Corr(feat|%s)=%2.1f' % (ylabels[proj_counter],
+                                                              jcorr_dict["vals"][proj_counter][ifeat])],
+                           fontsize=smallfontsize, loc='best', frameon=False)
+
+                # Link widget
+                fdata_sample = _np.vstack((time, ifeat_val)).T
+                ngl_wdg, axes_wdg = sample(fdata_sample, jgeom.superpose(geoms[0]), iax,
+                                           clear_lines=False, ngl_wdg=ngl_wdg,
+                                           crosshairs='v',
+                                           exclude_coord=1,
+                                           )
+                # Add visualization (let the method decide if it's possible or not)
+                ngl_wdg = _bmutils.add_atom_idxs_widget([jcorr_dict["atom_idxs"][proj_counter][ifeat]], ngl_wdg,
+                                                        color_list=[icol])
+
+        # Last of axis cosmetics
+    iax.set_xlabel('t / %s'%tunits)
+    myfig.tight_layout()
+
+    # Widget cosmetics
+    fig_w, fig_h = myfig.get_size_inches()
+    widget_h = fig_h / len(traj_selection)
+    [iwd._set_size('4in', '%fin' % widget_h) for iwd in ngl_wdg_list]
+    [iwd.center() for iwd in ngl_wdg_list]
+
+
+    ibox = _HBox([_VBox(vboxes,
+                        layout=_Layout(width='%sin'%fig_w, height='%sin'%fig_h,
+                                       align_items='baseline'
+                                       ),
+                        ),
+                  axes_traj_widget.canvas],
+                 layout=_Layout()
+                 )
+
+    if plot_FES:
+        __, FES_fig, FES_ngl_wdg,\
+        __, __, FES_HBox = FES([MD_trajectories[jj] for jj in traj_selection],
+                               MD_top,
+                               [Y[jj] for jj in traj_selection],
+                               proj_idxs=proj_idxs,
+                               proj_labels=ylabels,
+                               proj_stride=proj_stride,
+                               weights=weights
+                               )
+        FES_ngl_wdg.center()
+        if fig_w >= widget_h:
+            FES_fig.set_size_inches(fig_w, h=fig_w)
+        else:
+            FES_fig.set_size_inches(fig_w, h=widget_h)
+        FES_fig.tight_layout()
+        iHBox = _HBox([_VBox([_Label(value="FES geoms "), FES_ngl_wdg]), FES_HBox.children[1]])
+        ibox = _VBox([ibox, iHBox])
+
+    _plt.ion()
+    return _plt.gca(), _plt.gcf(), ngl_wdg, geoms, ibox
 
 def correlations(correlation_input,
                  geoms=None,
@@ -759,7 +1063,7 @@ def sample(positions, geom, ax,
            plot_path=False,
            clear_lines=True,
            n_smooth = 0,
-           widget=None,
+           ngl_wdg=None,
            superpose=True,
            projection = None,
            n_feats = 1,
@@ -772,7 +1076,7 @@ def sample(positions, geom, ax,
     r"""
     Visualize the geometries in :obj:`geom` according to the data in :obj:`positions` on an existing matplotlib axes :obj:`ax`
 
-    Use this method when the array of positions, the geometries, the axes (and the widget, optionally) have already been
+    Use this method when the array of positions, the geometries, the axes (and the ngl_wdg, optionally) have already been
     generated elsewhere.
 
     Parameters
@@ -784,7 +1088,7 @@ def sample(positions, geom, ax,
         The geometries associated with the the :obj:`positions`. Hence, all have to have the same number of n_frames
 
     ax : matplotlib.pyplot.Axes object
-        The axes to be linked with the nglviewer widget
+        The axes to be linked with the nglviewer ngl_wdg
 
     plot_path : bool, default is False
         whether to draw a line connecting the positions in :obj:`positions`
@@ -796,8 +1100,8 @@ def sample(positions, geom, ax,
         if n_smooth > 0, the shown geometries and paths will be smoothed out by 2*n frames.
         See :obj:`molpx._bmutils.smooth_geom` for more information
 
-    widget : None or existing nglview widget
-        you can provide an already instantiated nglviewer widget here (avanced use)
+    ngl_wdg : None or existing nglview ngl_wdg
+        you can provide an already instantiated nglviewer ngl_wdg here (avanced use)
 
     superpose : boolean, default is True
         The geometries in :obj:`geom` may or may not be oriented, depending on where they were generated.
@@ -821,7 +1125,7 @@ def sample(positions, geom, ax,
         the ngl_wdg. If :obj:`projection` is None, :obj:`nfeats`  will be ignored.
 
     sticky : boolean, default is False,
-        If set to True, the widget the generated visualizations will be sticky in that they do not disappear with
+        If set to True, the ngl_wdg the generated visualizations will be sticky in that they do not disappear with
         the next click event. Particularly useful for represeting more minima simultaneously.
 
     color_list : None or list of len(pos)
@@ -850,7 +1154,7 @@ def sample(positions, geom, ax,
                        plot_path = plot_path,
                        clear_lines = clear_lines,
                        n_smooth = n_smooth,
-                       widget = widget,
+                       ngl_wdg= ngl_wdg,
                        superpose = superpose,
                        projection = projection,
                        n_feats = n_feats,
@@ -886,7 +1190,7 @@ def sample(positions, geom, ax,
         if list_of_repr_dicts is None:
             list_of_repr_dicts = [{'repr_type': sticky_rep, 'selection': 'all'}]
 
-        # Now instantiate the widget
+        # Now instantiate the ngl_wdg
         ngl_wdg = _nglwidget_wrapper(None, mock=False)
         # Prepare Geometry_in_widget_list
         ngl_wdg._GeomsInWid = [_linkutils.GeometryInNGLWidget(igeom, ngl_wdg,
@@ -907,7 +1211,7 @@ def _sample(positions, geoms, ax,
             plot_path=False,
             clear_lines=True,
             n_smooth = 0,
-            widget=None,
+            ngl_wdg=None,
             superpose=True,
             projection = None,
             n_feats = 1,
@@ -917,7 +1221,7 @@ def _sample(positions, geoms, ax,
     r"""
     Visualize the geometries in :obj:`geoms` according to the data in :obj:`positions` on an existing matplotlib axes :obj:`ax`
 
-    Use this method when the array of positions, the geometries, the axes (and the widget, optionally) have already been
+    Use this method when the array of positions, the geometries, the axes (and the ngl_wdg, optionally) have already been
     generated elsewhere.
 
     Parameters
@@ -929,7 +1233,7 @@ def _sample(positions, geoms, ax,
         The geometries associated with the the :obj:`positions`. Hence, all have to have the same number of n_frames
 
     ax : matplotlib.pyplot.Axes object
-        The axes to be linked with the nglviewer widget
+        The axes to be linked with the nglviewer ngl_wdg
 
     plot_path : bool, default is False
         whether to draw a line connecting the positions in :obj:`positions`
@@ -941,8 +1245,8 @@ def _sample(positions, geoms, ax,
         if n_smooth > 0, the shown geometries and paths will be smoothed out by 2*n frames.
         See :any:`bmutils.smooth_geom` for more information
 
-    widget : None or existing nglview widget
-        you can provide an already instantiated nglviewer widget here (avanced use)
+    ngl_wdg : None or existing nglview ngl_wdg
+        you can provide an already instantiated nglviewer ngl_wdg here (avanced use)
 
     superpose : boolean, default is True
         The geometries in :obj:`geoms` may or may not be oriented, depending on where they were generated.
@@ -994,14 +1298,14 @@ def _sample(positions, geoms, ax,
 
     geoms = _bmutils.superpose_to_most_compact_in_list(superpose, geoms)
 
-    # Create ngl_viewer widget
-    if widget is None:
+    # Create ngl_viewer ngl_wdg
+    if ngl_wdg is None:
         ngl_wdg = _nglwidget_wrapper(geoms[0])
         for igeom in geoms[1:]:
             # TODO THIS IS THE PLACE TO CORRECT FOR NOT SEEING OVERLAYS OF SMALL MOLECUlES
             ngl_wdg = _nglwidget_wrapper(igeom, ngl_wdg=ngl_wdg)
     else:
-        ngl_wdg = widget
+        ngl_wdg = ngl_wdg
 
     if clear_lines == True:
         [ax.lines.pop() for ii in range(len(ax.lines))]
@@ -1009,7 +1313,7 @@ def _sample(positions, geoms, ax,
     if plot_path:
         ax.plot(positions[:,0], positions[:,1], '-g', lw=3)
 
-    # Link the axes widget with the ngl widget
+    # Link the axes ngl_wdg with the ngl ngl_wdg
     axes_wdg = _linkutils.link_ax_w_pos_2_nglwidget(ax,
                                          positions,
                                          ngl_wdg,

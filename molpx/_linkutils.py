@@ -93,35 +93,38 @@ class ClickOnAxisListener(object):
         self.list_of_dots = [None]*self.pos.shape[0]
 
     def __call__(self, event):
-        if self.crosshairs:
-            for iline in self.showclick_objs:
-                update2Dlines(iline, event.xdata, event.ydata)
 
         data = [event.xdata, event.ydata]
-        _, index = self.kdtree.query(x=data, k=1)
-        for idot in self.list_mpl_objects_to_update:
-            update2Dlines(idot, self.pos[index, 0], self.pos[index, 1])
+        # Was the click inside the bounding box?
+        if self.ax.get_window_extent().contains(event.x, event.y):
+            if self.crosshairs:
+                for iline in self.showclick_objs:
+                    update2Dlines(iline, event.xdata, event.ydata)
 
-        self.ngl_wdg.isClick = True
-        if hasattr(self.ngl_wdg, '_GeomsInWid'):
-            # We're in a sticky situation
-            if event.button == 1:
-                # Pressed left
-                self.ngl_wdg._GeomsInWid[index].show()
-                if self.list_of_dots[index] is None:
-                    # Plot and store the dot in case there wasn't
-                    self.list_of_dots[index] = self.ax.plot(self.pos[index, 0], self.pos[index, 1], 'o',
-                                                            c=self.ngl_wdg._GeomsInWid[index].color_dot, ms=7)[0]
-            elif event.button in [2, 3]:
-                #  Pressed right or middle
-                self.ngl_wdg._GeomsInWid[index].hide()
-                # Delete dot if the geom is not visible anymore
-                if not self.ngl_wdg._GeomsInWid[index].is_visible() and self.list_of_dots[index] is not None:
-                    self.list_of_dots[index].remove()
-                    self.list_of_dots[index] = None
-        else:
-            # We're not sticky, just go to the frame
-            self.ngl_wdg.frame = index
+            _, index = self.kdtree.query(x=data, k=1)
+            for idot in self.list_mpl_objects_to_update:
+                update2Dlines(idot, self.pos[index, 0], self.pos[index, 1])
+
+            self.ngl_wdg.isClick = True
+            if hasattr(self.ngl_wdg, '_GeomsInWid'):
+                # We're in a sticky situation
+                if event.button == 1:
+                    # Pressed left
+                    self.ngl_wdg._GeomsInWid[index].show()
+                    if self.list_of_dots[index] is None:
+                        # Plot and store the dot in case there wasn't
+                        self.list_of_dots[index] = self.ax.plot(self.pos[index, 0], self.pos[index, 1], 'o',
+                                                                c=self.ngl_wdg._GeomsInWid[index].color_dot, ms=7)[0]
+                elif event.button in [2, 3]:
+                    #  Pressed right or middle
+                    self.ngl_wdg._GeomsInWid[index].hide()
+                    # Delete dot if the geom is not visible anymore
+                    if not self.ngl_wdg._GeomsInWid[index].is_visible() and self.list_of_dots[index] is not None:
+                        self.list_of_dots[index].remove()
+                        self.list_of_dots[index] = None
+            else:
+                # We're not sticky, just go to the frame
+                self.ngl_wdg.frame = index
 
 class ChangeInNGLWidgetListener(object):
 

@@ -179,7 +179,11 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
     Returns
     --------
 
-    ax :
+    widgetbox:
+        :obj:`ipywidgets.HBox` containing both the NGLWidget (ngl_wdg) and the interactive figure. It also
+        contains the extra attributes
+        # TODO reshape this docstring
+         ax :
         :obj:`pylab.Axis` object
     fig :
         :obj:`pylab.Figure` object
@@ -189,9 +193,6 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
         numpy ndarray of shape (n, n_sample) with the position of the dots in the plot
     geoms:
         :obj:`mdtraj.Trajectory` object with the geometries n_sample geometries shown by the ngl_wdg
-
-    widgetbox:
-        :obj:`ipywidgets.HBox` containing both the NGLWidget (ngl_wdg) and the interactive figure
 
     """
 
@@ -242,8 +243,12 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
 
     ngl_wdg, axes_wdg = sample(data_sample, geoms, ax, clear_lines=False, **sample_kwargs)
     ngl_wdg._set_size(*['%fin' % inches for inches in ax.get_figure().get_size_inches()])
+    ax.figure.tight_layout()
+    axes_wdg.canvas.set_window_title("FES")
+    outbox = _linkutils.MolPXHBox([ngl_wdg, axes_wdg.canvas])
+    _linkutils.auto_append_these_mpx_attrs(outbox, geoms, ax, _plt.gcf(), ngl_wdg, axes_wdg, data_sample)
 
-    return _plt.gca(), _plt.gcf(), ngl_wdg, data_sample, geoms, _HBox([ngl_wdg, axes_wdg.canvas])
+    return outbox
 
 def _plot_ND_FES(data, ax_labels, weights=None, bins=50, figsize=(4,4)):
     r""" A wrapper for pyemmas FESs plotting function that can also plot 1D
@@ -550,7 +555,6 @@ def _traj_old(MD_trajectories,
     if plot_FES:
         FES_ax, FES_data, edges = _plot_ND_FES(data, ylabels, weights=weights)
         if edges[0] is not None:
-            print(edges)
             FES_data = [FES_data[_np.digitize(idata, edges[0][:-2])] for idata in data]
             data = [_np.hstack((idata, iFES_data)) for idata, iFES_data in zip(data, FES_data)]
 
@@ -571,7 +575,7 @@ def _traj_old(MD_trajectories,
 
 def traj(MD_trajectories,
          MD_top, projected_trajectories,
-         max_frames=2000,
+         max_frames=1e4,
          stride=1,
          proj_stride=1,
          proj_idxs=[0,1],
@@ -692,16 +696,13 @@ def traj(MD_trajectories,
                                            "and projected trajectores %u vs %u"%(len(MD_trajectories), len(data))
 
     traj_selection = _bmutils.listify_if_int(traj_selection)
-
     if traj_selection is None:
         traj_selection = _np.arange(len(data))
-
-    n_trajs = len(traj_selection)
-    n_projs = len(proj_idxs)
-
     assert _np.max(traj_selection) < len(data), "Selected up to traj. nr. %u via the parameter traj_selection, " \
                                                 "but only provided %u trajs"%(_np.max(traj_selection), len(data))
 
+    n_trajs = len(traj_selection)
+    n_projs = len(proj_idxs)
     # Get the geometries as usable mdtraj.Trajectory
     geoms = []
     for igeom, idata in zip(MD_trajectories, data):
@@ -757,13 +758,14 @@ def traj(MD_trajectories,
                                 squeeze=True
                                 )
     if n_rows == 1:
-        myax = [myax]
+        myax = _np.array(myax, ndmin=1)
 
     # Initialize some things
     ngl_wdg_list = []
     axes_iterator = iter(myax)
-
-    vboxes = [_Button(description='NGL widgets', layout=_Layout(width='90%'))]
+    linked_data_arrays = []
+    linked_axes_wdgs = []
+    vboxes_left = [_Button(description='NGL widgets', layout=_Layout(width='100%'))]
     for traj_idx, time, jdata, jgeom, jcorr_dict in zip(traj_selection,
                                                         [times[jj] for jj in traj_selection],
                                                         [data[jj] for jj in traj_selection],
@@ -772,25 +774,26 @@ def traj(MD_trajectories,
                                                         ):
         ngl_wdg = _nglwidget_wrapper(jgeom)
         ngl_wdg_list.append(ngl_wdg)
-        vboxes.append(_VBox([ngl_wdg], layout=_Layout(border='solid')))
+        vboxes_left.append(_VBox([ngl_wdg], layout=_Layout(border='solid')))
+        ngl_wdg._set_size(*["%fin"%ll for ll in myfig.get_size_inches()])
 
         for proj_counter, idata in enumerate(jdata.T):
             iax = next(axes_iterator)
             data_sample = _np.vstack((time, idata)).T
-
+            linked_data_arrays.append(data_sample)
             iax.plot(time, idata)
-            ngl_wdg, axes_traj_widget = sample(data_sample, jgeom.superpose(geoms[0]), iax,
+            ngl_wdg, axes_traj_wdg = sample(data_sample, jgeom.superpose(geoms[0]), iax,
                                                clear_lines=False,
                                                ngl_wdg=ngl_wdg,
                                                crosshairs='v',
-                                               exclude_coord=1)
+                                               exclude_coord=1
+                                               )
+            linked_axes_wdgs.append(axes_traj_wdg)
 
             # Axis-Cosmetics
             iax.set_ylabel(ylabels[proj_counter])
             iax.set_xlim([tmin, tmax])
             _add_y2_label(iax, 'traj %u' % traj_idx)
-
-
             if sharey_traj:
                 iax.set_ylim(ylims[:,proj_counter]+[-1,1]*_np.diff(ylims[:,proj_counter])*.1)
 
@@ -815,16 +818,18 @@ def traj(MD_trajectories,
 
                 # Link widget
                 fdata_sample = _np.vstack((time, ifeat_val)).T
-                ngl_wdg, axes_wdg = sample(fdata_sample, jgeom.superpose(geoms[0]), iax,
+                ngl_wdg, axes_traj_corr_wdg = sample(fdata_sample, jgeom.superpose(geoms[0]), iax,
                                            clear_lines=False, ngl_wdg=ngl_wdg,
                                            crosshairs='v',
                                            exclude_coord=1,
                                            )
+                linked_data_arrays.append(fdata_sample)
+                linked_axes_wdgs.append(axes_traj_corr_wdg)
                 # Add visualization (let the method decide if it's possible or not)
                 ngl_wdg = _bmutils.add_atom_idxs_widget([jcorr_dict["atom_idxs"][proj_counter][ifeat]], ngl_wdg,
                                                         color_list=[icol])
 
-        # Last of axis cosmetics
+    # Last of axis cosmetics
     iax.set_xlabel('t / %s'%tunits)
     myfig.tight_layout()
 
@@ -835,18 +840,24 @@ def traj(MD_trajectories,
     [iwd.center() for iwd in ngl_wdg_list]
 
 
-    ibox = _HBox([_VBox(vboxes,
-                        layout=_Layout(width='%sin'%fig_w, height='%sin'%fig_h,
-                                       align_items='baseline'
-                                       ),
-                        ),
-                  axes_traj_widget.canvas],
-                 layout=_Layout()
-                 )
+    mpx_wdg_box = _linkutils.MolPXHBox([_VBox(vboxes_left,
+                                              layout=_Layout(width='%sin'%fig_w, height='%sin'%fig_h,
+                                                      #align_items='baseline'
+                                                             )),
+                                        axes_traj_wdg.canvas]
+                                       )
+
+    # Append the linked objects
+    _linkutils.auto_append_these_mpx_attrs(mpx_wdg_box, _plt.gcf(),
+                                            list(myax.flat),
+                                            linked_data_arrays,
+                                            ngl_wdg_list,
+                                            linked_axes_wdgs,
+                                            [geoms[jj] for jj in traj_selection]
+                                            )
 
     if plot_FES:
-        __, FES_fig, FES_ngl_wdg,\
-        __, __, FES_HBox = FES([MD_trajectories[jj] for jj in traj_selection],
+        FES_HBox = FES([MD_trajectories[jj] for jj in traj_selection],
                                MD_top,
                                [Y[jj] for jj in traj_selection],
                                proj_idxs=proj_idxs,
@@ -854,17 +865,17 @@ def traj(MD_trajectories,
                                proj_stride=proj_stride,
                                weights=weights
                                )
-        FES_ngl_wdg.center()
-        if fig_w >= widget_h:
-            FES_fig.set_size_inches(fig_w, h=fig_w)
-        else:
-            FES_fig.set_size_inches(fig_w, h=widget_h)
-        FES_fig.tight_layout()
-        iHBox = _HBox([_VBox([_Label(value="FES geoms "), FES_ngl_wdg]), FES_HBox.children[1]])
-        ibox = _VBox([ibox, iHBox])
+
+        FES_HBox.linked_ngl_wdgs[0].center()
+        FES_HBox.linked_figs[0].set_size_inches(fig_w, h=fig_w)
+        FES_HBox.linked_ngl_wdgs[0]._set_size("%sin"%fig_w, "%sin"%fig_w)
+        FES_HBox.linked_figs[0].tight_layout()
+
+        mpx_wdg_box = _linkutils.MolPXVBox([mpx_wdg_box, FES_HBox])
 
     _plt.ion()
-    return _plt.gca(), _plt.gcf(), ngl_wdg, geoms, ibox
+
+    return mpx_wdg_box
 
 def correlations(correlation_input,
                  geoms=None,

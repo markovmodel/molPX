@@ -3,7 +3,9 @@ import numpy as _np
 
 from matplotlib.widgets import AxesWidget as _AxesWidget
 from matplotlib.colors import is_color_like as _is_color_like
-
+from matplotlib.axes import Axes as _mplAxes
+from matplotlib.figure import Figure as _mplFigure
+from IPython.display import display as _ipydisplay
 try:
     from sklearn.mixture import GaussianMixture as _GMM
 except ImportError:
@@ -13,6 +15,11 @@ from pyemma.util.types import is_int as _is_int
 from scipy.spatial import cKDTree as _cKDTree
 
 from ._bmutils import get_ascending_coord_idx
+
+from mdtraj import Trajectory as _mdTrajectory
+from nglview import NGLWidget as _NGLwdg
+
+from ipywidgets import HBox as _HBox, VBox as _VBox
 
 def pts_per_axis_unit(mplax, pt_per_inch=72):
     r"""
@@ -126,12 +133,69 @@ class ClickOnAxisListener(object):
                 # We're not sticky, just go to the frame
                 self.ngl_wdg.frame = index
 
-class ChangeInNGLWidgetListener(object):
+class MolPXBox(object):
+    def __init__(self, *args, **kwargs):
+        self.linked_axes = []
+        self.linked_mdgeoms = []
+        self.linked_ngl_wdgs = []
+        self.linked_data_arrays = []
+        self.linked_ax_wdgs = []
+        self.linked_figs = []
 
-    r"""Here comes the code that you want to execute
+    def display(self):
+        _ipydisplay(self)
+
+    def append_if_existing(self, args0, startswith_arg="linked_"):
+        # args0  is the tuple containing all widgets to be included in the MolPXBox
+        # this tuple can contain itself other MolPXWidget
+        # so we iterate through them and appending linked stuff
+        for iarg in args0:
+            for attrname in dir(iarg):
+                if attrname.startswith(startswith_arg) and len(iarg.__dict__[attrname]) != 0:
+                    self.__dict__[attrname] += iarg.__dict__[attrname]
+
+def auto_append_these_mpx_attrs(iobj, *attrs):
+    r""" The attribute s name is automatically derived
+    from the attribute s type via a type:name dictionary
+
+    *attrs : any number of unnamed objects of the types in type2attrname.
+             If the object type is a list, it will be flattened prior to attempting
     """
-    #for c in change:
-    #    print("%s -> %s" % (c, change[c]))
+
+    attrs_flat_list = []
+    for sublist in attrs:
+        if isinstance(sublist, list):
+            for item in sublist:
+                attrs_flat_list.append(item)
+        else:
+            attrs_flat_list.append(sublist)
+
+    # Go through the arguments and assign them an attrname according to their types
+    for iattr in attrs_flat_list:
+        for attrname, itype in type2attrname.items():
+            if isinstance(iattr, itype):
+                iobj.__dict__[attrname].append(iattr)
+                break
+
+class MolPXHBox(_HBox, MolPXBox):
+    def __init__(self, *args, **kwargs):
+        super(MolPXHBox, self).__init__(*args, **kwargs)
+        self.append_if_existing(args[0])
+
+class MolPXVBox(_VBox, MolPXBox):
+    def __init__(self, *args, **kwargs):
+        super(MolPXVBox, self).__init__(*args, **kwargs)
+        self.append_if_existing(args[0])
+
+type2attrname = {"linked_axes": _mplAxes,
+                 "linked_mdgeoms": _mdTrajectory,
+                 "linked_ngl_wdgs": _NGLwdg,
+                 "linked_data_arrays": _np.ndarray,
+                 "linked_ax_wdgs": _AxesWidget,
+                 "linked_figs": _mplFigure,
+                 }
+
+class ChangeInNGLWidgetListener(object):
 
     def __init__(self, ngl_wdg, list_mpl_objects_to_update, pos):
         self.ngl_wdg = ngl_wdg
@@ -331,7 +395,7 @@ def link_ax_w_pos_2_nglwidget(ax, pos, ngl_wdg,
             rad = ax.plot(pos[0, 0], pos[0, 1], 'o',
                           ms=_np.round(band_width_in_pts),
                           c='green', alpha=.25, markeredgecolor='None')[0]
-            setattr(rad, 'whatisthi s', 'dot')
+            setattr(rad, 'whatisthis', 'dot')
             if not sticky:
                 list_mpl_objects_to_update.append(rad)
         else:

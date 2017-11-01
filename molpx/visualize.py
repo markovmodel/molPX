@@ -5,32 +5,36 @@ __author__ = 'gph82'
 
 from pyemma.plots import plot_free_energy as _plot_free_energy
 import numpy as _np
-from .bmutils import link_ax_w_pos_2_nglwidget as _link_ax_w_pos_2_nglwidget, \
-    data_from_input as _data_from_input, \
-    smooth_geom as _smooth_geom,\
-    most_corr as _most_corr_info, \
-    re_warp as _re_warp, \
-    add_atom_idxs_widget as _add_atom_idxs_widget, \
-    matplotlib_colors_no_blue as _bmcolors, \
-    get_ascending_coord_idx as _get_ascending_coord_idx, \
-    listify_if_int as _listify_if_int, listfiy_if_not_list as _listfiy_if_not_list, \
-    _is_int
 
 from . import generate
+from . import _bmutils
 
 from matplotlib import pylab as _plt, rcParams as _rcParams
 import nglview as _nglview
 import mdtraj as _md
 
 # All calls to nglview call actually this function
-def _nglwidget_wrapper(geom, mock=True):
+def _nglwidget_wrapper(geom, mock=True, iwd=None, n_small=10):
     r""" Wrapper to nlgivew.show_geom's method that allows for some other automatic choice of
     representation and avoids the actual widget if one is calling from terminal (for unit tests)
 
+    Parameters
+    ----------
+
+    geom : :obj:`mdtraj.Trajectory` object or str with a filename to anything that :obj:`mdtraj` can read
+
+
     :return: :nglview.widget object
     """
+
+    if isinstance(geom, str):
+        geom = _md.load(geom)
     try:
-        iwd = _nglview.show_mdtraj(geom)
+        if iwd is None:
+            iwd = _nglview.show_mdtraj(geom)
+        else:
+            iwd.add_trajectory(geom)
+
     except:
         if mock:
             print("molPX has to be used inside a notebook, not from terminal. A mock nglwidget is being returned."
@@ -42,10 +46,13 @@ def _nglwidget_wrapper(geom, mock=True):
 
     # Let' some customization take place
     ## Do we need a ball+stick representation?
-    if geom.top.n_residues < 10:
-        iwd.remove_cartoon()
-        iwd.remove_backbone()
-        iwd.add_ball_and_stick()
+    if geom.top.n_residues < n_small:
+        for ic in range(len(iwd._ngl_component_ids)):
+            # TODO FIND OUT WHY THIS FAILS FOR THE LAST REPRESENTATION
+            #print("removing reps for component",ic)
+            iwd.remove_cartoon(component=ic)
+            iwd.clear_representations(component=ic)
+            iwd.add_ball_and_stick(component=ic)
 
     return iwd
 
@@ -88,6 +95,7 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
         proj_idxs = [0,1],
         nbins=100,
         n_sample = 100,
+        proj_stride=1,
         weights=None,
         proj_labels='proj',
         n_overlays=1,
@@ -121,11 +129,17 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
         The number of geometries that will be used to represent the FES. The higher the number, the higher the spatial
         resolution of the "click"-action.
 
+    proj_stride : int, default is 1
+        Stride value that was used in the :obj:`projected_trajectories` relative to the :obj:`MD_trajectories`
+        If the original :obj:`MD_trajectories` were stored every 5 ps but the projected trajectories were stored
+        every 50 ps, :obj:`proj_stride` = 10 has to be provided, otherwise an exception will be thrown informing
+        the user that the :obj:`MD_trajectories` and the :obj:`projected_trajectories` have different number of frames.
+
     weights : iterable of floats (or list thereof) each of shape (n_frames, 1) or (n_frames)
         The sample weights, typically coming from a metadynamics run. Has to have the same length
         as the :py:obj:`projected_trajectories` argument.
 
-    proj_labels : either string or list of strings
+    proj_labels : either string or list of strings or (experimental PyEMMA featurizer)
         The projection plots will get this paramter for labeling their yaxis. If a str is
         provided, that will be the base name proj_labels='%s_%u'%(proj_labels,ii) for each
         projection. If a list, the list will be used. If not enough labels are there
@@ -137,18 +151,21 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
 
     atom_selection : string or iterable of integers, default is None
         The geometries of the original trajectory files will be filtered down to these atoms. It can be any DSL string
-        that   mdtraj.Topology.select could understand or directly the iterable of integers.
+        that   :obj:`mdtraj.Topology.select` could understand or directly the iterable of integers.
         If :py:obj`MD_trajectories` is already a (list of) md.Trajectory objects, the atom-slicing can take place
         before calling this method.
 
     sample_kwargs : dictionary of named arguments, optional
-        named arguments for the function :obj:`visualize.sample`. Non-expert users can safely ignore this option.
+        named arguments for the function :obj:`visualize.sample`. Non-expert users can safely ignore this option. Examples
+        are superpose or proj_
 
     Returns
     --------
 
     ax :
         :obj:`pylab.Axis` object
+    fig :
+        :obj:`pylab.Figure` object
     iwd :
         :obj:`nglview.NGLWidget`
     data_sample:
@@ -166,7 +183,7 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
         keep_all_samples = False
 
     # Prepare for 1D case
-    proj_idxs = _listify_if_int(proj_idxs)
+    proj_idxs = _bmutils.listify_if_int(proj_idxs)
 
     data_sample, geoms, data = generate.sample(MD_trajectories, MD_top, projected_trajectories,
                                                atom_selection=atom_selection,
@@ -174,26 +191,19 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
                                                n_points=n_sample,
                                                return_data=True,
                                                n_geom_samples=n_overlays,
-                                               keep_all_samples=keep_all_samples
+                                               keep_all_samples=keep_all_samples,
+                                               proj_stride=proj_stride
                                                )
 
     data = _np.vstack(data)
-
     if weights is not None:
-        weights = _listfiy_if_not_list(weights)
+        weights = _bmutils.listify_if_not_list(weights)
         if weights[0].ndim == 1:
             weights = [_np.array(iw, ndmin=2).T for iw in weights]
         weights = _np.vstack(weights).squeeze()
 
-    if isinstance(proj_labels, str):
-       axlabels = ['$\mathregular{%s_{%u}}$'%(proj_labels, ii) for ii in proj_idxs]
-    elif isinstance(proj_labels, list):
-       axlabels = proj_labels
-    else:
-       raise TypeError("Parameter proj_labels has to be of type str or list, not %s"%type(proj_labels))
-
     ax, FES_data, edges = _plot_ND_FES(data[:,proj_idxs],
-                                       axlabels,                                       
+                                       _bmutils.labelize(proj_labels, proj_idxs),
                                        weights=weights, bins=nbins)
     if edges[0] is not None:
         # We have the luxury of sorting!
@@ -208,10 +218,11 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
         data_sample = _np.hstack((data_sample, FES_sample))
 
     iwd = sample(data_sample, geoms, ax, clear_lines=False, **sample_kwargs)
+    iwd._set_size(*['%fin' % inches for inches in ax.get_figure().get_size_inches()])
 
     return _plt.gca(), _plt.gcf(), iwd, data_sample, geoms
 
-def _plot_ND_FES(data, ax_labels, weights=None, bins=50):
+def _plot_ND_FES(data, ax_labels, weights=None, bins=50, figsize=(7,7)):
     r""" A wrapper for pyemmas FESs plotting function that can also plot 1D
 
     Parameters
@@ -231,7 +242,7 @@ def _plot_ND_FES(data, ax_labels, weights=None, bins=50):
     edges : tuple containimg the axes along which FES is to be plotted (only in the 1D case so far, else it's None)
 
     """
-    _plt.figure()
+    _plt.figure(figsize=figsize)
     ax = _plt.gca()
     idata = _np.vstack(data)
     ax.set_xlabel(ax_labels[0])
@@ -271,9 +282,7 @@ def traj(MD_trajectories,
          n_feats = 1,
          ):
     r"""Link one or many :obj:`projected trajectories`, [Y_0(t), Y_1(t)...], with the :obj:`MD_trajectories` that
-    originated them.
-
-    Optionally plot also the resulting FES.
+    originated them. Optionally plot also the resulting FES.
 
     Parameters
     -----------
@@ -310,7 +319,7 @@ def traj(MD_trajectories,
         Indices of the projected coordinates to use in the various representations
 
     proj_labels : either string or list of strings
-	The projection plots will get this paramter for labeling their yaxis. If a str is 
+	    The projection plots will get this paramter for labeling their yaxis. If a str is
         provided, that will be the base name proj_labels='%s_%u'%(proj_labels,ii) for each 
         projection. If a list, the list will be used. If not enough labels are there
         the module will complain
@@ -338,11 +347,10 @@ def traj(MD_trajectories,
         Note: the data used for the FES will always include all trajectories, regardless of this value
 
     projection : object that generated the projection, default is None
-        The projected coordinates may come from a variety of sources. When working with :ref:`pyemma` a number of objects
+        The projected coordinates may come from a variety of sources. When working with :obj:`pyemma` a number of objects
         might have generated this projection, like a
-        * :obj:`pyemma.coordinates.transform.TICA` or a
-        * :obj:`pyemma.coordinates.transform.PCA` or a
-
+            :obj:`pyemma.coordinates.transform.TICA` or a
+            :obj:`pyemma.coordinates.transform.PCA`
         Pass this object along and observe and the features that are most correlated with the projections
         will be plotted for the active trajectory, allowing the user to establish a visual connection between the
         projected coordinate and the original features (distances, angles, contacts etc)
@@ -370,12 +378,12 @@ def traj(MD_trajectories,
 
     """
 
-    proj_idxs = _listify_if_int(proj_idxs)
+    proj_idxs = _bmutils.listify_if_int(proj_idxs)
 
     # Parse input
-    data = [iY[:,proj_idxs] for iY in _data_from_input(projected_trajectories)]
+    data = [iY[:,proj_idxs] for iY in _bmutils.data_from_input(projected_trajectories)]
 
-    MD_trajectories = _listfiy_if_not_list(MD_trajectories)
+    MD_trajectories = _bmutils.listify_if_not_list(MD_trajectories)
 
     assert len(data) == len(MD_trajectories), "Mismatch between number of MD-trajectories " \
                                            "and projected trajectores %u vs %u"%(len(MD_trajectories), len(data))
@@ -383,7 +391,7 @@ def traj(MD_trajectories,
                                             " but your input has only %u trajs. Note: the parameter active_traj " \
                                             "is zero-indexed"%(active_traj, len(MD_trajectories))
 
-    traj_selection = _listify_if_int(traj_selection)
+    traj_selection = _bmutils.listify_if_int(traj_selection)
 
     if traj_selection is None:
         traj_selection = _np.arange(len(data))
@@ -417,16 +425,12 @@ def traj(MD_trajectories,
     for ii, __ in enumerate(proj_idxs):
         ylims[0, ii] = _np.min([idata[:,ii].min() for idata in data])
         ylims[1, ii] = _np.max([idata[:,ii].max() for idata in data])
-    if isinstance(proj_labels, str):
-       ylabels = ['$\mathregular{%s_{%u}}$'%(proj_labels, ii) for ii in proj_idxs]
-    elif isinstance(proj_labels, list):
-       ylabels = proj_labels
-    else:
-       raise TypeError("Parameter proj_labels has to be of type str or list, not %s"%type(proj_labels))
+
+    ylabels = _bmutils.labelize(proj_labels, proj_idxs)
 
     # Do we have usable projection information?
     if projection is not None:
-        corr_dict = _most_corr_info(projection, geoms=geoms, proj_idxs=proj_idxs, n_args=n_feats)
+        corr_dict = _bmutils.most_corr(projection, geoms=geoms, proj_idxs=proj_idxs, n_args=n_feats)
         if corr_dict["feats"] != []:
             # Then extend the trajectory selection to include the active trajectory twice
             traj_selection = _np.insert(traj_selection,
@@ -481,7 +485,7 @@ def traj(MD_trajectories,
     first_empty_axis = _np.argwhere([active_traj==ii for ii in traj_selection])[0]*len(proj_idxs)+len(proj_idxs)
     last_empty_axis = first_empty_axis+ len(proj_idxs) * n_feats
     rows, cols = _np.unravel_index(_np.arange(first_empty_axis,last_empty_axis), myax.shape)
-    colors = _bmcolors()
+    colors = _bmutils.matplotlib_colors_no_blue()
     smallfontsize = int(_rcParams['font.size']/2)
     for kk, (ir, ic)  in enumerate(zip(rows, cols)):
         # Determine axis
@@ -494,7 +498,7 @@ def traj(MD_trajectories,
         # Plot
         lines = iax.plot(time_feat, ifeat_val, color=icol)[0]
         #Cosmetics
-        iax.set_ylabel('\n'.join(_re_warp(ilabel, 16)), fontsize=smallfontsize)
+        iax.set_ylabel('\n'.join(_bmutils.re_warp(ilabel, 16)), fontsize=smallfontsize)
         iax.set_ylim([ifeat_val.min(),
                       ifeat_val.max(),
                       ] + _np.array([-1, 1]) * (ifeat_val.max()-ifeat_val.min()) * .05)
@@ -510,7 +514,9 @@ def traj(MD_trajectories,
                    fontsize=smallfontsize, loc='best', frameon=False)
 
         # Add visualization (let the method decide if it's possible or not)
-        widget = _add_atom_idxs_widget([corr_dict["atom_idxs"][iproj][ifeat]], widget, color_list=[icol])
+        widget = _bmutils.add_atom_idxs_widget([corr_dict["atom_idxs"][iproj][ifeat]], widget, color_list=[icol])
+
+        widget._set_size(*['%fin' % inches for inches in iax.get_figure().get_size_inches()])
 
     if plot_FES:
         ax, FES_data, edges = _plot_ND_FES(data, ylabels, weights=weights)
@@ -520,6 +526,13 @@ def traj(MD_trajectories,
             data = [_np.hstack((idata, iFES_data)) for idata, iFES_data in zip(data, FES_data)]
 
         widget = sample(data[active_traj], geoms.superpose(geoms[0]), ax, widget=widget, clear_lines=False)
+
+    widget_w = iax.get_figure().get_size_inches()[0]
+    try:
+        widget._set_size('%fin'%widget_w, '4in')
+    except AttributeError:
+        pass
+
 
     return _plt.gca(), _plt.gcf(), widget, geoms
 
@@ -532,25 +545,22 @@ def correlations(correlation_input,
                  n_feats=1,
                  verbose=False,
                  featurizer=None):
-    r"""
-    Provide a visual and textual representation of the linear correlations between projected coordinates (PCA, TICA)
-     and original features.
+    r""" Provide a visual and textual representation of the linear correlations between projected coordinates (PCA, TICA) and original features.
 
     Parameters
     ---------
 
     correlation_input : anything
-        Something that could, in principle, be a :obj:`pyemma.coordinates.transformer,
-        like a TICA, PCA or featurizer object or directly a correlation matrix, with a row for each feature and a column
+        Something that could, in principle, be a :obj:`pyemma.coordinates.transformer`,
+        like a TICA, PCA object or directly a correlation matrix, with a row for each feature and a column
         for each projection, very much like the :obj:`feature_TIC_correlation` of the TICA object of pyemma.
 
-
-    geoms : None or obj:`md.Trajectory`, default is None
+    geoms : None or :obj:`mdtraj.Trajectory`, default is None
         The values of the most correlated features will be returned for the geometires in this object. If widget is
         left to its default, None, :obj:`correlations` will create a new widget and try to show the most correlated
-          features on top of the widget
+        features on top of the widget
 
-    widget : None or nglview widget
+    widget : None or :obj:`nglview NGLWidget`
         Provide an already existing widget to visualize the correlations on top of. This is only for expert use,
         because no checks are done to see if :obj:`correlation_input` and the geometry contained in the
         widget **actually match**. Use with caution.
@@ -564,14 +574,13 @@ def correlations(correlation_input,
 
             Use with caution and clean bookkeeping!
 
-    proj_color_list: list, default is None
+    proj_color_list : list, default is None
         projection specific list of colors to provide the representations with. The default None yields blue.
         In principle, the list can contain one color for each projection (= as many colors as len(proj_idxs)
         but if your list is short it will just default to the last color. This way, proj_color_list=['black'] will paint
         all black regardless len(proj_idxs)
 
-
-    proj_idxs: None, or int, or iterable of integers, default is None
+    proj_idxs : None, or int, or iterable of integers, default is None
         The indices of the projections for which the most correlated feture will be returned
         If none it will default to the dimension of the correlation_input object
 
@@ -585,20 +594,48 @@ def correlations(correlation_input,
     featurizer : optional featurizer, default is None
         If :obj:`correlation_input` is not an :obj:`_MDFeautrizer` itself or doesn't have a
         data_producer.featurizer attribute, the user can input one here. If both an _MDfeaturizer *and* an :obj:`featurizer`
-         are provided, the latter will be ignored.
+        are provided, the latter will be ignored.
 
     verbose : Bool, default is True
         print to standard output
 
-    :return:
-    most_corr_idxs, most_corr_vals, most_corr_labels, most_corr_feats, most_corr_atom_idxs, lines, widget, lines
-    """
-    # todo document
-    # todo test
-    # todo consider kwargs for most_corr_info
+    Returns
+    -------
+    corr_dict and iwd
 
-    corr_dict = _most_corr_info(correlation_input,
-                                geoms=geoms, proj_idxs=proj_idxs, feat_name=feat_name, n_args=n_feats, featurizer=featurizer
+    corr_dict:
+        A dictionary with items:
+
+        idxs :
+            List of length len(proj_idxs) with lists of length n_feat with the idxs of the most correlated features
+
+        vals :
+            List of length len(proj_idxs) with lists of length n_feat with the corelation values of the
+            most correlated features
+
+        labels :
+            List of length len(proj_idxs) with lists of length n_feat with the labels of the
+            most correlated features
+
+        feats :
+            If an :obj:`mdtraj.Trajectory` is passed as an :obj:`geom` argument, the most correlated features will
+            be evaluated for that geom and returned as list of length len(proj_idxs) with arrays with shape
+
+        atom_idxs :
+            List of length len(proj_idxs) each with an nd.array of shape (nfeat, m), where m is the number of atoms needed
+            to describe each feature (1 of cartesian, 2 for distances, 3 for angles, 4 for dihedrals)
+
+        info :
+            List of length len(proj_idxs) with lists of length n_feat with strings describing the correlations
+
+    widget :
+        obj:`nglview.NGLwidget` with the correlations visualized on top of it
+
+    """
+    # todo consider kwargs for most_corr
+    corr_dict = _bmutils.most_corr(correlation_input,
+                                   geoms=geoms, proj_idxs=proj_idxs, feat_name=feat_name, n_args=n_feats,
+                                   featurizer=featurizer
                                 )
 
     # Create ngl_viewer widget
@@ -612,21 +649,85 @@ def correlations(correlation_input,
     elif not isinstance(proj_color_list, list):
         raise TypeError("parameter proj_color_list should be either None or a list, not %s of type %s"%(proj_color_list, type(proj_color_list)))
 
+    if len(corr_dict["atom_idxs"]) == 0:
+        # TODO : WRITE PROPER WARNINGS
+        print("Warning: Not enough information to display atoms on widget. Turning verbose on.")
+        verbose = True
+
     # Add the represenation
     if widget is not None:
         for idxs, icol in zip(corr_dict["atom_idxs"], proj_color_list):
-            _add_atom_idxs_widget(idxs, widget, color_list=[icol])
+            _bmutils.add_atom_idxs_widget(idxs, widget, color_list=[icol])
 
     if verbose:
         for ii, line in enumerate(corr_dict["info"]):
             print('%s is most correlated with '%(line["name"] ))
             for line in line["lines"]:
-                if widget is not None:
+                if widget is not None and len(corr_dict["atom_idxs"]) != 0:
                     line += ' (in %s in the widget)'%(proj_color_list[ii])
                 print(line)
 
     return corr_dict, widget
 
+def feature(feat,
+            widget,
+            idxs=0,
+            color_list=None,
+            **kwargs
+               ):
+    r"""
+    Provide a visual representation of a PyEMMA feature. PyEMMA's features are found as a list of the MDFeaturizers's
+    active_features attribute
+
+    Parameters
+    ----------
+
+    featurizer : py:obj:`_MDFeautrizer`
+        A PyEMMA MDFeaturizer object (either a feature or a featurizer, works with both)
+
+    widget : None or nglview widget
+        Provide an already existing widget to visualize the correlations on top of. This is only for expert use,
+        because no checks are done to see if :obj:`correlation_input` and the geometry contained in the
+        widget **actually match**. Use with caution.
+
+    idxs: int or iterable of integers, default is 0
+        Features can have many contributions, e.g. a distance feature can include many distances. Use this parameter
+        to control which one of them gets represented.
+
+    color_list: list, default is None
+        list of colors to represent each feature in feat_idxs. The default None yields blue for everything.
+        In principle, the list can contain one color for each projection (= as many colors as len(feat_idxs)
+        but if your list is short it will just default to the last color. This way, color_list=['black'] will paint
+        all black regardless len(proj_idxs)
+
+    **kwargs : optional keyword arguments for _bmutils.add_atom_idxs_widget
+        currently, only "radius" is left for the user to determine
+
+    Returns :
+    --------
+
+    widget :
+        the input widget with the features in :py:obj:`idxs` represented as either distances (for distance features)
+        or "spacefill" spheres (for angular features)
+
+    """
+
+    idxs = _bmutils.listify_if_int(idxs)
+    atom_idxs = _bmutils.atom_idxs_from_feature(feat)[idxs]
+
+    if color_list is None:
+        color_list = ['blue'] * len(idxs)
+
+    elif isinstance(color_list, list) and len(color_list)<len(idxs):
+        color_list += [color_list[-1]] * (len(idxs) - len(color_list))
+    elif not isinstance(color_list, list):
+        raise TypeError("parameter color_list should be either None "
+                        "or a list, not %s of type %s"%(color_list, type(color_list)))
+
+    # Add the represenation
+    _bmutils.add_atom_idxs_widget(atom_idxs, widget, color_list=color_list, **kwargs)
+
+    return widget
 
 def sample(positions, geom, ax,
            plot_path=False,
@@ -665,19 +766,18 @@ def sample(positions, geom, ax,
 
     n_smooth : int, default is 0,
         if n_smooth > 0, the shown geometries and paths will be smoothed out by 2*n frames.
-        See :any:`bmutils.smooth_geom` for more information
+        See :obj:`molpx._bmutils.smooth_geom` for more information
 
     widget : None or existing nglview widget
         you can provide an already instantiated nglviewer widget here (avanced use)
 
     superpose : boolean, default is True
-        # TODO: false is not implemented yet
         The geometries in :obj:`geom` may or may not be oriented, depending on where they were generated.
         Since this method is mostly for visualization purposes, the default behaviour is to orient them all to
         maximally overlap with the first frame (of the first :obj:`mdtraj.Trajectory` object, in case :obj:`geom`
         is a list)
     projection : object that generated the projection, default is None
-        The projected coordinates may come from a variety of sources. When working with :ref:`pyemma` a number of objects
+        The projected coordinates may come from a variety of sources. When working with :obj:`pyemma` a number of objects
         might have generated this projection, like a
         * :obj:`pyemma.coordinates.transform.TICA` or a
         * :obj:`pyemma.coordinates.transform.PCA` or a
@@ -720,10 +820,16 @@ def sample(positions, geom, ax,
     else:
         if isinstance(geom, _md.Trajectory):
             geom=[geom]
-        iwd = _nglwidget_wrapper(geom[0].superpose(geom[0]))
-        iwd.component_0.clear()
-        iwd._hidden_sticky_frames = [igeom.superpose(geom[0][0]) for igeom in geom]
-        _link_ax_w_pos_2_nglwidget(ax,
+        iwd = _nglwidget_wrapper(geom[0])
+        iwd.component_0.clear() #somehow not working properly
+        sel = _bmutils.parse_atom_sel(superpose, geom[0].top)
+        # TODO rewrite parse_atom_sel. This if condition is very BAD
+        if sel is not None:
+            geom = [igeom.superpose(geom[0][0], atom_indices=sel) for igeom in geom]
+        else:
+            geom = [igeom.superpose(geom[0][0]) for igeom in geom]
+        iwd._hidden_sticky_frames = geom
+        _bmutils.link_ax_w_pos_2_nglwidget(ax,
                                    positions,
                                    iwd,
                                    directionality='a2w',
@@ -774,13 +880,11 @@ def _sample(positions, geoms, ax,
         you can provide an already instantiated nglviewer widget here (avanced use)
 
     superpose : boolean, default is True
-        # TODO: false is not implemented yet
         The geometries in :obj:`geoms` may or may not be oriented, depending on where they were generated.
         Since this method is mostly for visualization purposes, the default behaviour is to orient them all to
-        maximally overlap with the first frame (of the first :obj:`mdtraj.Trajectory` object, in case :obj:`geoms`
-        is a list)
+        maximally overlap with the frame that is most compact (=a heuristic to identify folded frames)
     projection : object that generated the projection, default is None
-        The projected coordinates may come from a variety of sources. When working with :ref:`pyemma` a number of objects
+        The projected coordinates may come from a variety of sources. When working with :obj:`pyemma` a number of objects
         might have generated this projection, like a
         * :obj:`pyemma.coordinates.transform.TICA` or a
         * :obj:`pyemma.coordinates.transform.PCA` or a
@@ -811,8 +915,8 @@ def _sample(positions, geoms, ax,
     # Dow I need to smooth things out?
     if n_smooth > 0:
         if isinstance(geoms, _md.Trajectory): # smoothing only makes sense for paths, and paths cannot be lists at the moment
-            geoms, positions = _smooth_geom(geoms, n_smooth, geom_data=positions)
-            mean_smooth_radius = _np.diff(positions, axis=0).mean(0) * n_smooth
+            geoms, positions = _bmutils.smooth_geom(geoms, n_smooth, geom_data=positions)
+            mean_smooth_radius = _np.abs(_np.diff(positions, axis=0).mean(0) * n_smooth)
             band_width = 2 * mean_smooth_radius
     else:
         band_width = None
@@ -821,26 +925,14 @@ def _sample(positions, geoms, ax,
     if isinstance(geoms, _md.Trajectory):
         geoms = [geoms]
 
-    # Superpose if needed
-    sel = None
-    if superpose is True:
-        sel = _np.arange(geoms[0].n_atoms)
-    elif isinstance(superpose, str):
-        sel = geoms[0].top.select(superpose)
-    elif isinstance(superpose, (list, _np.ndarray)):
-        assert _np.all([_is_int(ii) for ii in superpose])
-        sel = superpose
-
-    if sel is not None:
-        geoms = [igeom.superpose(geoms[0], atom_indices=sel) for igeom in geoms]
+    geoms = _bmutils.superpose_to_most_compact_in_list(superpose, geoms)
 
     # Create ngl_viewer widget
     if widget is None:
         iwd = _nglwidget_wrapper(geoms[0])
         for igeom in geoms[1:]:
-            iwd.add_trajectory(igeom)
-
-
+            # TODO THIS IS THE PLACE TO CORRECT FOR NOT SEEING OVERLAYS OF SMALL MOLECUlES
+            iwd = _nglwidget_wrapper(igeom, iwd=iwd)
     else:
         iwd = widget
 
@@ -851,7 +943,7 @@ def _sample(positions, geoms, ax,
         ax.plot(positions[:,0], positions[:,1], '-g', lw=3)
 
     # Link the axes widget with the ngl widget
-    ax_wdg = _link_ax_w_pos_2_nglwidget(ax,
+    ax_wdg = _bmutils.link_ax_w_pos_2_nglwidget(ax,
                                         positions,
                                         iwd,
                                         band_width=band_width,
@@ -860,13 +952,13 @@ def _sample(positions, geoms, ax,
 
     # Do we have usable projection information?
     if projection is not None:
-        corr_dict = _most_corr_info(projection, n_args=n_feats)
+        corr_dict = _bmutils.most_corr(projection, n_args=n_feats)
         if corr_dict["labels"] != []:
-            iproj = _get_ascending_coord_idx(positions)
+            iproj = _bmutils.get_ascending_coord_idx(positions)
             for ifeat in range(n_feats):
                 ilabel = corr_dict["labels"][iproj][ifeat]
                 print(ilabel)
-                iwd = _add_atom_idxs_widget([corr_dict["atom_idxs"][iproj][ifeat]], iwd,
+                iwd = _bmutils.add_atom_idxs_widget([corr_dict["atom_idxs"][iproj][ifeat]], iwd,
                                             color_list=['green']
                                             )
 

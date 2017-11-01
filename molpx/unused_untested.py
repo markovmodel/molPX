@@ -12,14 +12,12 @@ try:
 except ImportError:
     from sklearn.mixture import GMM as _GMM
 
-from pyemma.util.linalg import eig_corr
-from pyemma.coordinates import source as _source, \
-    cluster_regspace as _cluster_regspace, \
-    save_traj as _save_traj
-from pyemma.coordinates.data.feature_reader import  FeatureReader as _FeatureReader
-from pyemma.util.discrete_trajectories import index_states as _index_states
+try:
+    from pyemma.util.linalg import eig_corr
+except ImportError:
+    from pyemma._ext.variational.solvers.direct import eig_corr
+from pyemma.coordinates import source as _source, featurizer as _featurizer
 from scipy.spatial import cKDTree as _cKDTree
-#from myMDvisuals import customvmd
 
 def _dictionarize_list(list, input_dict, output_dict = None):
     if output_dict is None:
@@ -45,6 +43,17 @@ def _correlations2CA_pairs(icorr,  geom_sample, corr_cutoff_after_max=.95, feat_
     CA_pairs = _np.vstack(CA_pairs)
 
     return CA_pairs, max_corr
+
+def _mdcontacts2CAidxs(geom):
+    res_pairs = _md.compute_contacts(geom)[1]
+    CA_pairs = []
+    for ii, jj in res_pairs:
+        CA_pairs.append([geom.top.residue(ii).atom('CA').index,
+                         geom.top.residue(jj).atom('CA').index])
+    CA_pairs = _np.vstack(CA_pairs)
+
+    return CA_pairs
+
 
 def _correlations2CA_pairs(icorr,  geom_sample, corr_cutoff_after_max=.95, feat_type='md.contacts'):
     max_corr = _np.abs(icorr).argsort()[::-1]
@@ -95,7 +104,7 @@ def _opentica_npz(ticanpzfile):
     l, U = eig_corr(icov, icovtau)
     tica_mean = trajdata['tica_mean']
     data = trajdata['projdat']
-    corr = input2output_corr(icov, U)
+    corr = _input2output_corr(icov, U)
 
     return lag_str, data, corr, tica_mean, l, U
 
@@ -154,7 +163,7 @@ def _targets_in_candidates(candidates, targets, verbose=True ):
         else:
             targets = list(targets)
     if isinstance(targets, list):
-        out_list = elements_of_list1_in_list1(targets, candidates)
+        out_list = _elements_of_list1_in_list1(targets, candidates)
         if out_list == []:
             raise  ValueError('Your target features do not match any of the available tica_featurizations:\n'
                               '%s'%('\n'.join(targets)))
@@ -452,6 +461,8 @@ def _src_in_this_proj(proj, mdtraj_dir,
     tocheck = sorted(glob(tocheck))
     if isinstance(tocheck, str):
         tocheck = [tocheck]
+
+    struct_already = False
     for __, idir in enumerate(tocheck):
         if not idir.endswith('tar.gz'):
             subdir = os.path.join(idir,strfile_fmt%(proj, ii))
@@ -461,9 +472,14 @@ def _src_in_this_proj(proj, mdtraj_dir,
             xtcs.append(these_trajs)
             if struct is None:
                 struct = '%s-%u-protein.pdb'%(proj,ii)
-            elif isinstance(struct, str):
+                struct_already = True
+                struct = os.path.join(subdir, struct)
+                struct = sorted(glob(struct))
+
+            elif isinstance(struct, str) and not struct_already:
                 struct = os.path.join(subdir,struct)
                 struct = sorted(glob(struct))
+
             if isinstance(struct,list):
                 struct=struct[0]
             ii += 1

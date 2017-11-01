@@ -3,23 +3,21 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Example Jupyter Notebook
-========================
+Example Jupyter Notebooks
+=========================
 
-There are several ways to see the example notebook, which you can find in the ``molpx/notebooks/``
+There are several ways to see the example notebooks, which you can find in the ``molpx/notebooks/``
 installation directory.
 
 1. Play:
-    ``molpx`` has a method that will launch a working, temporary copy of the example notebook.
+    ``molpx`` has a method that will launch a working, temporary copy of the example notebooks.
     From an IPython console, just type::
 
     >>>> import molpx
-    >>>> molpx.example_notebook()
+    >>>> molpx.example_notebooks()
 
-    A Juypter notebook should automagically appear in front of you after a few seconds. This is the most interactive and
+    A List of Juypter notebooks should automagically appear in front of you after a few seconds. This is the most interactive and
     usefull way to see ``molpx`` in action, but you'll only have access to it after downloading and installing ``molpx``
-
-
 
 2. Read:
     The links you see below are an html-rendered version of the notebook.
@@ -31,8 +29,10 @@ installation directory.
 .. toctree::
    :maxdepth: 1
 
-   Projection_Explorer_Copy.ipynb
-
+   Intro with BPTI <notebook_molpx_intro.rst>
+   Intro with Di-Alanine <notebook_molpx_intro_DiAla.rst>
+   Metadynamics <notebook_molpx_meta.rst>
+   PyEMMA features <notebook_molpx_features.rst>
 
 3. Watch:
     Our :doc:`Youtube video </about>`  or the :doc:`gif animation </index>` show ``molpx`` in action.

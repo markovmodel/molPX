@@ -2,19 +2,32 @@ from __future__ import print_function
 import numpy as _np
 import mdtraj as _md
 from matplotlib.widgets import AxesWidget as _AxesWidget
+from matplotlib.cm import get_cmap as _get_cmap
+from matplotlib.colors import rgb2hex as _rgb2hex, is_color_like as _is_color_like, to_hex as _to_hex
 
 try:
     from sklearn.mixture import GaussianMixture as _GMM
 except ImportError:
     from sklearn.mixture import GMM as _GMM
 
+# From pyemma's coordinates
 from pyemma.coordinates import \
+    source as _source, \
     cluster_regspace as _cluster_regspace, \
     save_traj as _save_traj
 
-from pyemma.coordinates.data.feature_reader import FeatureReader as _FeatureReader
-from pyemma.coordinates.data.featurization.featurizer import MDFeaturizer as _MDFeaturizer
+# From coor.data
+from pyemma.coordinates.data.fragmented_trajectory_reader import FragmentedTrajectoryReader as _FragmentedTrajectoryReader
+from pyemma.coordinates.data.feature_reader               import FeatureReader as _FeatureReader
+from pyemma.coordinates.data.featurization.featurizer     import MDFeaturizer as _MDFeaturizer
+from pyemma.coordinates.data.featurization.distances import DistanceFeature as _DF, \
+    ResidueMinDistanceFeature as _ResMinDF
+from pyemma.coordinates.data.featurization.misc import SelectionFeature as _SF
+from pyemma.coordinates.data.featurization.angles import DihedralFeature as _DihF
+from pyemma.coordinates.data.featurization.angles import AngleFeature as _AF
+# From coor.transform
 from pyemma.coordinates.transform import TICA as _TICA, PCA as _PCA
+# From coor.util
 from pyemma.util.discrete_trajectories import index_states as _index_states
 from pyemma.util.types import is_string as _is_string,  is_int as _is_int
 
@@ -26,11 +39,91 @@ def listify_if_int(inp):
 
     return inp
 
-def listfiy_if_not_list(inp):
-    if not isinstance(inp, list):
+def listify_if_not_list(inp, except_for_these_types=None):
+    r"""
+    :param inp:
+    :param except_for_these_types: tuple, default is None
+
+    :return: [inp] iff inp was not a list or any of the types in except_for_these_types
+    """
+    types = (list,)
+    if except_for_these_types is not None:
+        # listify inside of listify...
+        if not isinstance(except_for_these_types, (list, tuple)):
+            except_for_these_types = [except_for_these_types]
+        for itype in except_for_these_types:
+            types += (itype,)
+
+    if not isinstance(inp, types):
         inp = [inp]
 
     return inp
+
+def moldata_from_input(inp, MD_top=None):
+    r"""
+
+    Parameters
+    ----------
+
+    inp : str, md.Trajectory, list of strs, list of md.Trajectories or even a pyemma FeatureReader
+        Where the molecular trajectory data is coming from
+
+    MD_top : filename or md.Topology object
+        If :py:obj:`inp` is needed to construct a :py:obj:`pyemma.coordinates.source` type of object,
+        you have to parse it here
+
+    Returns
+    -------
+
+    moldata: pyemma FeatureReader or list of md.Trajectories, depending on the input
+    """
+
+    if isinstance(inp, (_FeatureReader, _FragmentedTrajectoryReader)):
+        moldata = inp
+
+    # Everything else gets listified
+    else:
+        inp = listify_if_not_list(inp)
+        # We have geometries so don't do anything
+        if isinstance(inp[0], _md.Trajectory):
+            moldata = inp
+        elif isinstance(inp[0], str):
+            moldata = _source(inp, top=MD_top)
+        # TODO consider letting pyemma fail here instead of catching this
+        else:
+            raise TypeError("Please revise tyour input, it should be a str ",type(inp[0]))
+    return moldata
+
+def assert_moldata_belong_data(moldata, data, data_stride=1):
+    r"""
+
+    Parameters :
+    ------------
+
+        moldata : list or pyemma FeatureReader or FragmentedTrajectoryReader
+
+        data : list of ndarrays
+
+        data_stride : int, stride of the data vs. the moldata
+
+    Returns :
+    ---------
+
+        boolean
+    """
+    try:
+        n_traj = moldata.number_of_trajectories()
+        traj_lengths = moldata.trajectory_lengths()
+    except  AttributeError:
+        n_traj = len(moldata)
+        traj_lengths = [ii.n_frames for ii in moldata]
+
+    # Stride:
+    traj_lengths = [len(_np.arange(ii)[::data_stride]) for ii in traj_lengths]
+
+
+    assert n_traj == len(data), ("Wrong number of molecular traj vs. data trajs: %u vs %u"%(n_traj, len(data)))
+    assert _np.allclose(traj_lengths, [len(ii) for ii in data]), "Mismatch in the lengths of individual molecular trajs and data trajs"
 
 def matplotlib_colors_no_blue():
     # Until we get the colorcyle thing working, this is a workaround:
@@ -105,7 +198,7 @@ def regspace_cluster_to_target(data, n_clusters_target,
     dmin = (cmax-cmin)/(n_clusters_target+1)
 
     err = _np.ceil(n_clusters_target*delta)
-    cl = _cluster_regspace(data, dmin=dmin)
+    cl = _cluster_regspace(data, dmin=dmin, max_centers=5000)
     for cc in range(n_try_max):
         n_cl_now = cl.n_clusters
         delta_cl_now = _np.abs(n_cl_now - n_clusters_target)
@@ -371,7 +464,7 @@ def get_good_starting_point(cl, geom_samples, cl_order=None, strategy='smallest_
     strategy : str, default is 'smallest_Rgyr'
          Which property gets optimized
             * *smallest_Rgyr*:
-              look for the geometries with smallest radius of gyration(:any:`mdtraj.compute_rg`),
+              look for the geometries with smallest radius of gyration(:obj:`mdtraj.compute_rg`),
               regardless of the population
 
             * *most_pop*:
@@ -496,11 +589,10 @@ def save_traj_wrapper(traj_inp, indexes, outfile, top=None, stride=1, chunksize=
     """
 
      # Listify the input in case its needed
-    if not isinstance(traj_inp, list) and not isinstance(traj_inp, _FeatureReader):
-        traj_inp = [traj_inp]
+    traj_inp = listify_if_not_list(traj_inp, except_for_these_types=(_FeatureReader, _FragmentedTrajectoryReader))
 
     # Do the normal thing in case of Feature_reader or list of strings
-    if isinstance(traj_inp, _FeatureReader) or _is_string(traj_inp[0]):
+    if isinstance(traj_inp, (_FeatureReader, _FragmentedTrajectoryReader)) or _is_string(traj_inp[0]):
         geom_smpl = _save_traj(traj_inp, indexes, None, top=top, stride=stride,
                                chunksize=chunksize, image_molecules=image_molecules, verbose=verbose)
     elif isinstance(traj_inp[0], _md.Trajectory):
@@ -528,10 +620,13 @@ def minimize_rmsd2ref_in_sample(sample, ref):
 
 def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
                               crosshairs=True,
+                              dot_color='red',
                               band_width=None,
                               radius=False,
                               directionality=None,
                               exclude_coord=None,
+                              color_list=None,
+                              list_of_repr_dicts = None
                               ):
     r"""
     Initial idea for this function comes from @arose, the rest is @gph82
@@ -545,6 +640,9 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
         If True, a crosshair will show where the mouse-click ocurred. If 'h' or 'v', only the horizontal or
         vertical line of the crosshair will be shown, respectively. If False, no crosshair will appear
 
+    dot_color : Anything that yields matplotlib.colors.is_color_like(dot_color)==True
+        Default is 'red'. dot_color='None' yields no dot
+
     directionality : str or None, default is None
         If not None, directionality can be either 'a2w' or 'w2a', meaning that connectivity
          between axis and widget will be only established as
@@ -555,6 +653,14 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
         The excluded coordinate will not be considered when computing the nearest-point-to-click.
         Typical use case is for visualize.traj to only compute distances horizontally along the time axis
 
+    color_list : None or list of len(pos)
+        The colors with which the sticky frames will be plotted.
+        Can by anything that yields matplotlib.colors.is_color_like == True
+
+    list_of_repr_dicts : None or list of dictionaries having at least keys 'repr_type' and 'selection' keys.
+        Other **kwargs are currently ignored but will be implemented in the future (see nglview.add_representation
+        for more info). Only active for sticky widgets
+    #TODO consider implementing list_of_repr_dicts in visualize.sample
     """
 
     assert directionality in [None, 'a2w', 'w2a'], "The directionality parameter has to be in [None, 'a2w', 'w2a'] " \
@@ -574,22 +680,25 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
     sticky = False
     # Are we in a sticky situation?
     if hasattr(nglwidget, '_hidden_sticky_frames'):
-        from matplotlib.cm import get_cmap as _get_cmap
-        from matplotlib.colors import rgb2hex as _rgb2hex
         cmap = _get_cmap('rainbow')
         cmap_table = _np.linspace(0, 1, len(x))
         sticky_overlays_by_frame = transpose_geom_list(nglwidget._hidden_sticky_frames)
         overlay_iterator_by_frame = {ff: iter(sgeom) for ff, sgeom in enumerate(sticky_overlays_by_frame)}
         # TODO: create a path through the colors that maximizes distance between averages (otherwise some colors
         # are too close
-        sticky_colors_hex = [_rgb2hex(cmap(ii)) for ii in _np.random.permutation(cmap_table)]
-
+        if color_list is None:
+            sticky_colors_hex = [_rgb2hex(cmap(ii)) for ii in _np.random.permutation(cmap_table)]
+        elif isinstance(color_list, list) and len(color_list)==len(pos):
+            sticky_colors_hex = [_to_hex(cc) for cc in color_list]
+        else:
+            raise TypeError('argument color_list should be either None or a list of len(pos), '
+                            'instead of type %s and len %u'%(type(color_list), len(color_list)))
         sticky_rep = 'cartoon'
         if nglwidget._hidden_sticky_frames[0].top.n_residues < 10:
             sticky_rep = 'ball+stick'
-
+        if list_of_repr_dicts is None:
+            list_of_repr_dicts = [{'repr_type': sticky_rep, 'selection': 'all'}]
         sticky = True
-
 
     # Basic interactive objects
     showclick_objs = []
@@ -602,19 +711,19 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
         setattr(linev, 'whatisthis', 'linev')
         showclick_objs.append(linev)
 
-    dot = ax.plot(pos[0,0],pos[0,1], 'o', c='red', ms=7)[0]
+    if _is_color_like(dot_color):
+        pass
+    else:
+        raise TypeError('dot_color should be a matplotlib color')
+
+    dot = ax.plot(pos[0,0],pos[0,1], 'o', c=dot_color, ms=7, zorder=100)[0]
     setattr(dot,'whatisthis','dot')
     closest_to_click_obj = [dot]
 
     # Other objects, related to smoothing options
     if band_width is not None:
-        #print("Band_width(x,y) is %s" % (band_width))
-        coord_idx= get_ascending_coord_idx(pos)
-
-        band_width_in_pts = int(_np.round(pts_per_axis_unit(ax)[coord_idx] * band_width[coord_idx]))
-        #print("Band_width in %s is %s pts"%('xy'[coord_idx], band_width_in_pts))
-
         if radius:
+            band_width_in_pts = int(_np.round(pts_per_axis_unit(ax).mean() * band_width.mean()))
             rad = ax.plot(pos[0, 0], pos[0, 1], 'o',
                           ms=_np.round(band_width_in_pts),
                           c='green', alpha=.25, markeredgecolor='None')[0]
@@ -622,6 +731,12 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
             if not sticky:
                 closest_to_click_obj.append(rad)
         else:
+            # print("Band_width(x,y) is %s" % (band_width))
+            coord_idx = get_ascending_coord_idx(pos)
+            band_width_in_pts = int(_np.round(pts_per_axis_unit(ax)[coord_idx] * band_width[coord_idx]))
+            # print("Band_width in %s is %s pts"%('xy'[coord_idx], band_width_in_pts))
+
+
             band_call = [ax.axvline, ax.axhline][coord_idx]
             band_init = [ax.get_xbound, ax.get_ybound][coord_idx]
             band_type = ['linev',  'lineh'][coord_idx]
@@ -649,10 +764,12 @@ def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
         else:
             nglwidget.add_trajectory(next(overlay_iterator_by_frame[index]))
             nglwidget.clear_representations(component=nglwidget.n_components)
-            nglwidget.add_representation(sticky_rep,
-                                         component=nglwidget.n_components,
-                                         color=sticky_colors_hex[index],
-                                         )
+            for irepr in list_of_repr_dicts:
+                nglwidget.add_representation(irepr['repr_type'],
+                                             selection=irepr['selection'],
+                                             component=nglwidget.n_components,
+                                             color=sticky_colors_hex[index],
+                                             )
             ax.plot(pos[index, 0], pos[index, 1], 'o', c=sticky_colors_hex[index], ms=7)
 
     def my_observer(change):
@@ -983,7 +1100,6 @@ def most_corr(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_a
     elif isinstance(correlation_input, _MDFeaturizer):
         corr = _np.eye(correlation_input.dimension())
         featurizer = correlation_input
-        avail_FT = True
     else:
         raise TypeError('correlation_input has to be either %s, not %s'%([_TICA, _PCA, _np.ndarray, _MDFeaturizer], type(correlation_input)))
 
@@ -993,9 +1109,14 @@ def most_corr(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_a
             avail_FT = True
         except(AttributeError):
             avail_FT = False
+    else:
+        avail_FT = True
 
     dim = corr.shape[1]
 
+    if avail_FT:
+        assert featurizer.dimension()==corr.shape[0], "The provided featurizer and the number of rows of the " \
+                                                      "correlation matrix differ in size %u vs %u"%(featurizer.dimension(), corr.shape[0])
     if proj_idxs is None:
         proj_idxs = _np.arange(dim)
 
@@ -1029,8 +1150,13 @@ def most_corr(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_a
     for ii, iproj in enumerate(proj_names):
         info.append({"lines":[], "name":iproj})
         for jj, jidx in enumerate(most_corr_idxs[ii]):
-            istr = 'Corr[%s|feat] = %2.1f for %-30s (feat nr. %u, atom idxs %s' % \
-                   (iproj, most_corr_vals[ii][jj], most_corr_labels[ii][jj], jidx, most_corr_atom_idxs[ii][jj])
+            if avail_FT:
+                istr = 'Corr[%s|feat] = %2.1f for %-30s (feat nr. %u, atom idxs %s' % \
+                       (iproj, most_corr_vals[ii][jj], most_corr_labels[ii][jj], jidx, most_corr_atom_idxs[ii][jj])
+            else:
+                istr = 'Corr[%s|feat] = %2.1f (feat nr. %u)' % \
+                       (iproj, most_corr_vals[ii][jj],jidx)
+
             info[-1]["lines"].append(istr)
 
     corr_dict = {'idxs': most_corr_idxs,
@@ -1048,7 +1174,10 @@ def atom_idxs_from_feature(ifeat):
     Parameters
     ----------
 
-    ifeat : input feature, :any:`pyemma.coordinates.featurizer` object
+    ifeat : input feature, can be of two types:
+        a :any:`pyemma.coordinates.featurizer` (Distancefeaturizer, AngleFeaturizer etc) or
+        a :any:`pyemma.coordinates.data.featurization.featurizer.MDFeaturizer` itself, in which case the first of the
+        obj:`ifeat.active_features` will be used
 
     Returns
     -------
@@ -1056,11 +1185,10 @@ def atom_idxs_from_feature(ifeat):
     atom_indices : list with the atoms indices representative of this feature, whatever the feature
     """
 
-    from pyemma.coordinates.data.featurization.distances import DistanceFeature as _DF, \
-        ResidueMinDistanceFeature as _ResMinDF
-    from pyemma.coordinates.data.featurization.misc import SelectionFeature as _SF
-    from pyemma.coordinates.data.featurization.angles import DihedralFeature as _DihF
-    from pyemma.coordinates.data.featurization.angles import AngleFeature as _AF
+    try:
+        ifeat = ifeat.active_features[0]
+    except AttributeError:
+        pass
 
     if isinstance(ifeat, _DF) and not isinstance(ifeat, _ResMinDF):
         return ifeat.distance_indexes
@@ -1077,7 +1205,7 @@ def atom_idxs_from_feature(ifeat):
     else:
         raise NotImplementedError('bmutils.atom_idxs_from_feature cannot interpret the atoms behind %s yet'%ifeat)
 
-def add_atom_idxs_widget(atom_idxs, widget, color_list=None):
+def add_atom_idxs_widget(atom_idxs, widget, color_list=None, radius=1):
     r"""
     provided a list of atom_idxs and a widget, try to represent them as well as possible in the widget
     It is assumed that this method is called once per feature, ie. the number of atoms defines the
@@ -1100,30 +1228,36 @@ def add_atom_idxs_widget(atom_idxs, widget, color_list=None):
         but if your list is short it will just default to the last color. This way, color_list=['black'] will paint
         all black regardless len(atom_idxs)
 
+    radius : float, default is 1
+        radius of the spacefill representation
+
     Returns
     -------
     widget : Input widget with the representations added
 
     """
 
-    if color_list is None:
+    if color_list in [None, [None]]:
         color_list = ['blue']*len(atom_idxs)
     elif isinstance(color_list, list) and len(color_list)<len(atom_idxs):
         color_list += [color_list[-1]]*(len(atom_idxs)-len(color_list))
 
     if atom_idxs is not []:
-        for iidxs, color in zip(atom_idxs, color_list):
-            if _is_int(iidxs):
-                widget.add_spacefill(selection=[iidxs], radius=1, color=color)
-            elif _np.ndim(iidxs)>0 and len(iidxs)==2:
-                widget.add_distance(atom_pair=[[ii for ii in iidxs]], # yes it has to be this way for now
-                 color=color,
-                 #label_color='black',
-                 label_size=0)
-            elif _np.ndim(iidxs) > 0 and len(iidxs) in [3,4]:
-                widget.add_spacefill(selection=iidxs, radius=1, color=color)
-            else:
-                print("Cannot represent features involving more than 5 atoms per single feature")
+        for cc in range(len(widget._ngl_component_ids)):
+            for iidxs, color in zip(atom_idxs, color_list):
+                if _is_int(iidxs):
+                    widget.add_spacefill(selection=[iidxs], radius=radius, color=color, component=cc)
+                elif _np.ndim(iidxs)>0 and len(iidxs)==2:
+                    widget.add_distance(atom_pair=[[ii for ii in iidxs]], # yes it has to be this way for now
+                     color=color,
+                     #label_color='black',
+                     label_size=0,
+                    component=cc)
+                    # TODO add line thickness as **kwarg
+                elif _np.ndim(iidxs) > 0 and len(iidxs) in [3,4]:
+                    widget.add_spacefill(selection=iidxs, radius=radius, color=color, component=cc)
+                else:
+                    print("Cannot represent features involving more than 5 atoms per single feature")
 
     return widget
 
@@ -1199,3 +1333,181 @@ def geom_list_2_geom(geom_list):
 
 
     return(geom)
+
+def auto_GMM_model(Y, ncs=_np.arange(2, 7)):
+    bics = []
+    for nc in ncs:
+        igmm = _GMM(n_components=nc)
+        igmm.fit(Y)
+        bics.append(igmm.bic(Y))
+    nc = ncs[_np.argmin(bics)]
+    if len(ncs) > 1:
+        igmm = _GMM(n_components=nc)
+        igmm.fit(Y)
+
+    return igmm
+
+def MEP_naive(euc_points, V, start_idx, end_idx, step_size=10, allow_jumps=True):
+    r"""
+    return the indices of a path that connects the start and end points miniminzing the energy
+
+    Parameters
+    ----------
+
+    euc_points : np.ndarray of shape (n, m)
+        n points of dimension m in euclidean space that the path can consist of
+
+    V : iterable of floats of len(n)
+        energy value for each of the points in :py:obj:`euc_points`
+
+    start_idx : int
+        where the path is supossed to start
+
+    end_idx : int
+        where the path is supossed to end
+
+    step_size : int, default is 10
+        parameter of the method, something like the radius of the hypershpere around the current path point
+        for next-step search
+    """
+
+    from scipy.spatial.distance import pdist, squareform
+
+    assert _np.ndim(euc_points) == 2
+    assert len(V) == euc_points.shape[0], (len(V), euc_points.shape)
+
+    # Distance matrix with infinity in the diagonal
+    D = squareform(pdist(euc_points)) + _np.diag(_np.ones(euc_points.shape[0]) + _np.inf)
+
+    imax = 1000
+    path = [start_idx]
+
+    for ii in range(imax):
+        # Update actual distance to final step
+        d2end = D[path[-1], end_idx]
+
+        # Closest candidates
+        cands = D[path[-1]].argsort()[:step_size]
+        if end_idx in cands:
+            path.append(end_idx)
+            break
+        # print(ii, ":", path[-1], cands, end_idx, end_idx in cands)
+
+        # Take those who reduce the distance (advanced cands) and have note yet been selected
+        cands = [ii for ii in cands if D[end_idx][ii] <= d2end and ii not in path]
+
+        # Take the one with the minimum energy among the advanced cands
+        try:
+            path.append(cands[_np.argmin([V[ii] for ii in cands])])
+        except ValueError:
+            if allow_jumps:
+                cands = [ii for ii in D[path[-1]].argsort()]  # Don't use step_size
+                cands = [ii for ii in cands if ii not in path]  # Do not revisit
+                cands = [ii for ii in cands if D[ii, end_idx] < d2end]  # Go fwd
+                cands = [ii for ii in cands if D[ii, start_idx] > D[path[-1], start_idx]]  # Don't go bckwd
+                path.append(cands[0])
+            else:
+                print("Path interrupted because of need to jump.\n", \
+                      "Please inspect this result and decide for larger step_size or simply allowing for jumps")
+                break
+
+        if end_idx == path[-1]:
+            break
+    return path
+
+def labelize(proj_labels, proj_idxs):
+    r"""
+    Returns a list of strings of axis labels constructed from proj_labels and proj_idxs
+
+    Parameters
+    ----------
+
+     proj_labels: string, list of strings, or a :obj:`pyemma.MDFeaturizer` object with a .describe method
+
+     proj_idxs: list of integers with the projections
+
+
+    Returns:
+     proj_labels : list of strings of length len(proj_idxs)
+
+    """
+    # TODO TEST
+    try:
+        proj_labels.describe()
+        proj_labels = [proj_labels.describe()[ii] for ii in proj_idxs]
+    except AttributeError:
+        pass
+
+    if isinstance(proj_labels, str):
+       proj_labels = ['$\mathregular{%s_{%u}}$'%(proj_labels, ii) for ii in proj_idxs]
+    elif isinstance(proj_labels, list):
+       pass
+    else:
+       raise TypeError("Parameter proj_labels has to be of type str or list, not %s"%type(proj_labels))
+
+    return proj_labels
+
+def superpose_to_most_compact_in_list(superpose_info, geom_list):
+    r"""
+    Provided a list of `mdtraj.Trajectory` objects, orient them to the most compact possible
+    structure according to :obj:`superpose_info`
+
+    Parameters
+    ----------
+
+    superpose_info : boolean, str, or iterable of integers
+        boolean : "True" orients with all atoms or "False" won't do anything
+        str  : superpose according to anything :obj:`mdtraj.Topology.select` can understand (http://mdtraj.org/latest/atom_selection.html)
+        iterable of integers : superpose according to these atom idxs
+
+    geom_list : list of :obj:`mdtraj.Trajectory` objects
+
+
+    Returns
+    -------
+
+    geom_list : list of :obj:`mdtraj.Trajectory` objects
+    """
+    # Superpose if wanted
+    sel = parse_atom_sel(superpose_info, geom_list[0].top)
+
+    if sel is not None:
+        ref = geom_list_2_geom(geom_list)
+        ref = ref[_md.compute_rg(ref).argmin()]
+        geom_list = [igeom.superpose(ref, atom_indices=sel) for igeom in geom_list]
+
+    return geom_list
+
+def parse_atom_sel(atom_selection, top):
+    r"""
+    Provided an `mdtraj.Topology` and :obj:`superpose_info` get the atoms that are needed
+    to a subsequent superposition operation
+
+    Parameters
+    ----------
+
+    atom_selection : boolean, str, or iterable of integers
+        boolean : "True" orients with all atoms or "False" won't do anything
+        str  : superpose according to anything :obj:`mdtraj.Topology.select` can understand (http://mdtraj.org/latest/atom_selection.html)
+        iterable of integers : superpose according to these atom idxs
+
+    top : :obj:`mdtraj.Topology` object
+
+
+    Returns
+    -------
+
+    sel : iterable of integers or None
+    """
+    # Superpose if wanted
+    sel = None
+    if atom_selection is True:
+        sel = _np.arange(top.n_atoms)
+    elif atom_selection is False:
+        pass
+    elif isinstance(atom_selection, str):
+        sel = top.select(atom_selection)
+    elif isinstance(atom_selection, (list, _np.ndarray)):
+        assert _np.all([_is_int(ii) for ii in atom_selection])
+        sel = atom_selection
+    return sel

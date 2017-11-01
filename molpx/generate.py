@@ -5,21 +5,11 @@ __author__ = 'gph82'
 
 
 from pyemma.coordinates import source as _source
+
 import numpy as _np
-from .bmutils import (regspace_cluster_to_target as _cluster_to_target,
-                      catalogues as _catalogues,
-                      re_warp as _re_warp,
-                      get_good_starting_point as _get_good_starting_point,
-                      visual_path as _visual_path,
-                      data_from_input as _data_from_input,
-                      minimize_rmsd2ref_in_sample as _minimize_rmsd2ref_in_sample,
-                      save_traj_wrapper as _save_traj_wrapper,
-                      transpose_geom_list as _transpose_geom_list,
-                      listify_if_int as _listify_if_int, listfiy_if_not_list as _listfiy_if_not_list, _is_int
-                      )
+from . import _bmutils
 from collections import defaultdict as _defdict
 import mdtraj as _md
-
 
 def projection_paths(MD_trajectories, MD_top, projected_trajectories,
                    n_projs=1, proj_dim=2, proj_idxs=None,
@@ -95,35 +85,29 @@ def projection_paths(MD_trajectories, MD_top, projected_trajectories,
 
             * :obj:`paths_dict[idxs][type_of_path]["proj"]` : ndarray of shape (n_points, proj_dim) with the coordinates of the projection along the path
 
-            * :obj:`paths_dict[idxs][type_of_path]["geom"]` : :any:`mdtraj.Trajectory` geometries along the path
+            * :obj:`paths_dict[idxs][type_of_path]["geom"]` : :obj:`mdtraj.Trajectory` geometries along the path
 
 
     idata :
         list of ndarrays with the the data in  :obj:`projected_trajectories`
     """
 
-    MD_trajectories = _listfiy_if_not_list(MD_trajectories)
-
-    if isinstance(MD_trajectories[0], _md.Trajectory):
-        src = MD_trajectories
-    else:
-        src = _source(MD_trajectories, top=MD_top)
+    # Some input parsing
+    MD_trajectories = _bmutils.moldata_from_input(MD_trajectories, MD_top=MD_top)
+    idata = _bmutils.data_from_input(projected_trajectories)
+    _bmutils.assert_moldata_belong_data(MD_trajectories, idata, proj_stride)
 
 
-    idata = _data_from_input(projected_trajectories)
-    assert  len(MD_trajectories) == len(idata), "Mismatch between the number of " \
-                                                "MD_trajectories and projected_trajectories: %u vs %u"%(len(MD_trajectories), len(idata))
-
-    #TODO: assert total_n_frames (strided) coincies with the n_frames in data
     # What's the hightest dimensionlatiy that the input data allows?
     input_dim = idata[0].shape[1]
     if proj_idxs is None:
        proj_idxs = _np.arange(n_projs)
     else:
-        proj_idxs = _listify_if_int(proj_idxs)
+        proj_idxs = _bmutils.listify_if_int(proj_idxs)
 
     proj_dim = _np.max((proj_dim, _np.max(proj_idxs)+1))
     proj_dim = _np.min((proj_dim,input_dim))
+
     # Load data  up to :proj_dim column
     idata = [dd[:,:proj_dim] for dd in idata]
 
@@ -131,16 +115,16 @@ def projection_paths(MD_trajectories, MD_top, projected_trajectories,
     paths_dict = {}
     for coord in proj_idxs:
         paths_dict[coord] = {"min_rmsd": _defdict(dict),
-                           "min_disp": _defdict(dict)
+                             "min_disp": _defdict(dict)
                            }
         # Cluster in regspace along the dimension you want to advance, to approximately n_points
-        cl = _cluster_to_target([jdata[:,[coord]] for jdata in idata],
+        cl = _bmutils.regspace_cluster_to_target([jdata[:,[coord]] for jdata in idata],
                                 n_points, n_try_max=3,
                                 verbose=verbose,
                                 )
 
         # Create full catalogues (discrete and continuous) in ascending order of the coordinate of interest
-        cat_idxs, cat_cont = _catalogues(cl,
+        cat_idxs, cat_cont = _bmutils.catalogues(cl,
                                         data=idata,
                                         sort_by=0, #here we always have to sort by the 1st coord
                                             )
@@ -148,9 +132,8 @@ def projection_paths(MD_trajectories, MD_top, projected_trajectories,
         # Create sampled catalogues in ascending order of the cordinate of interest
         sorts_coord = _np.argsort(cl.clustercenters[:,0]) # again, here we're ALWAYS USING "1" because cl. is 1D
         cat_smpl = cl.sample_indexes_by_cluster(sorts_coord, n_geom_samples)
-        # TODO: this fallunterscheidung is repeated elsewhere.Refactor and consider an own method
-        geom_smpl = _save_traj_wrapper(src, _np.vstack(cat_smpl), None, stride=proj_stride)
-        geom_smpl = _re_warp(geom_smpl, [n_geom_samples]*cl.n_clusters)
+        geom_smpl = _bmutils.save_traj_wrapper(MD_trajectories, _np.vstack(cat_smpl), None, stride=proj_stride)
+        geom_smpl = _bmutils.re_warp(geom_smpl, [n_geom_samples]*cl.n_clusters)
 
         # Initialze stuff
         path_sample = {}
@@ -165,7 +148,7 @@ def projection_paths(MD_trajectories, MD_top, projected_trajectories,
             ]:
             # Choose the starting coordinate-value for the fwd and bwd projection_paths,
             # see the options of the method for more info
-            istart_idx = _get_good_starting_point(cl, geom_smpl, cl_order=sorts_coord,
+            istart_idx = _bmutils.get_good_starting_point(cl, geom_smpl, cl_order=sorts_coord,
                                                   strategy=strategy
                                                   )
 
@@ -174,23 +157,25 @@ def projection_paths(MD_trajectories, MD_top, projected_trajectories,
             istart_Y = _np.vstack([idata[ii][jj] for ii,jj in cat_smpl[istart_idx]])
             istart_Y = _np.delete(istart_Y, coord, axis=1)
             istart_frame = _np.sum(istart_Y**2,1).argmin()
+            # TODO consider starting of the most populated value and see which one diffuses the least
 
             # Starting from the sampled geometries,
             # create a path minimising minRMSD between frames.
-            path_smpl, __ = _visual_path(cat_smpl, geom_smpl,
+            path_smpl, __ = _bmutils.visual_path(cat_smpl, geom_smpl,
                                          start_pos=istart_idx,
                                          start_frame=istart_frame,
                                          path_type='min_rmsd',
                                          history_aware=history_aware,
                                          selection=geom_smpl[0].top.select(minRMSD_selection))
 
+            # Compute the diffusion along the path
             y = _np.vstack([idata[ii][jj] for ii,jj in path_smpl])
             y[:,coord] = 0
             path_diffusion = _np.sqrt(_np.sum(_np.diff(y.T).T**2,1).mean())
             #print('Strategy %s starting at %g diffuses %g in %uD proj-space'%(strategy,
             #                                                                  cl.clustercenters[sorts_coord][istart_idx],
             #                                                                  path_diffusion,
-            #                                                                  args.proj_dim),
+            #                                                                  proj_dim),
             #      flush=True)
 
             # Store the results of the minRMSD sampling with this strategy in a dictionary
@@ -206,20 +191,21 @@ def projection_paths(MD_trajectories, MD_top, projected_trajectories,
         istart_idx = start_idx[min_key]
 
         paths_dict[coord]["min_rmsd"]["proj"] = _np.vstack([idata[ii][jj] for ii,jj in path_smpl])
-        paths_dict[coord]["min_rmsd"]["geom"] = _save_traj_wrapper(src, path_smpl, None,
+        paths_dict[coord]["min_rmsd"]["geom"] = _bmutils.save_traj_wrapper(MD_trajectories, path_smpl, None,
                                                         stride=proj_stride, top=MD_top)
 
         # With the starting point the creates the minimally diffusive path,
-        # create a path minimising displacemnt in the projected space (minimally diffusing path)
+        # create a path minimising displacement in the projected space (minimally diffusing path)
         istart_Y = cat_cont[istart_idx]
         istart_Y[:,coord] = 0
         istart_frame = _np.sum(istart_Y**2,1).argmin()
-        path, __ = _visual_path(cat_idxs, cat_cont,
+        # TODO IMPLEMENT ANOTHER STRATEGY (max pop?) FOR THE STARTING FRAME
+        path, __ = _bmutils.visual_path(cat_idxs, cat_cont,
                                start_pos=istart_idx,
                                start_frame=istart_frame,
                                history_aware=history_aware,
                                exclude_coords=[coord])
-        paths_dict[coord]["min_disp"]["geom"]  = _save_traj_wrapper(src, path, None, stride=proj_stride, top=MD_top)
+        paths_dict[coord]["min_disp"]["geom"]  = _bmutils.save_traj_wrapper(MD_trajectories, path, None, stride=proj_stride, top=MD_top)
         paths_dict[coord]["min_disp"]["proj"] = _np.vstack([idata[ii][jj] for ii,jj in path])
 
         #TODO : consider storing the data in each dict. It's redundant but makes each dict kinda standalone
@@ -281,6 +267,11 @@ def sample(MD_trajectories, MD_top, projected_trajectories,
         it changes the return type of :obj:`geom_smpl` from the default (an :obj:`mdtraj.Trajectory` with :obj:`n_points`-frames)
         to a list list of length :obj:`n_geom_samples`, each element is an :obj:`mdtraj.Trajectory` object of :obj:`n_points`-frames
 
+    proj_stride : int, default is 1
+        Stride value that was used in the :obj:`projected_trajectories` relative to the :obj:`MD_trajectories`
+        If the original :obj:`MD_trajectories` were stored every 5 ps but the projected trajectories were stored
+        every 50 ps, :obj:`proj_stride` = 10 has to be provided, otherwise an exception will be thrown informing
+        the user that the :obj:`MD_trajectories` and the :obj:`projected_trajectories` have different number of frames.
 
     Returns
     --------
@@ -295,7 +286,7 @@ def sample(MD_trajectories, MD_top, projected_trajectories,
 
     """
 
-    MD_trajectories = _listfiy_if_not_list(MD_trajectories)
+    MD_trajectories = _bmutils.listify_if_not_list(MD_trajectories)
     if isinstance(MD_trajectories[0], _md.Trajectory):
         src = MD_trajectories
     else:
@@ -307,33 +298,96 @@ def sample(MD_trajectories, MD_top, projected_trajectories,
         projected_trajectories.dtrajs
         cl = projected_trajectories
     except:
-        idata = _data_from_input(projected_trajectories)
-        cl = _cluster_to_target([dd[:,proj_idxs] for dd in idata], n_points, n_try_max=10, verbose=verbose)
+        idata = _bmutils.data_from_input(projected_trajectories)
+        cl = _bmutils.regspace_cluster_to_target([dd[:,proj_idxs] for dd in idata], n_points, n_try_max=10, verbose=verbose)
 
     pos = cl.clustercenters
     cat_smpl = cl.sample_indexes_by_cluster(_np.arange(cl.n_clusters), n_geom_samples)
 
-    geom_smpl = _save_traj_wrapper(src, _np.vstack(cat_smpl), None, top=MD_top, stride=proj_stride)
+    geom_smpl = _bmutils.save_traj_wrapper(src, _np.vstack(cat_smpl), None, top=MD_top, stride=proj_stride)
 
-    if atom_selection is None:
-        atom_selection = _np.arange(geom_smpl.top.n_atoms)
-    elif isinstance(atom_selection, str):
-        atom_selection = geom_smpl.top.select(atom_selection)
-    elif isinstance(atom_selection, (list, _np.ndarray)):
-        assert _np.all([_is_int(ii) for ii in atom_selection])
-    geom_smpl = geom_smpl.atom_slice(atom_selection)
+    atom_slice = _bmutils.parse_atom_sel(atom_selection, geom_smpl.top)
+    if atom_slice is not None:
+        geom_smpl = geom_smpl.atom_slice(atom_slice)
 
     if n_geom_samples>1:
-        geom_smpl = _re_warp(geom_smpl, [n_geom_samples] * cl.n_clusters)
+        geom_smpl = _bmutils.re_warp(geom_smpl, [n_geom_samples] * cl.n_clusters)
         if not keep_all_samples:
             # Of the most populated geom, get the most compact
             most_pop = _np.bincount(_np.hstack(cl.dtrajs)).argmax()
             geom_most_pop = geom_smpl[most_pop][_md.compute_rg(geom_smpl[most_pop]).argmin()]
-            geom_smpl = _minimize_rmsd2ref_in_sample(geom_smpl, geom_most_pop)
+            geom_smpl = _bmutils.minimize_rmsd2ref_in_sample(geom_smpl, geom_most_pop)
         else:
-            geom_smpl = _transpose_geom_list(geom_smpl)
+            geom_smpl = _bmutils.transpose_geom_list(geom_smpl)
 
     if not return_data:
         return pos, geom_smpl
     else:
         return pos, geom_smpl, idata
+
+
+def MEP_auto(Y, MD_trajectories, V=None,
+             resolution=1000, step_size=100, endpoints=None, top=None
+             ):
+    # TODO document
+
+    # Cluster
+    cl = _bmutils.regspace_cluster_to_target(Y, resolution, n_try_max=10,
+                                             #verbose=True
+                                             )
+
+    # Energy
+    if V is None:
+        V = -_np.log([len(ii) for ii in cl.index_clusters])
+
+    # Generate endpoints if needed
+    if endpoints is None:
+        endpoints = _bmutils.auto_GMM_model(_np.vstack(Y)).means_
+    elif _bmutils._is_int(endpoints):
+        endpoints = _bmutils.auto_GMM_model(_np.vstack(Y), ncs=[endpoints]).means_
+    elif isinstance(endpoints, list):
+        endpoints = _np.vstack(endpoints)
+
+    # Iterate over endpoint connections
+    paths_dict = _defdict(dict)
+    for ii, jj in _np.vstack(_np.triu_indices(len(endpoints), k=1)).T:
+        # Closest points to start and end
+        start_idx = _np.sum((cl.clustercenters - endpoints[ii]) ** 2, 1).argmin()
+        end_idx =   _np.sum((cl.clustercenters - endpoints[jj]) ** 2, 1).argmin()
+
+        # Naive MEP
+        path_idxs = _bmutils.MEP_naive(cl.clustercenters, V, start_idx, end_idx, step_size=step_size)
+
+        # (file, frame) samples corresponding to this path
+        cat_smpl = cl.sample_indexes_by_cluster(path_idxs, 100)
+
+        # Translated to geometries
+        geom_smpl = _bmutils.save_traj_wrapper(MD_trajectories, _np.vstack(cat_smpl), None, top=top)
+        geom_smpl = _bmutils.re_warp(geom_smpl, [100] * len(path_idxs))
+        path_smpl, __ = _bmutils.visual_path(cat_smpl, geom_smpl,
+                                             start_pos=0,
+                                             # start_frame=istart_frame,
+                                             path_type='min_rmsd',
+                                             history_aware=True,
+                                             # selection=geom_smpl[0].top.select(minRMSD_selection)
+                                             )
+        igeom = _bmutils.save_traj_wrapper(MD_trajectories, path_smpl, None, top=top)
+
+        try:
+            paths_dict[ii][jj]["geom"] = igeom
+            paths_dict[ii][jj]["proj"] = cl.clustercenters[path_idxs]
+        except KeyError:
+            paths_dict[ii][jj] = {}
+            paths_dict[ii][jj]["geom"] = igeom
+            paths_dict[ii][jj]["proj"] = cl.clustercenters[path_idxs]
+
+        # Now the inverse path
+        try:
+            paths_dict[jj][ii]["geom"] = igeom[::-1]
+            paths_dict[jj][ii]["proj"] = cl.clustercenters[path_idxs][::-1]
+        except KeyError:
+            paths_dict[jj][ii] = {}
+            paths_dict[jj][ii]["geom"] = igeom[::-1]
+            paths_dict[jj][ii]["proj"] = cl.clustercenters[path_idxs][::-1]
+
+    return paths_dict

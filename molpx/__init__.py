@@ -3,17 +3,27 @@ r"""
 molPX - Molecular Projection Explorer
 =====================================
 """
-from __future__ import print_function
+from __future__ import print_function as _
 
 __author__ = 'gph82'
+
+# To be able to run with a development version of nglview
+# TODO PIN TO NGLVIEW 1.0 once it's released
+pre_release = '1.0.b5'
+try:
+    import nglview
+    if nglview.__version__!=pre_release:
+        raise ImportError
+except ImportError:
+    import os
+    os.system('pip install nglview==%s'%pre_release)
 
 
 from . import generate
 from . import visualize
-from .nbtools import example_notebook, _molpxdir
+from . import _bmutils
 
-
-
+from ._nbtools import example_notebooks, example_notebook, _molpxdir
 def _report_status():
     r"""
     returns a boolen whether molpx is allowed to send user metadata
@@ -92,7 +102,6 @@ def _version_check(current, testing=False):
 from ._version import get_versions
 __version__ = get_versions()['version']
 del get_versions
-
 
 # start check in background
 _version_check(__version__).start()

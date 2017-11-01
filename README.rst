@@ -20,7 +20,7 @@ At the moment the API consists of two subpackages:
 
 **TL;DR**: see molPX in action through the
 
-* :doc:`Example Jupyter Notebook </index_notebooks>`
+* :doc:`Example Jupyter Notebooks </index_notebooks>`
 
 Find more about the people behind molPX here:
 
@@ -33,7 +33,7 @@ If you can't wait to play around with molPX, and you have the `Anaconda scientif
 <https://www.continuum.io/downloads>`_ (which we strongly recommend), the easiest way to get molPX is to issue
 the `conda command <https://conda.io/docs/intro.html>`_:
 
-   >>> conda install molPX -c omnia
+   >>> conda install molpx -c omnia
 
 and jump to the Quick Start section of this document. Otherwise, check out our more exhaustive
 
@@ -51,9 +51,9 @@ Start an ``IPython`` console
 Import ``molpx`` and let the example notebook guide you
 
     >>> import molpx
-    >>> molpx.example_notebook()
+    >>> molpx.example_notebooks()
 
-Voilà: you should be looking at a jupyter notebook explaining the basic functionality of molPX
+Voilà: you should be looking at a list of jupyter notebooks explaining the basic functionality of molPX
 
 Documentation
 ==============

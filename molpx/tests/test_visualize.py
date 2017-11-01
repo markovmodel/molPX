@@ -74,7 +74,7 @@ class TestTrajInputs(unittest.TestCase):
         visualize.FES(self.metad_trajectory_files, self.ala2_topology_file, self.metad_colvar_files,
                       proj_idxs=[1,2], weights=weights)
 
-class TestCorrelationsInput(unittest.TestCase):
+class TestCorrelations_and_Feature_Input(unittest.TestCase):
 
     def setUp(self):
         self.MD_trajectory_files = glob(molpx._molpxdir(join='notebooks/data/c-alpha_centered.stride.1000*xtc'))[:1]
@@ -117,5 +117,10 @@ class TestCorrelationsInput(unittest.TestCase):
             visualize.correlations(self.tica, proj_color_list='green')
         except TypeError:
             pass
+
+    def test_feature(self):
+        plt.figure()
+        iwd = visualize.sample(self.Y[0][:10, :2], self.MD_geoms[0][:10], plt.gca())
+        visualize.feature(self.feat.active_features[0], iwd)
 if __name__ == '__main__':
     unittest.main()

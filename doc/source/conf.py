@@ -33,17 +33,24 @@ class Mock(MagicMock):
 MOCK_MODULES = ['mdtraj',
                 'pyemma.coordinates.transform',
                 'pyemma.coordinates',
+                'pyemma.coordinates.data',
                 'pyemma.plots',
                 'pyemma.util.linalg',
                 'pyemma.util.discrete_trajectories',
                 'pyemma.coordinates.data.feature_reader',
+                'pyemma.coordinates.data.featurization.featurizer',
+                'pyemma.coordinates.data.fragmented_trajectory_reader',
+                'pyemma.coordinates.data.featurization.angles',
+                'pyemma.coordinates.data.featurization',
+                'pyemma.coordinates.data.featurization.misc',
+                'pyemma.coordinates.data.featurization.distances',
                 'nglview',
                 'matplotlib',
                 'matplotlib.widgets',
                 'sklearn.mixture',
                 'scipy.spatial',
                 'six.moves.urllib.request',
-                'numpy',
+                #'numpy',
                 ]
 
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
@@ -386,6 +393,10 @@ exclude_patterns = ['_build', '**.ipynb_checkpoints']
 # This is an ugly UGLY hack that I'll get rid of sometime soon
 import shutil
 shutil.copy('../../molpx/notebooks/Projection_Explorer.ipynb', 'Projection_Explorer_Copy.ipynb')
+shutil.copy('../../molpx/notebooks/Di-Ala.ipynb',              'Di-Ala_Copy.ipynb')
+shutil.copy('../../molpx/notebooks/PyEMMA_Features.ipynb',     'PyEMMA_Features_Copy.ipynb')
+shutil.copy('../../molpx/notebooks/Di-Ala_Metadynamics.ipynb', 'Di-Ala_Metadynamics_Copy.ipynb')
+
 
 # Would force the Jupyter nb to be executed at the time of doc-construction, making sure all aoutputs are there
 # import os

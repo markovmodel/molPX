@@ -146,8 +146,11 @@ def re_warp(array_in, lengths):
 
     lengths : int or iterable of integers
         Lengths of the individual elements of the returned array. If only one int is parsed, all lengths will
-        be that int
-
+        be that int. Special cases:
+            * more lengths than needed are parsed: the last elements of the returned value are empty
+            until all lengths have been used
+            * less lengths than array_in could take: only the lenghts specified are returned in the
+            warped list, the rest is unreturned
     Returns
     -------
     warped: list
@@ -182,8 +185,8 @@ def regspace_cluster_to_target(data, n_clusters_target,
     tested:True
     """
     delta = delta/100
-
-    assert _np.vstack(data).shape[0] >= n_clusters_target, "Cannot cluster " \
+    ndim = _np.vstack(data).shape[0]
+    assert ndim >= n_clusters_target, "Cannot cluster " \
                                                       "%u datapoints on %u clustercenters. Reduce the number of target " \
                                                       "clustercenters."%(_np.vstack(data).shape[0], n_clusters_target)
     # Works well for connected, 1D-clustering,
@@ -198,7 +201,7 @@ def regspace_cluster_to_target(data, n_clusters_target,
         n_cl_now = cl.n_clusters
         delta_cl_now = _np.abs(n_cl_now - n_clusters_target)
         if not n_clusters_target-err <= cl.n_clusters <= n_clusters_target+err:
-            # Cheap (and sometimes bad) heuristic to get relatively close relatively quick
+            # Cheap (VERY BAD IN HIGH DIM) heuristic to get relatively close relatively quick
             dmin = cl.dmin*cl.n_clusters/   n_clusters_target
             cl = _cluster_regspace(data, dmin=dmin, max_centers=5000)# max_centers is given so that we never reach it (dangerous)
         else:
@@ -321,7 +324,9 @@ def min_rmsd_path(start, path_of_candidates, selection=None, history_aware=False
     return path_out
 
 def catalogues(cl, data=None, sort_by=None):
-    r""" Returns a catalogue of frames from a :obj:`pyemma.coordinates.cluster_regspace` object
+    r""" Returns the frames in catalogues form by cluster index:
+     one as list (len Ncl) of ndarrays each of shape (Ni, 2) containing pairs of (traj_idx, frame_idx) values
+     and one as lists of ndarrays of the actual (continous) data values at the (traj_idx, frame_idx)
 
     Parameters
     ----------
@@ -330,7 +335,7 @@ def catalogues(cl, data=None, sort_by=None):
 
     data : None or list, default is None
        The :obj:`cl` has its own  :obj:`cl.dataproducer.data` attribute from which it can
-       retrieve the necessary information for  the :obj:`cat_cont` (default behaviour)
+       retrieve the necessary information for  the :obj:`cat_data` (default behaviour)
        However, any other any data can be given here, **as long as the user is sure that it represents EXACTLY
        the data that was used to parametrize the :obj:`cl` object.
        Internally, the only checks that are carried out are:
@@ -353,7 +358,7 @@ def catalogues(cl, data=None, sort_by=None):
         The discrete catalogue. It is a list of len = :obj:`cl.n_clustercenters` containing a 2D vector
         with all the (file, frame)-pairs in which each clustercenter appears
 
-    cat_cont : list of ndarrays
+    cat_data : list of ndarrays
         The actual value (assumed continuous) of the data at the (file-frame)-pairs of the :obj:`cat_idxs` list
 
     tested: True
@@ -379,19 +384,29 @@ def catalogues(cl, data=None, sort_by=None):
 
     return cat_idxs, cat_cont
 
-def visual_path(cat_idxs, cat_cont, path_type='min_disp', start_pos='maxpop', start_frame=None, **path_kwargs):
+def visual_path(cat_idxs, cat_data, path_type='min_disp', start_pos='maxpop', start_frame=None, **path_kwargs):
     r""" Create a path that advances in the coordinate of interest
     # while minimizing distance in the other coordinates (minimal displacement path)
 
-    start_pos: str, defualt is 'maxpop', alternatives are 'left', 'right'
-       Where to start the path. Since the path is constructed to be visually appealing,
-       it makes sense to start the path close to the most visited value of the coordinatet. Options are
+    cat_idxs : list or np.ndarray of len(cat_data)
+        Each element of this iterable is an ndarray (N,2) whith (traj_idx, frame_idx)
+        pairs pointing towards the trajectory frames. It usually has been generated
+        using cl.sample_indexes_by_cluster.
+
+    cat_data:  iterable of length len(cat_idxs)
+        Each element of this iterable contains the data correspoding to the frames contained
+        in :py:obj:cat_idxs. At the moment, this data can be either an nd.array or an
+        :py:obj:mdtraj.Trajectory
+
+    start_pos: str or int, default is 'maxpop', alternatives are 'left', 'right'
+       Where to start the path. It refers to an index of :py:obj:cat_idxs and :py:obj:cat_data
+       Since the path is constructed to be visually appealing, it makes sense to start the path close to the most visited value of the coordinate. Options are
        'maxpop': does exactly that: Starting from the most populated value of the coordinate,
                  it creates two projection_paths, one moving forward and one moving backward.
                  These are the n and backward ('left') create a coordinate-increasing, diffusion-minimizing path from
        'left':   starts at the "left end" of the coordinate, i.e. at its minimum value, and moves forward
        'right'   starts at the "right end" of the coordinate, i.e. at its maximum value, and moves backward
-
+        int:    path from cat_idxs[start_pop] and cat_data[start_pop]
     path_type = 'min_disp' or 'minRMSD'
 
     start_frame = if the user already knows, of the start_pos index, the frame that's best
@@ -401,6 +416,12 @@ def visual_path(cat_idxs, cat_cont, path_type='min_disp', start_pos='maxpop', st
     *path_kwargs: keyword arguments for the path-choosing algorithm. See min_disp_path or min_rmsd_path for details, but
      in the meantime, these are history_aware=True or False and exclude_coords=None or [0], or [0,1] etc...
     """
+    #First sanity check
+    assert len(cat_data) == len(cat_idxs)
+    # Second sanity check
+    assert _np.all([len(icd)==len(ici) for icd, ici in zip(cat_data, cat_idxs)])
+
+
     if start_pos == 'maxpop':
        start_idx = _np.argmax([len(icat) for icat in cat_idxs])
     elif _is_int(start_pos):
@@ -412,23 +433,18 @@ def visual_path(cat_idxs, cat_cont, path_type='min_disp', start_pos='maxpop', st
         # Draw a random frame from the starting point's catalgue
         start_frame = _np.random.randint(0, high=len(cat_idxs[start_idx]))
 
-    start_fwd = cat_cont[start_idx][start_frame]
+    start_fwd = cat_data[start_idx][start_frame]
+    start_bwd = cat_data[start_idx][start_frame]
     if path_type == 'min_disp':
-       path_fwd = [start_frame]+min_disp_path(start_fwd, cat_cont[start_idx+1:], **path_kwargs)
+       path_fwd = [start_frame]+min_disp_path(start_fwd, cat_data[start_idx + 1:], **path_kwargs)
+       path_bwd = [start_frame]+min_disp_path(start_bwd, cat_data[:start_idx][::-1], **path_kwargs)
     elif path_type == 'min_rmsd':
-       path_fwd = [start_frame]+min_rmsd_path(start_fwd, cat_cont[start_idx+1:], **path_kwargs)
+       path_fwd = [start_frame]+min_rmsd_path(start_fwd, cat_data[start_idx + 1:], **path_kwargs)
+       path_bwd = [start_frame]+min_rmsd_path(start_bwd, cat_data[:start_idx][::-1], **path_kwargs)
     else:
          raise NotImplementedError(path_type)
     path_fwd = _np.vstack([cat_idxs[start_idx:][ii][idx] for ii, idx in enumerate(path_fwd)])
-    # Path backward,
     # Take the catalogue entries until :start_idx and invert them
-    start_bwd = cat_cont[start_idx][start_frame]
-    if path_type == 'min_disp':
-       path_bwd = [start_frame]+min_disp_path(start_bwd, cat_cont[:start_idx][::-1], **path_kwargs)
-    elif path_type == 'min_rmsd':
-         path_bwd = [start_frame]+min_rmsd_path(start_bwd, cat_cont[:start_idx][::-1], **path_kwargs)
-    else:
-         raise NotImplementedError(path_type)
     # Slice up to including start_idx, need a plus one
     path_bwd = _np.vstack([cat_idxs[:start_idx+1][::-1][ii][idx] for ii, idx in enumerate(path_bwd)])
     # Invert path_bwd it and exclude last frame (otherwise the most visited appears twice)
@@ -600,12 +616,17 @@ def save_traj_wrapper(traj_inp, indexes, outfile, top=None, stride=1, chunksize=
 
     return geom_smpl
 
-def minimize_rmsd2ref_in_sample(sample, ref):
-    # Candidate selection
-
+def slice_list_of_geoms_to_closest_to_ref(geom_list, ref):
+    r"""
+    For a list of md.Trajectory objects, reduce md.Trajectory in the list
+    to the frame closest to a reference
+    :param geom_list: list of md.Trajectories
+    :param ref: md.Trajectory
+    :return: md.Trajectory of n_frames = len(geom_list), oriented wrt to ref
+    """
     out_geoms = None
-    for cand_geoms in sample:
-        igeom = cand_geoms[(_np.argmin(_md.rmsd(cand_geoms, ref)))]
+    for cand_geoms in geom_list:
+        igeom = cand_geoms[_np.argmin(_md.rmsd(cand_geoms, ref))]
         if out_geoms is None:
             out_geoms = igeom
         else:
@@ -638,12 +659,12 @@ def get_ascending_coord_idx(pos, fail_if_empty=False, fail_if_more_than_one=Fals
     """
 
     idxs = _np.argwhere(_np.all(_np.diff(pos,axis=0)>0, axis=0)).squeeze()
-    if _is_int(idxs):
-        idxs = _np.array(idxs)
+    if isinstance(idxs, _np.ndarray) and idxs.ndim==0:
+        idxs = idxs[()]
     elif idxs == [] and fail_if_empty:
-        raise ValueError('No column was found in ascending order')
+            raise ValueError('No column was found in ascending order')
 
-    if idxs.ndim > 0:
+    if _np.size(idxs) > 1:
         print('Found that more than one column in ascending order %s' % idxs)
         if fail_if_more_than_one:
             raise Exception
@@ -1084,87 +1105,6 @@ def geom_list_2_geom(geom_list):
 
 
     return(geom)
-
-def auto_GMM_model(Y, ncs=_np.arange(2, 7)):
-    bics = []
-    for nc in ncs:
-        igmm = _GMM(n_components=nc)
-        igmm.fit(Y)
-        bics.append(igmm.bic(Y))
-    nc = ncs[_np.argmin(bics)]
-    if len(ncs) > 1:
-        igmm = _GMM(n_components=nc)
-        igmm.fit(Y)
-
-    return igmm
-
-def MEP_naive(euc_points, V, start_idx, end_idx, step_size=10, allow_jumps=True):
-    r"""
-    return the indices of a path that connects the start and end points miniminzing the energy
-
-    Parameters
-    ----------
-
-    euc_points : np.ndarray of shape (n, m)
-        n points of dimension m in euclidean space that the path can consist of
-
-    V : iterable of floats of len(n)
-        energy value for each of the points in :py:obj:`euc_points`
-
-    start_idx : int
-        where the path is supossed to start
-
-    end_idx : int
-        where the path is supossed to end
-
-    step_size : int, default is 10
-        parameter of the method, something like the radius of the hypershpere around the current path point
-        for next-step search
-    """
-
-    from scipy.spatial.distance import pdist, squareform
-
-    assert _np.ndim(euc_points) == 2
-    assert len(V) == euc_points.shape[0], (len(V), euc_points.shape)
-
-    # Distance matrix with infinity in the diagonal
-    D = squareform(pdist(euc_points)) + _np.diag(_np.ones(euc_points.shape[0]) + _np.inf)
-
-    imax = 1000
-    path = [start_idx]
-
-    for ii in range(imax):
-        # Update actual distance to final step
-        d2end = D[path[-1], end_idx]
-
-        # Closest candidates
-        cands = D[path[-1]].argsort()[:step_size]
-        if end_idx in cands:
-            path.append(end_idx)
-            break
-        # print(ii, ":", path[-1], cands, end_idx, end_idx in cands)
-
-        # Take those who reduce the distance (advanced cands) and have note yet been selected
-        cands = [ii for ii in cands if D[end_idx][ii] <= d2end and ii not in path]
-
-        # Take the one with the minimum energy among the advanced cands
-        try:
-            path.append(cands[_np.argmin([V[ii] for ii in cands])])
-        except ValueError:
-            if allow_jumps:
-                cands = [ii for ii in D[path[-1]].argsort()]  # Don't use step_size
-                cands = [ii for ii in cands if ii not in path]  # Do not revisit
-                cands = [ii for ii in cands if D[ii, end_idx] < d2end]  # Go fwd
-                cands = [ii for ii in cands if D[ii, start_idx] > D[path[-1], start_idx]]  # Don't go bckwd
-                path.append(cands[0])
-            else:
-                print("Path interrupted because of need to jump.\n", \
-                      "Please inspect this result and decide for larger step_size or simply allowing for jumps")
-                break
-
-        if end_idx == path[-1]:
-            break
-    return path
 
 def labelize(proj_labels, proj_idxs):
     r"""

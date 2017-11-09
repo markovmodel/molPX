@@ -9,7 +9,7 @@ import numpy as np
 import shutil
 import molpx
 from glob import glob
-from molpx import visualize
+from molpx import visualize, _bmutils
 import mdtraj as md
 import matplotlib.pyplot as plt
 plt.switch_backend('Agg') # allow tests
@@ -58,7 +58,6 @@ class TestTrajInputs(unittest.TestCase):
 
     def test_listify_params(self):
         visualize.traj(self.MD_geoms, self.MD_top, self.Y, proj_idxs=1)
-        visualize.traj(self.MD_geoms, self.MD_top, self.Y, active_traj=1)
 
     def test_plotting_params(self):
         visualize.traj(self.MD_geoms, self.MD_top, self.Y, sharey_traj=True)
@@ -73,6 +72,36 @@ class TestTrajInputs(unittest.TestCase):
         weights = [np.exp(np.loadtxt(iw)[:,7]) for iw in self.metad_colvar_files]
         visualize.FES(self.metad_trajectory_files, self.ala2_topology_file, self.metad_colvar_files,
                       proj_idxs=[1,2], weights=weights)
+
+def test_colors():
+    _bmutils.matplotlib_colors_no_blue()
+
+class TestSample(unittest.TestCase):
+
+    def setUp(self):
+        self.MD_trajectory_files = glob(molpx._molpxdir(join='notebooks/data/c-alpha_centered.stride.1000*xtc'))[:1]
+        self.MD_topology_file = molpx._molpxdir(join='notebooks/data/bpti-c-alpha_centered.pdb')
+        self.MD_geoms = [md.load(ff, top=self.MD_topology_file) for ff in self.MD_trajectory_files]
+        self.MD_top = self.MD_geoms[0].topology
+        self.tempdir = tempfile.mkdtemp('test_molpx')
+        self.projected_files = [os.path.join(self.tempdir, 'Y.%u.npy' % ii) for ii in
+                                range(len(self.MD_trajectory_files))]
+        self.feat = pyemma.coordinates.featurizer(self.MD_topology_file)
+        self.feat.add_all()
+        source = pyemma.coordinates.source(self.MD_trajectory_files, features=self.feat)
+        self.tica = pyemma.coordinates.tica(source, lag=1, dim=10)
+        self.pca = pyemma.coordinates.pca(source)
+        self.Y = self.tica.get_output()
+        self.F = source.get_output()
+        [np.save(ifile, iY) for ifile, iY in zip(self.projected_files, self.Y)]
+        [np.savetxt(ifile.replace('.npy', '.dat'), iY) for ifile, iY in zip(self.projected_files, self.Y)]
+
+    def tearDown(self):
+        shutil.rmtree(self.tempdir)
+
+    def test_sample(self):
+        pass
+        #visualize.sample()
 
 class TestCorrelations_and_Feature_Input(unittest.TestCase):
 

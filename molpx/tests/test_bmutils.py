@@ -9,6 +9,33 @@ import shutil
 from molpx import _bmutils
 import mdtraj as md
 
+class TestWithBPTIData(unittest.TestCase):
+    r"""
+    A class that contains all the TestCase with the MD info
+    """
+    @classmethod
+    def setUpClass(self):
+        #super(TestWithBPTIData, self).__init__()
+
+        self.MD_trajectory_file = os.path.join(pyemma.__path__[0], 'coordinates/tests/data/bpti_mini.xtc')
+        self.MD_topology = os.path.join(pyemma.__path__[0], 'coordinates/tests/data/bpti_ca.pdb')
+        self.MD_trajectory = md.load(self.MD_trajectory_file, top=self.MD_topology)
+        self.xyz_flat = self.MD_trajectory.xyz.squeeze().reshape(self.MD_trajectory.n_frames, -1)
+        self.tempdir = tempfile.mkdtemp('test_molpx')
+        self.projected_file = os.path.join(self.tempdir, 'Y.npy')
+        self.feat = pyemma.coordinates.featurizer(self.MD_topology)
+        self.feat.add_all()
+        source = pyemma.coordinates.source(self.MD_trajectory_file, features=self.feat)
+        self.tica = pyemma.coordinates.tica(source, lag=1, dim=2)
+        self.Y = self.tica.get_output()[0]
+        self.F = source.get_output()
+        np.save(self.projected_file, self.Y)
+        np.savetxt(self.projected_file.replace('.npy', '.dat'), self.Y)
+
+    @classmethod
+    def tearDownClass(self):
+        shutil.rmtree(self.tempdir)
+
 class TestReadingInput(unittest.TestCase):
 
     def setUp(self):
@@ -37,6 +64,12 @@ class TestReadingInput(unittest.TestCase):
         Ys = _bmutils.data_from_input([self.projected_file,
                                        self.projected_file])
         assert np.all([np.allclose(self.Y, iY) for iY in Ys])
+
+    def test_data_from_input_throws_exception(self):
+        try:
+            _bmutils.data_from_input(np.random.randn(1000))
+        except ValueError:
+            pass
 
     def test_data_from_input_ascii(self):
         # Just one string
@@ -189,13 +222,18 @@ class TestClusteringAndCatalogues(unittest.TestCase):
     def test_cluster_to_target(self):
         n_target = 15
         data = [np.random.randn(100, 1), np.random.randn(100,1)+10]
-        cl = _bmutils.regspace_cluster_to_target(data, n_target, n_try_max=10, delta=0)
+        cl = _bmutils.regspace_cluster_to_target(data, n_target, n_try_max=10, delta=0, verbose=True)
         assert n_target - 1 <= cl.n_clusters <= n_target + 1
 
     def test_catalogues(self):
         cl = _bmutils.regspace_cluster_to_target(self.data_for_cluster, 3, n_try_max=10, delta=0)
         #print(cl.clustercenters)
         cat_idxs, cat_cont = _bmutils.catalogues(cl)
+
+        # Shape testing
+        assert len(cat_idxs) == len(cat_cont)
+        for iter1, iter2 in zip(cat_idxs, cat_cont):
+            assert len(iter1)==len(iter2)
 
         # This test is extra, since this is a pure pyemma functions
         assert np.allclose(cat_idxs[0], [[0,0], [0,1], [0,2],
@@ -220,6 +258,41 @@ class TestClusteringAndCatalogues(unittest.TestCase):
                                          [11, 2],
                                          [12, 2],
                                          [13, 2]])
+
+    def test_catalogues_with_data(self):
+        cl = _bmutils.regspace_cluster_to_target(self.data_for_cluster, 3, n_try_max=10, delta=0)
+        #print(cl.clustercenters)
+        cat_idxs, cat_cont = _bmutils.catalogues(cl, data=self.data_for_cluster)
+
+        # Shape testing
+        assert len(cat_idxs) == len(cat_cont)
+        for iter1, iter2 in zip(cat_idxs, cat_cont):
+            assert len(iter1)==len(iter2)
+
+        # This test is extra, since this is a pure pyemma functions
+        assert np.allclose(cat_idxs[0], [[0,0], [0,1], [0,2],
+                                         [3,0], [3,2], [3,4]
+                                         ])
+        assert np.allclose(cat_idxs[1], [[1,0]])
+        assert np.allclose(cat_idxs[2], [[2,0], [2,1], [2,2],
+                                         [3,1], [3,3], [3,5],
+                                         ])
+
+        # Continous catalogue
+        assert np.allclose(cat_cont[0], [[1, 3],
+                                         [2, 3],
+                                         [3, 3],
+                                         [1, 3],
+                                         [2, 3],
+                                         [3, 3],])
+        assert np.allclose(cat_cont[1], [[17,1]])
+        assert np.allclose(cat_cont[2], [[11, 2],
+                                         [12, 2],
+                                         [13, 3],
+                                         [11, 2],
+                                         [12, 2],
+                                         [13, 2]])
+
 
     def test_catalogues_sort_by_zero(self):
         cl = _bmutils.regspace_cluster_to_target(self.data_for_cluster, 3, n_try_max=10, delta=0)
@@ -283,6 +356,30 @@ class TestClusteringAndCatalogues(unittest.TestCase):
                                          [12, 2],
                                          [13, 2]])
 
+class TestReWarp(unittest.TestCase):
+
+    def setUp(self):
+        self.ref = [0,1,2,3,4,5,6,7,8,9,10]
+
+    def test_warp_to_int(self):
+        warped = _bmutils.re_warp(self.ref, 4)
+
+        assert np.allclose(warped[0], [0,1,2,3])
+        assert np.allclose(warped[1], [4, 5, 6, 7])
+        assert np.allclose(warped[2], [8, 9, 10])
+
+    def test_warp_to_longer_seq(self):
+        warped = _bmutils.re_warp(self.ref, [2,3,5,4,4])
+        assert np.allclose(warped[0],[0,1])
+        assert np.allclose(warped[1],[2,3, 4])
+        assert np.allclose(warped[2],[5,6,7,8,9])
+        assert np.allclose(warped[3], [10])
+        assert np.allclose(warped[4], [])
+
+    def test_warp_to_shorter_seq(self):
+        warped = _bmutils.re_warp(self.ref, [1])
+        assert np.allclose(warped[0], self.ref[0])
+        assert len(warped)==1
 
 class TestGetGoodStartingPoint(unittest.TestCase):
 
@@ -309,6 +406,13 @@ class TestGetGoodStartingPoint(unittest.TestCase):
         self.cat_smpl = self.cl.sample_indexes_by_cluster(np.arange(self.cl.n_clusters), n_geom_samples)
         self.geom_smpl = self.traj[np.vstack(self.cat_smpl)[:,1]]
         self.geom_smpl = _bmutils.re_warp(self.geom_smpl, [n_geom_samples] * self.cl.n_clusters)
+
+
+    def test_throws_exception(self):
+        try:
+            start_idx = _bmutils.get_good_starting_point(self.cl, self.geom_smpl, strategy="what?")
+        except NotImplementedError:
+            pass
 
     # This test doesn't exactly belong here but this is the best class for now
     def test_find_centers_GMM(self):
@@ -379,6 +483,41 @@ class TestGetGoodStartingPoint(unittest.TestCase):
 
     # The rest of strategies do not need a test, since ordering does not play a role in them
 
+class TestVisualPath(TestWithBPTIData):
+
+    @classmethod
+    def setUpClass(self):
+        TestWithBPTIData.setUpClass()
+        n_sample = 20
+        self.cl_cont = _bmutils.regspace_cluster_to_target([self.xyz_flat[:, :2]], n_sample, verbose=True, n_try_max=10,
+                                                           #delta=0
+                                                           )
+        self.cat_idxs, self.cat_data = _bmutils.catalogues(self.cl_cont)
+
+        # This is a bogus catalogue:
+        self.cat_data_md = [self.MD_trajectory[icat[:,1]] for icat in self.cat_idxs]
+
+    def test_just_works_data(self):
+        _bmutils.visual_path(self.cat_idxs, self.cat_data)
+        #_bmutils.visual_path(self.cat_idxs, self.cat_data, path_type="min_rmsd")
+
+    def test_just_works_data_md(self):
+        _bmutils.visual_path(self.cat_idxs, self.cat_data_md,path_type="min_rmsd")
+
+    def test_input_parsing(self):
+        _bmutils.visual_path(self.cat_idxs, self.cat_data, start_pos="maxpop")
+        _bmutils.visual_path(self.cat_idxs, self.cat_data, start_pos=1)
+
+        # Not implemented Errors
+        try:
+            _bmutils.visual_path(self.cat_idxs, self.cat_data, start_pos="other")
+        except NotImplementedError:
+            pass
+        try:
+            _bmutils.visual_path(self.cat_idxs, self.cat_data, path_type="xxxx")
+        except NotImplementedError:
+            pass
+
 class TestMinDispPaths(unittest.TestCase):
 
     def setUp(self):
@@ -422,12 +561,52 @@ class TestMinDispPaths(unittest.TestCase):
         path = _bmutils.min_disp_path(self.start, self.path_of_candidates, history_aware=True)
         assert np.allclose(path, [0, 1, 2, 2]), path
 
+class TestSliceListOfGeoms(unittest.TestCase):
+
+    def setUp(self):
+        self.topology = os.path.join(pyemma.__path__[0],'coordinates/tests/data/bpti_ca.pdb')
+        self.ref_frame = 4
+        self.MD_trajectory = md.load(os.path.join(pyemma.__path__[0],
+                                                  'coordinates/tests/data/bpti_mini.xtc'),
+                                     top=self.topology)
+    def test_slice(self):
+        geom_list = [self.MD_trajectory,
+                     self.MD_trajectory[::-1]]
+
+        equal_to_ref_frames = _bmutils.slice_list_of_geoms_to_closest_to_ref(geom_list, self.MD_trajectory[self.ref_frame])
+        rmsd_to_ref_should_be_zero = md.rmsd(equal_to_ref_frames, self.MD_trajectory[self.ref_frame])
+        assert np.allclose(rmsd_to_ref_should_be_zero, [0, 0]), rmsd_to_ref_should_be_zero
+
+class TestGetAscendingCoordIdx(unittest.TestCase):
+
+    def setUp(self):
+        self.data = np.zeros((100, 4))
+        self.data[:,0] = np.arange(100)
+        self.data[:,1] = np.arange(100)[::-1]
+        self.data[:,2] = np.random.randn(100)
+        self.data[:,3] = np.linspace(0, 50, num=100)
+    def test_it_works(self):
+        assert np.allclose([0], _bmutils.get_ascending_coord_idx(self.data[:,:-1]))
+    def test_empty_no_fail(self):
+
+        result = _bmutils.get_ascending_coord_idx(self.data[:,[1,2]], fail_if_empty=False)
+        assert len(result)==0
+    def test_empty_fail(self):
+        try:
+            _bmutils.get_ascending_coord_idx(self.data[:, 1:], fail_if_empty=True)
+        except ValueError:
+            pass
+    def test_more_than_one_fails(self):
+        try:
+            _bmutils.get_ascending_coord_idx(self.data[:, :], fail_if_more_than_one=True)
+        except:
+            pass
+
 class TestMinRmsdPaths(unittest.TestCase):
 
     def setUp(self):
         self.topology = os.path.join(pyemma.__path__[0],'coordinates/tests/data/bpti_ca.pdb')
         self.reftraj = md.load(self.topology)
-        pass
 
     def test_find_buried_best_candidate(self):
         n_cands = 20
@@ -523,6 +702,24 @@ class TestMinRmsdPaths(unittest.TestCase):
                                                                              "random frames with the selected atoms as reference buried"
                                                                              "in totally random coordinates:\n %s \nvs\n%s"%(frames_random_w_sel_untouched, inferred_frames))
 
+    def test_history_aware_just_works(self):
+        n_cands = 20
+        path_length = 50
+        # Create a path of candidates that's just perturbed versions of the same geometry
+        xyz = [np.reshape([self.reftraj.xyz[0] + np.random.randn(self.reftraj.n_atoms, 3) for ii in range(n_cands)],
+                          (n_cands, self.reftraj.n_atoms, 3)) for jj in range(path_length)]
+
+        # Now "bury" the true geometry somewhere in these candidates
+        frames_where_actual_geometry_is = np.random.randint(0, high=n_cands, size=path_length)
+        for pp, ff in enumerate(frames_where_actual_geometry_is):
+            xyz[pp][ff, :, :] = self.reftraj.xyz
+        # Create the path of candidates as mdtraj objects
+        path_of_candidates = [md.Trajectory(ixyz, topology=self.reftraj.top) for ixyz in xyz]
+
+        # Let mirmsd_path find these frames for you
+        inferred_frames = _bmutils.min_rmsd_path(self.reftraj, path_of_candidates, history_aware=True)
+
+        assert np.allclose(frames_where_actual_geometry_is, inferred_frames)
 
 class TestSmoothingFunctions(unittest.TestCase):
 
@@ -618,7 +815,7 @@ class TestSmoothingFunctions(unittest.TestCase):
         # This geometry is harder to do
         xyz = [self.traj.xyz[0] + np.ones((2, 3)) * ii**2 for ii in range(10)]
         self.traj = md.Trajectory(xyz, self.traj.top)
-        print(self.traj.xyz)
+        #print(self.traj.xyz)
 
 class TestListTransposeGeomList(unittest.TestCase):
 

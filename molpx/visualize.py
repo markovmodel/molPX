@@ -15,9 +15,7 @@ from . import _linkutils
 from matplotlib import pylab as _plt, rcParams as _rcParams
 import nglview as _nglview
 import mdtraj as _md
-from ipywidgets import HBox as _HBox, VBox as _VBox, Label as _Label, Layout as _Layout, Button as _Button
-
-
+from ipywidgets import VBox as _VBox, Layout as _Layout, Button as _Button
 
 # All calls to nglview call actually this function
 def _nglwidget_wrapper(geom, mock=True, ngl_wdg=None, n_small=10):

@@ -639,3 +639,209 @@ def _project_dict(project_dict,
     iwd = sample(path, geom, _plt.gca(), plot_path=False, clear_lines=False)
 
     return iwd
+
+def MEP_naive(euc_points, V, start_idx, end_idx, step_size=10, allow_jumps=True):
+    r"""
+    return the indices of a path that connects the start and end points miniminzing the energy
+
+    Parameters
+    ----------
+
+    euc_points : np.ndarray of shape (n, m)
+        n points of dimension m in euclidean space that the path can consist of
+
+    V : iterable of floats of len(n)
+        energy value for each of the points in :py:obj:`euc_points`
+
+    start_idx : int
+        where the path is supossed to start
+
+    end_idx : int
+        where the path is supossed to end
+
+    step_size : int, default is 10
+        parameter of the method, something like the radius of the hypershpere around the current path point
+        for next-step search
+    """
+
+    from scipy.spatial.distance import pdist, squareform
+
+    assert _np.ndim(euc_points) == 2
+    assert len(V) == euc_points.shape[0], (len(V), euc_points.shape)
+
+    # Distance matrix with infinity in the diagonal
+    D = squareform(pdist(euc_points)) + _np.diag(_np.ones(euc_points.shape[0]) + _np.inf)
+
+    imax = 1000
+    path = [start_idx]
+
+    for ii in range(imax):
+        # Update actual distance to final step
+        d2end = D[path[-1], end_idx]
+
+        # Closest candidates
+        cands = D[path[-1]].argsort()[:step_size]
+        if end_idx in cands:
+            path.append(end_idx)
+            break
+        # print(ii, ":", path[-1], cands, end_idx, end_idx in cands)
+
+        # Take those who reduce the distance (advanced cands) and have note yet been selected
+        cands = [ii for ii in cands if D[end_idx][ii] <= d2end and ii not in path]
+
+        # Take the one with the minimum energy among the advanced cands
+        try:
+            path.append(cands[_np.argmin([V[ii] for ii in cands])])
+        except ValueError:
+            if allow_jumps:
+                cands = [ii for ii in D[path[-1]].argsort()]  # Don't use step_size
+                cands = [ii for ii in cands if ii not in path]  # Do not revisit
+                cands = [ii for ii in cands if D[ii, end_idx] < d2end]  # Go fwd
+                cands = [ii for ii in cands if D[ii, start_idx] > D[path[-1], start_idx]]  # Don't go bckwd
+                path.append(cands[0])
+            else:
+                print("Path interrupted because of need to jump.\n", \
+                      "Please inspect this result and decide for larger step_size or simply allowing for jumps")
+                break
+
+        if end_idx == path[-1]:
+            break
+    return path
+
+
+def MEP_auto(Y, MD_trajectories, V=None,
+             resolution=1000, step_size=100, endpoints=None, top=None
+             ):
+    # TODO document
+
+    # Cluster
+    cl = _bmutils.regspace_cluster_to_target(Y, resolution, n_try_max=10,
+                                             #verbose=True
+                                             )
+
+    # Energy
+    if V is None:
+        V = -_np.log([len(ii) for ii in cl.index_clusters])
+
+    # Generate endpoints if needed
+    if endpoints is None:
+        endpoints = _bmutils.auto_GMM_model(_np.vstack(Y)).means_
+    elif _bmutils._is_int(endpoints):
+        endpoints = _bmutils.auto_GMM_model(_np.vstack(Y), ncs=[endpoints]).means_
+    elif isinstance(endpoints, list):
+        endpoints = _np.vstack(endpoints)
+
+    # Iterate over endpoint connections
+    paths_dict = _defdict(dict)
+    for ii, jj in _np.vstack(_np.triu_indices(len(endpoints), k=1)).T:
+        # Closest points to start and end
+        start_idx = _np.sum((cl.clustercenters - endpoints[ii]) ** 2, 1).argmin()
+        end_idx =   _np.sum((cl.clustercenters - endpoints[jj]) ** 2, 1).argmin()
+
+        # Naive MEP
+        path_idxs = _bmutils.MEP_naive(cl.clustercenters, V, start_idx, end_idx, step_size=step_size)
+
+        # (file, frame) samples corresponding to this path
+        cat_smpl = cl.sample_indexes_by_cluster(path_idxs, 100)
+
+        # Translated to geometries
+        geom_smpl = _bmutils.save_traj_wrapper(MD_trajectories, _np.vstack(cat_smpl), None, top=top)
+        geom_smpl = _bmutils.re_warp(geom_smpl, [100] * len(path_idxs))
+        path_smpl, __ = _bmutils.visual_path(cat_smpl, geom_smpl,
+                                             start_pos=0,
+                                             # start_frame=istart_frame,
+                                             path_type='min_rmsd',
+                                             history_aware=True,
+                                             # selection=geom_smpl[0].top.select(minRMSD_selection)
+                                             )
+        igeom = _bmutils.save_traj_wrapper(MD_trajectories, path_smpl, None, top=top)
+
+        try:
+            paths_dict[ii][jj]["geom"] = igeom
+            paths_dict[ii][jj]["proj"] = cl.clustercenters[path_idxs]
+        except KeyError:
+            paths_dict[ii][jj] = {}
+            paths_dict[ii][jj]["geom"] = igeom
+            paths_dict[ii][jj]["proj"] = cl.clustercenters[path_idxs]
+
+        # Now the inverse path
+        try:
+            paths_dict[jj][ii]["geom"] = igeom[::-1]
+            paths_dict[jj][ii]["proj"] = cl.clustercenters[path_idxs][::-1]
+        except KeyError:
+            paths_dict[jj][ii] = {}
+            paths_dict[jj][ii]["geom"] = igeom[::-1]
+            paths_dict[jj][ii]["proj"] = cl.clustercenters[path_idxs][::-1]
+
+    return paths_dict
+
+def auto_GMM_model(Y, ncs=_np.arange(2, 7)):
+    bics = []
+    for nc in ncs:
+        igmm = _GMM(n_components=nc)
+        igmm.fit(Y)
+        bics.append(igmm.bic(Y))
+    nc = ncs[_np.argmin(bics)]
+    if len(ncs) > 1:
+        igmm = _GMM(n_components=nc)
+        igmm.fit(Y)
+
+    return igmm
+
+def example_notebook(extra_flags_as_one_string=None, nb_file='Projection_Explorer.ipynb', just_show_available_nbs=False):
+    r"""
+    Open the example notebook in the default browser. The ipython terminal stays active while the notebook is still active.
+    Ctr+C in the ipython terminal will close the notebook.
+
+    Note: The displayed notebook is a working copy of the original notebook. Feel free to mess around with it
+
+    Parameters
+    ----------
+
+    extra_flags_as_one_string : str
+        Any flags you would parse along to the "jupyter notebook" command, like --no-browser etc
+
+    nb_file : str, default is "Projection_Explorer.ipynb"
+        The notebook file that will be opened. If you want to choose from other notebooks, set
+         :py:obj:`just_show_available_nbs` to True
+
+    just_show_available_nbs` : bool, default is False
+        Show a list of available notebooks and exit.
+    """
+
+    # TODO create deprecation annotator?
+    _warnings.warn('molpx.example_notebooks will be deprecated in future releases. Use molpx.example_notebooks() instead.')
+    sleep(5)
+
+    if just_show_available_nbs:
+        print("List of available notebooks found in molpx's notebook directory %s"%_molpxdir(join='notebooks/'))
+        print("You can use any of them as 'nb_file' to open them in a safe environment")
+        for ff in glob(_molpxdir(join='notebooks/*.ipynb')):
+            print('* %s'%ff.replace(_molpxdir(join='notebooks/'),''))
+        return
+
+    from IPython.terminal.interactiveshell import TerminalInteractiveShell
+    origfile = _molpxdir('notebooks/%s'%nb_file)
+
+
+    with TemporaryDirectory(suffix='_test_molpx_notebook') as tmpdir:
+        tmpfile = _os.path.abspath(_os.path.join(tmpdir, nb_file))
+        shutil.copy(origfile, tmpfile)
+
+        nbstring = open(tmpfile).read()
+        f = open(tmpfile,'w')
+        f.write(nbstring.replace("# ", "<font color='red', size=1>"
+                                       "This is a temporary copy of the original notebook found in `%s`. "
+                                       "This temporary copy is located in `%s`. "
+                                       "Feel free to play around, modify or even break this notebook. "
+                                       "It wil be deleted on exit it and a new one created next time you issue "
+                                       "`molpx.example_notebooks()`</font>\\n\\n"
+                                       "# "
+                                 %(origfile, tmpfile),1))
+        f.close()
+        cmd = 'jupyter notebook %s'%tmpfile
+        if isinstance(extra_flags_as_one_string,str):
+            cmd ='%s %s'%(cmd,extra_flags_as_one_string)
+
+        eshell = TerminalInteractiveShell()
+        eshell.system_raw(cmd)

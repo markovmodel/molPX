@@ -24,7 +24,7 @@ from . import generate
 from . import visualize
 from . import _bmutils
 
-from ._nbtools import example_notebooks, example_notebook, _molpxdir
+from ._nbtools import example_notebooks, _molpxdir
 def _report_status():
     r"""
     returns a boolen whether molpx is allowed to send user metadata

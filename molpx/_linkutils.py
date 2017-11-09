@@ -6,10 +6,6 @@ from matplotlib.colors import is_color_like as _is_color_like
 from matplotlib.axes import Axes as _mplAxes
 from matplotlib.figure import Figure as _mplFigure
 from IPython.display import display as _ipydisplay
-try:
-    from sklearn.mixture import GaussianMixture as _GMM
-except ImportError:
-    from sklearn.mixture import GMM as _GMM
 
 from pyemma.util.types import is_int as _is_int
 from scipy.spatial import cKDTree as _cKDTree
@@ -134,6 +130,19 @@ class ClickOnAxisListener(object):
                 self.ngl_wdg.frame = index
 
 class MolPXBox(object):
+    r"""
+    Class created to be the parent class of MolPXHBox and MolPXVBox, which inherit from
+    MolPXBox and the ipywidget classes HBox and VBox (*args and **kwargs are for these)
+
+    The sole purpose of this class is to  avoid monkey-patching elsewhere in the code,
+     this class creates them as empty lists on instantiation.
+
+    It also implements two methods:
+
+    * self.display (=IPython.display(self)
+
+    * append_if_existing
+    """
     def __init__(self, *args, **kwargs):
         self.linked_axes = []
         self.linked_mdgeoms = []
@@ -146,9 +155,11 @@ class MolPXBox(object):
         _ipydisplay(self)
 
     def append_if_existing(self, args0, startswith_arg="linked_"):
-        # args0  is the tuple containing all widgets to be included in the MolPXBox
-        # this tuple can contain itself other MolPXWidget
-        # so we iterate through them and appending linked stuff
+        r"""
+        args0  is the tuple containing all widgets to be included in the MolPXBox
+        this tuple can contain itself other MolPXWidget
+        so we iterate through them and appending linked stuff
+        """
         for iarg in args0:
             for attrname in dir(iarg):
                 if attrname.startswith(startswith_arg) and len(iarg.__dict__[attrname]) != 0:

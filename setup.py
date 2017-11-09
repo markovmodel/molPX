@@ -16,7 +16,8 @@ setup(name='molPX',
           'molpx.tests'
       ],
       install_requires=[
-          'nglview>=1',
+          'nglview>=0.6.2.2',
+          'ipywidgets>=5.2.2',
           'pyemma',
           'scikit-learn',
           'notebook',

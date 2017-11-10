@@ -7,19 +7,6 @@ from __future__ import print_function as _
 
 __author__ = 'gph82'
 
-# To be able to run with a development version of nglview
-# TODO PIN TO NGLVIEW 1.0 once it's released
-pre_release = '1.0'
-from distutils.version import LooseVersion
-try:
-    import nglview
-    if LooseVersion(nglview.__version__) < LooseVersion(pre_release):
-        raise ImportError
-except ImportError:
-    import os
-    os.system('pip install nglview==%s'%pre_release)
-
-
 from . import generate
 from . import visualize
 from . import _bmutils

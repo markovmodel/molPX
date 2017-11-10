@@ -4,12 +4,18 @@ import unittest
 import os
 import numpy as np
 import molpx
-
+from subprocess import TimeoutExpired
 class TestNbtools(unittest.TestCase):
 
     def test_example_notebooks(self):
-        molpx.example_notebooks(dry_run=False, timeout=30)
-        molpx.example_notebooks(dry_run=False, extra_flags_as_one_string="--no-browser", timeout=30)
+        try:
+            molpx.example_notebooks(dry_run=False, timeout=30)
+        except TimeoutExpired:
+            pass
+        try:
+            molpx.example_notebooks(dry_run=False, extra_flags_as_one_string="--no-browser", timeout=30)
+        except TimeoutExpired:
+            pass
 
     def test_example_notebooks_dry(self):
         molpx.example_notebooks(dry_run=True)

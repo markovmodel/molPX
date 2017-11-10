@@ -45,10 +45,10 @@ MOCK_MODULES = ['mdtraj',
                 'pyemma.coordinates.data.featurization.misc',
                 'pyemma.coordinates.data.featurization.distances',
                 'nglview',
-                'matplotlib',
-                'matplotlib.widgets',
+                #'matplotlib',
+                #'matplotlib.widgets',
                 'sklearn.mixture',
-                'scipy.spatial',
+                #'scipy.spatial',
                 'six.moves.urllib.request',
                 #'numpy',
                 ]
@@ -380,7 +380,7 @@ texinfo_documents = [
 # Example configuration for intersphinx: refer to the Python standard library.
 #intersphinx_mapping = {'https://docs.python.org/': None, 
 intersphinx_mapping = {'pyemma': ('http://www.emma-project.org/latest/', None),
-                       'mdtraj': ('http://mdtraj.org/1.8.0/', None),
+                       'mdtraj': ('http://mdtraj.org/latest/', None),
                        'pylab' : ('http://matplotlib.org/api/', None),
                        'nglview' : ('http://arose.github.io/nglview/latest/', None)
 }
@@ -391,12 +391,23 @@ autosummary_generate = True
 exclude_patterns = ['_build', '**.ipynb_checkpoints']
 
 # This is an ugly UGLY hack that I'll get rid of sometime soon
+import os
 import shutil
-shutil.copy('../../molpx/notebooks/Projection_Explorer.ipynb', 'Projection_Explorer_Copy.ipynb')
-shutil.copy('../../molpx/notebooks/Di-Ala.ipynb',              'Di-Ala_Copy.ipynb')
-shutil.copy('../../molpx/notebooks/PyEMMA_Features.ipynb',     'PyEMMA_Features_Copy.ipynb')
-shutil.copy('../../molpx/notebooks/Di-Ala_Metadynamics.ipynb', 'Di-Ala_Metadynamics_Copy.ipynb')
-
+nbfiles = [
+    '0.molPX_quick_intro_Ala2.ipynb',
+    '1.molPX_and_PyEMMA_Features.ipynb',
+    '2.molPX_TICA_BPTI.ipynb',
+    '3.molPX_TICA_Ala2.ipynb',
+    '4.molPX_metadynamics_Di-Ala.ipynb'
+]
+for ifile in nbfiles:
+    ifilecopy = ifile.replace(".ipynb", "_Copy.ipynb")
+    ifile     = os.path.join('../../molpx/notebooks',ifile)
+    if not os.path.exists(ifilecopy):
+        shutil.copy(ifile, ifilecopy)
+    else:
+        if os.path.getmtime(ifile) > os.path.getmtime(ifilecopy):
+            shutil.copy(ifile, ifilecopy)
 
 # Would force the Jupyter nb to be executed at the time of doc-construction, making sure all aoutputs are there
 # import os

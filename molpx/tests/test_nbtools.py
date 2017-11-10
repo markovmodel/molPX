@@ -4,13 +4,19 @@ import unittest
 import os
 import numpy as np
 import molpx
+from threading import Timer
+import _thread
+import sys
 
 class TestNbtools(unittest.TestCase):
 
     def test_example_notebooks(self):
-        molpx.example_notebooks(dry_run=False)
-        molpx.example_notebooks(dry_run=False, extra_flags_as_one_string="--no-browser")
-
+        Timer(20, sys.exit).start() # Interrupt after 20 s
+        try:
+            molpx.example_notebooks(dry_run=False)
+        except SystemExit:
+            pass
+        #molpx.example_notebooks(dry_run=False, extra_flags_as_one_string="--no-browser")
 
     def test_example_notebooks_dry(self):
         molpx.example_notebooks(dry_run=True)

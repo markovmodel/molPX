@@ -6,6 +6,7 @@ import sys as _sys
 from glob import glob
 from inspect import getfile
 import shutil
+import subprocess
 
 from tempfile import mkdtemp
 
@@ -112,7 +113,7 @@ class TemporaryDirectory(object):
         except OSError:
             pass
 
-def example_notebooks(dry_run=False, extra_flags_as_one_string=None):
+def example_notebooks(dry_run=False, extra_flags_as_one_string=None, **kwargs_subprocess):
     r"""
     Open the list of available example notebooks in the default browser.
     The ipython terminal stays active while ipython kernel still active.
@@ -129,6 +130,8 @@ def example_notebooks(dry_run=False, extra_flags_as_one_string=None):
     extra_flags_as_one_string : str
         Any flags you would parse along to the "jupyter notebook" command, like --no-browser etc
 
+    **kwargs_subprocess: named arguments for the subprocess call.
+        You can ignore this safely, this makes testing possible
     """
     avail_nbs = glob(_molpxdir(join='notebooks/*.ipynb'))
     if dry_run:
@@ -137,9 +140,6 @@ def example_notebooks(dry_run=False, extra_flags_as_one_string=None):
         for ff in avail_nbs:
             print('* %s'%_os.path.basename(ff))
         return
-
-    from IPython.terminal.interactiveshell import TerminalInteractiveShell
-
 
     with TemporaryDirectory(suffix='_test_molpx_notebook') as tmpdir:
         for nb_file in avail_nbs:
@@ -163,8 +163,7 @@ def example_notebooks(dry_run=False, extra_flags_as_one_string=None):
             cmd ='%s %s'%(cmd,extra_flags_as_one_string)
 
         try:
-            eshell = TerminalInteractiveShell()
-            eshell.system_raw(cmd)
+            subprocess.run(cmd.split(), **kwargs_subprocess)
         except AssertionError:
             _warnings.warn("molpx.example_notebooks could not open an in interactive shell. "
                            "Nothing happened.")

@@ -575,7 +575,7 @@ class TestSliceListOfGeoms(unittest.TestCase):
 
         equal_to_ref_frames = _bmutils.slice_list_of_geoms_to_closest_to_ref(geom_list, self.MD_trajectory[self.ref_frame])
         rmsd_to_ref_should_be_zero = md.rmsd(equal_to_ref_frames, self.MD_trajectory[self.ref_frame])
-        assert np.allclose(rmsd_to_ref_should_be_zero, [0, 0]), rmsd_to_ref_should_be_zero
+        assert np.allclose(rmsd_to_ref_should_be_zero, [0, 0], atol=1e-3), rmsd_to_ref_should_be_zero
 
 class TestGetAscendingCoordIdx(unittest.TestCase):
 

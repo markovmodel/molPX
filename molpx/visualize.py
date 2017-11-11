@@ -17,8 +17,10 @@ import nglview as _nglview
 import mdtraj as _md
 from ipywidgets import VBox as _VBox, Layout as _Layout, Button as _Button
 
+import warnings as _warnings
+
 # All calls to nglview call actually this function
-def _nglwidget_wrapper(geom, mock=True, ngl_wdg=None, n_small=10):
+def _nglwidget_wrapper(geom, ngl_wdg=None, n_small=10):
     r""" Wrapper to nlgivew.show_geom's method that allows for some other automatic choice of
     representation
 
@@ -26,6 +28,10 @@ def _nglwidget_wrapper(geom, mock=True, ngl_wdg=None, n_small=10):
     ----------
 
     geom : :obj:`mdtraj.Trajectory` object or str with a filename to anything that :obj:`mdtraj` can read
+
+    ngl_wdg : an already instantiated widget to add the geom, default is None
+
+    n_small : if the geometry has less than n_small residues, force a "ball and stick" represenation
 
 
     :return: :nglview.widget object
@@ -570,9 +576,9 @@ def correlations(correlation_input,
         for each projection, very much like the :obj:`feature_TIC_correlation` of the TICA object of pyemma.
 
     geoms : None or :obj:`mdtraj.Trajectory`, default is None
-        The values of the most correlated features will be returned for the geometires in this object. If widget is
+        The values of the most correlated features will be returned for the geometries in this object. If widget is
         left to its default, None, :obj:`correlations` will create a new widget and try to show the most correlated
-        features on top of the widget
+        features on top of the widget.
 
     widget : None or :obj:`nglview NGLWidget`
         Provide an already existing widget to visualize the correlations on top of. This is only for expert use,
@@ -654,7 +660,7 @@ def correlations(correlation_input,
 
     # Create ngl_viewer widget
     if geoms is not None and widget is None:
-        widget = _nglwidget_wrapper(geoms.superpose(geoms))
+        widget = _nglwidget_wrapper(_bmutils.superpose_to_most_compact_in_list(True, [geoms])[0])
 
     if proj_color_list is None:
         proj_color_list = ['blue'] * len(corr_dict["idxs"])
@@ -664,8 +670,7 @@ def correlations(correlation_input,
         raise TypeError("parameter proj_color_list should be either None or a list, not %s of type %s"%(proj_color_list, type(proj_color_list)))
 
     if len(corr_dict["atom_idxs"]) == 0:
-        # TODO : WRITE PROPER WARNINGS
-        print("Warning: Not enough information to display atoms on widget. Turning verbose on.")
+        _warnings.warn("Not enough information to display atoms on widget. Turning verbose on.")
         verbose = True
 
     # Add the represenation
@@ -677,6 +682,7 @@ def correlations(correlation_input,
         for ii, line in enumerate(corr_dict["info"]):
             print('%s is most correlated with '%(line["name"] ))
             for line in line["lines"]:
+                # TODO: this is for when tica is there but no featurizer is there
                 if widget is not None and len(corr_dict["atom_idxs"]) != 0:
                     line += ' (in %s in the widget)'%(proj_color_list[ii])
                 print(line)
@@ -790,8 +796,8 @@ def sample(positions, geom, ax,
     superpose : boolean, default is True
         The geometries in :obj:`geom` may or may not be oriented, depending on where they were generated.
         Since this method is mostly for visualization purposes, the default behaviour is to orient them all to
-        maximally overlap with the first frame (of the first :obj:`mdtraj.Trajectory` object, in case :obj:`geom`
-        is a list)
+        maximally overlap with the most compact frame available
+
     projection : object that generated the projection, default is None
         The projected coordinates may come from a variety of sources. When working with :obj:`pyemma` a number of objects
         might have generated this projection, like a
@@ -848,12 +854,8 @@ def sample(positions, geom, ax,
         if isinstance(geom, _md.Trajectory):
             geom=[geom]
 
-        sel = _bmutils.parse_atom_sel(superpose, geom[0].top)
-        # TODO rewrite parse_atom_sel. This if condition is very BAD
-        if sel is not None:
-            geom = [igeom.superpose(geom[0][0], atom_indices=sel) for igeom in geom]
-        else:
-            geom = [igeom.superpose(geom[0][0]) for igeom in geom]
+        # The method takes care of whatever superpose
+        geom = _bmutils.superpose_to_most_compact_in_list(superpose, geom)
 
         if color_list is None:
             sticky_colors_hex = ['Element' for ii in range(len(positions))]
@@ -866,8 +868,8 @@ def sample(positions, geom, ax,
             cmap_table = _np.linspace(0, 1, len(positions))
             sticky_colors_hex = [_rgb2hex(cmap(ii)) for ii in _np.random.permutation(cmap_table)]
         else:
-            raise TypeError('argument color_list should be either None, "random", or a list of len(pos), '
-                            'instead of type %s and len %u' % (type(color_list), len(color_list)))
+            raise TypeError('argument color_list should be either None, "random", or a list of len(pos)=%u, '
+                            'instead of type %s and len %u' % (len(positions), type(color_list), len(color_list)))
         sticky_rep = 'cartoon'
         if geom[0].top.n_residues < 10:
             sticky_rep = 'ball+stick'
@@ -875,7 +877,7 @@ def sample(positions, geom, ax,
             list_of_repr_dicts = [{'repr_type': sticky_rep, 'selection': 'all'}]
 
         # Now instantiate the ngl_wdg
-        ngl_wdg = _nglwidget_wrapper(None, mock=False)
+        ngl_wdg = _nglwidget_wrapper(None)
         # Prepare Geometry_in_widget_list
         ngl_wdg._GeomsInWid = [_linkutils.GeometryInNGLWidget(igeom, ngl_wdg,
                                                           color_molecule_hex= cc,
@@ -986,7 +988,6 @@ def _sample(positions, geoms, ax,
     if ngl_wdg is None:
         ngl_wdg = _nglwidget_wrapper(geoms[0])
         for igeom in geoms[1:]:
-            # TODO THIS IS THE PLACE TO CORRECT FOR NOT SEEING OVERLAYS OF SMALL MOLECUlES
             ngl_wdg = _nglwidget_wrapper(igeom, ngl_wdg=ngl_wdg)
     else:
         ngl_wdg = ngl_wdg

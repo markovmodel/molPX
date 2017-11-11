@@ -234,14 +234,14 @@ class GeometryInNGLWidget(object):
     """
 
     def __init__(self, geom, ngl_wdg, list_of_repr_dicts=None,
-                 color_molecule_hex='Element'):
+                 color_molecule_hex='Element', n_small=10):
         self.lives_at_components = []
         self.geom = geom
         self.ngl_wdg = ngl_wdg
         self.have_repr = []
 
         sticky_rep = 'cartoon'
-        if self.geom[0].top.n_residues < 10:
+        if self.geom[0].top.n_residues < n_small:
             sticky_rep = 'ball+stick'
         if list_of_repr_dicts is None:
             list_of_repr_dicts = [{'repr_type': sticky_rep, 'selection': 'all'}]
@@ -305,10 +305,16 @@ class GeometryInNGLWidget(object):
             return False
 
     def all_reps_are_off(self):
-        return _np.all(~_np.array(self.have_repr))
+        if len(self.have_repr) == 0:
+            return True
+        else:
+            return _np.all(~_np.array(self.have_repr))
 
     def all_reps_are_on(self):
-        return _np.all(self.have_repr)
+        if len(self.have_repr) == 0:
+            return False
+        else:
+            return _np.all(self.have_repr)
 
     def any_rep_is_off(self):
         return _np.any(~_np.array(self.have_repr))
@@ -335,8 +341,9 @@ def link_ax_w_pos_2_nglwidget(ax, pos, ngl_wdg,
 
     Parameters
     ----------
-    band_with : None or float,
-        band_width is in units of the axis of (it will be tranlated to pts internally)
+    ax : matplotlib axis object to be linked
+
+    pos : ndarray of shape (N,2) with the positions of the geoms in the ngl_wdg
 
     crosshairs : Boolean or str
         If True, a crosshair will show where the mouse-click ocurred. If 'h' or 'v', only the horizontal or
@@ -344,6 +351,13 @@ def link_ax_w_pos_2_nglwidget(ax, pos, ngl_wdg,
 
     dot_color : Anything that yields matplotlib.colors.is_color_like(dot_color)==True
         Default is 'red'. dot_color='None' yields no dot
+
+    band_width : None or iterable of len = 2
+        If band_width is not None, the method tries to figure out on its own if
+        there is an ascending coordinate and will include a moving band on :obj:ax
+        of this width (in units of the axis along which the band is plotted)
+
+        If the method cannot find an ascending coordinate, an exception is thrown
 
     directionality : str or None, default is None
         If not None, directionality can be either 'a2w' or 'w2a', meaning that connectivity
@@ -402,7 +416,7 @@ def link_ax_w_pos_2_nglwidget(ax, pos, ngl_wdg,
     # Other objects, related to smoothing options
     if band_width is not None:
         if radius:
-            band_width_in_pts = int(_np.round(pts_per_axis_unit(ax).mean() * band_width.mean()))
+            band_width_in_pts = int(_np.round(pts_per_axis_unit(ax).mean() * _np.mean(band_width)))
             rad = ax.plot(pos[0, 0], pos[0, 1], 'o',
                           ms=_np.round(band_width_in_pts),
                           c='green', alpha=.25, markeredgecolor='None')[0]
@@ -412,6 +426,8 @@ def link_ax_w_pos_2_nglwidget(ax, pos, ngl_wdg,
         else:
             # print("Band_width(x,y) is %s" % (band_width))
             coord_idx = get_ascending_coord_idx(pos)
+            if _np.ndim(coord_idx)>0 and len(coord_idx)==0:
+                raise ValueError("Must have an ascending coordinate for band_width usage")
             band_width_in_pts = int(_np.round(pts_per_axis_unit(ax)[coord_idx] * band_width[coord_idx]))
             # print("Band_width in %s is %s pts"%('xy'[coord_idx], band_width_in_pts))
 

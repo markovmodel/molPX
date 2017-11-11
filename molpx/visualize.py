@@ -20,7 +20,7 @@ from ipywidgets import VBox as _VBox, Layout as _Layout, Button as _Button
 # All calls to nglview call actually this function
 def _nglwidget_wrapper(geom, mock=True, ngl_wdg=None, n_small=10):
     r""" Wrapper to nlgivew.show_geom's method that allows for some other automatic choice of
-    representation and avoids the actual widget if one is calling from terminal (for unit tests)
+    representation
 
     Parameters
     ----------
@@ -34,23 +34,13 @@ def _nglwidget_wrapper(geom, mock=True, ngl_wdg=None, n_small=10):
     if isinstance(geom, str):
         geom = _md.load(geom)
 
-    try:
-        if ngl_wdg is None:
-            if geom is None:
-                ngl_wdg = _nglview.NGLWidget()
-            else:
-                ngl_wdg = _nglview.show_mdtraj(geom)
+    if ngl_wdg is None:
+        if geom is None:
+            ngl_wdg = _nglview.NGLWidget()
         else:
-            ngl_wdg.add_trajectory(geom)
-
-    except:
-        if mock:
-            print("molPX has to be used inside a notebook, not from terminal. A mock ngl_wdg is being returned."
-                  "Ignore this message if testing, "
-                  "otherwise refer to molPX documentation")
-            ngl_wdg = _mock_nglwidget(geom)
-        else:
-            raise Exception("molPX has to be used inside a notebook, not from terminal")
+            ngl_wdg = _nglview.show_mdtraj(geom)
+    else:
+        ngl_wdg.add_trajectory(geom)
 
     # Let' some customization take place
     ## Do we need a ball+stick representation?
@@ -65,46 +55,10 @@ def _nglwidget_wrapper(geom, mock=True, ngl_wdg=None, n_small=10):
 
     return ngl_wdg
 
-class _mock_nglwidget(object):
-    r"""
-    mock widget, which isn't even a widget, to allow for testing inside of the terminal.
-    """
-    # TODO nglvwidget inside terminal one should follow this comment
-    # https://github.com/markovmodel/PyEMMA/issues/1062#issuecomment-288494497
-
-    def __init__(self, geom):
-        self.trajectory_0 = geom
-    def observe(self,*args, **kwargs):
-        print("The method 'observe' of a mock ngl_wdg is called. "
-              "Ignore this message if testing, otherwise refer to molPX documentation.")
-
-    def add_spacefill(self, *args, **kwargs):
-        print("The method 'add_spacefill' of a mock ngl_wdg is called. "
-              "Ignore this message if testing, otherwise refer to molPX documentation.")
-
-    @property
-    def _ngl_component_ids(self):
-        print("The method '_ngl_component_ids' of a mock ngl_wdg is called. "
-              "Ignore this message if testing, otherwise refer to molPX documentation.")
-        return []
-
-    def remove_cartoon(self):
-        print("The method 'remove_cartoon' of a mock ngl_wdg is called. "
-              "Ignore this message if testing, otherwise refer to molPX documentation.")
-
-    def remove_backbone(self):
-        print("The method 'remove_backbone' of a mock ngl_wdg is called. "
-              "Ignore this message if testing, otherwise refer to molPX documentation.")
-
-    def add_ball_and_stick(self):
-        print("The method 'add_ball_and_stick' of a mock ngl_wdg is called. "
-              "Ignore this message if testing, otherwise refer to molPX documentation.")
-
 def _add_y2_label(iax, label):
     iax2 = iax.twinx()
     iax2.set_yticklabels('')
     iax2.set_ylabel(label, rotation = -90, va = 'bottom', ha = 'center')
-
 
 def FES(MD_trajectories, MD_top, projected_trajectories,
         proj_idxs = [0,1],

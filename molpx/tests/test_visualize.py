@@ -76,6 +76,34 @@ class TestTrajInputs(unittest.TestCase):
 def test_colors():
     _bmutils.matplotlib_colors_no_blue()
 
+class TestWrapperAndMockwidget(unittest.TestCase):
+
+    def setUp(self):
+        self.MD_file = molpx._molpxdir(join='notebooks/data/bpti-c-alpha_centered.pdb')
+        self.MD_geom = md.load(self.MD_file)
+
+    def test_mock_widget_MD_geom(self):
+        iwd = molpx.visualize._mock_nglwidget(self.MD_geom)
+        iwd.observe()
+        iwd.add_spacefill()
+        iwd._ngl_component_ids
+        iwd.remove_cartoon()
+        iwd.remove_backbone()
+        iwd.add_ball_and_stick()
+
+    def test_mock_widget_MD_file(self):
+        molpx.visualize._mock_nglwidget(self.MD_file)
+
+    def test_widget_wrapper_w_None(self):
+        iwd = molpx.visualize._nglwidget_wrapper(None)
+
+    def test_widget_wrapper_w_file(self):
+        iwd = molpx.visualize._nglwidget_wrapper(self.MD_file)
+
+    def test_widget_wrapper_w_instantiated_wdg(self):
+        iwd = molpx.visualize._nglwidget_wrapper(self.MD_file)
+        molpx.visualize._nglwidget_wrapper(self.MD_geom, ngl_wdg=iwd, mock=False)
+
 class TestSample(unittest.TestCase):
 
     def setUp(self):

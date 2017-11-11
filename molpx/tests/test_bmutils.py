@@ -8,6 +8,8 @@ import numpy as np
 import shutil
 from molpx import _bmutils
 import mdtraj as md
+from glob import glob
+import molpx
 
 class TestWithBPTIData(unittest.TestCase):
     r"""
@@ -15,22 +17,24 @@ class TestWithBPTIData(unittest.TestCase):
     """
     @classmethod
     def setUpClass(self):
-        #super(TestWithBPTIData, self).__init__()
+        self.MD_trajectory_files = glob(molpx._molpxdir(join='notebooks/data/c-alpha_centered.stride.1000*xtc'))
+        self.MD_topology_file = molpx._molpxdir(join='notebooks/data/bpti-c-alpha_centered.pdb')
+        self.MD_topology = md.load(self.MD_topology_file).top
+        self.MD_trajectories = [md.load(ff, top=self.MD_topology_file) for ff in self.MD_trajectory_files]
 
-        self.MD_trajectory_file = os.path.join(pyemma.__path__[0], 'coordinates/tests/data/bpti_mini.xtc')
-        self.MD_topology = os.path.join(pyemma.__path__[0], 'coordinates/tests/data/bpti_ca.pdb')
-        self.MD_trajectory = md.load(self.MD_trajectory_file, top=self.MD_topology)
-        self.xyz_flat = self.MD_trajectory.xyz.squeeze().reshape(self.MD_trajectory.n_frames, -1)
-        self.tempdir = tempfile.mkdtemp('test_molpx')
-        self.projected_file = os.path.join(self.tempdir, 'Y.npy')
-        self.feat = pyemma.coordinates.featurizer(self.MD_topology)
+        self.xyz_flat = [igeom.xyz.squeeze().reshape(igeom.n_frames, -1) for igeom in self.MD_trajectories]
+        self.feat = pyemma.coordinates.featurizer(self.MD_topology_file)
         self.feat.add_all()
-        source = pyemma.coordinates.source(self.MD_trajectory_file, features=self.feat)
-        self.tica = pyemma.coordinates.tica(source, lag=1, dim=2)
-        self.Y = self.tica.get_output()[0]
-        self.F = source.get_output()
-        np.save(self.projected_file, self.Y)
-        np.savetxt(self.projected_file.replace('.npy', '.dat'), self.Y)
+        self.source = pyemma.coordinates.source(self.MD_trajectory_files, features=self.feat)
+        self.Fs = self.source.get_output()
+
+        self.tica = pyemma.coordinates.tica(self.source, lag=1, dim=2)
+        self.pca = pyemma.coordinates.tica(self.source, dim=2)
+        self.Ys = self.tica.get_output()
+        self.tempdir = tempfile.mkdtemp('test_molpx')
+        self.projected_files = [os.path.join(self.tempdir, 'Y.%u.npy'%ii) for ii in range(len(self.MD_trajectories))]
+        [np.save(ifile, iY) for ifile, iY in zip(self.projected_files, self.Ys)]
+        [np.savetxt(ifile.replace('.npy', '.dat'), iY) for ifile, iY in zip(self.projected_files, self.Ys)]
 
     @classmethod
     def tearDownClass(self):
@@ -489,17 +493,16 @@ class TestVisualPath(TestWithBPTIData):
     def setUpClass(self):
         TestWithBPTIData.setUpClass()
         n_sample = 20
-        self.cl_cont = _bmutils.regspace_cluster_to_target([self.xyz_flat[:, :2]], n_sample, verbose=True, n_try_max=10,
+        self.cl_cont = _bmutils.regspace_cluster_to_target([ixyz[:, :2] for ixyz in self.xyz_flat], n_sample, verbose=True, n_try_max=10,
                                                            #delta=0
                                                            )
         self.cat_idxs, self.cat_data = _bmutils.catalogues(self.cl_cont)
-
-        # This is a bogus catalogue:
-        self.cat_data_md = [self.MD_trajectory[icat[:,1]] for icat in self.cat_idxs]
+        # Create the MD catalogue with pyemma
+        self.cat_data_md = [pyemma.coordinates.save_traj(self.MD_trajectory_files, icat, None, top=self.MD_topology)
+                            for icat in self.cat_idxs]
 
     def test_just_works_data(self):
         _bmutils.visual_path(self.cat_idxs, self.cat_data)
-        #_bmutils.visual_path(self.cat_idxs, self.cat_data, path_type="min_rmsd")
 
     def test_just_works_data_md(self):
         _bmutils.visual_path(self.cat_idxs, self.cat_data_md,path_type="min_rmsd")
@@ -733,7 +736,6 @@ class TestSmoothingFunctions(unittest.TestCase):
                          ])
         xyz =[ixyz+np.ones((2,3))*ii for ii in range(10)] # Easy way to generate an easy to average geometry
         self.traj = md.Trajectory(xyz, traj.top)
-        pass
 
     def tearDown(self):
         pass

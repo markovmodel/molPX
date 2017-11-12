@@ -5,14 +5,15 @@ import unittest
 import numpy as np
 import molpx
 from glob import glob
-from molpx import visualize, _bmutils
+from matplotlib.backend_bases import MouseEvent
 import mdtraj as md
 import matplotlib.pyplot as plt
 plt.switch_backend('Agg') # allow tests
 
-from .test_bmutils import TestWithBPTIData
-import molpx._linkutils
+
 import nglview
+from scipy.spatial import cKDTree as _cKDTree
+
 
 
 class TestLinkAxWPos2NGLWidget(unittest.TestCase):
@@ -136,23 +137,91 @@ class TestUpdate2DLines(unittest.TestCase):
         line = plt.gca().lines[0]
         for ii, attr in enumerate(['lineh', 'linev', 'dot']):
             setattr(line,"whatisthis",attr)
-            molpx.visualize._linkutils.update2Dlines(line, ii, ii)
+            molpx._linkutils.update2Dlines(line, ii, ii)
 
     def test_force_exceptions(self):
         plt.plot(0, 0)
         line = plt.gca().lines[0]
         try:
-            molpx.visualize._linkutils.update2Dlines(line,0,0)
+            molpx._linkutils.update2Dlines(line,0,0)
         except AttributeError:
             pass
 
         setattr(line, "whatisthis", "non_existing_line")
         try:
-            molpx.visualize._linkutils.update2Dlines(line,0,0)
+            molpx._linkutils.update2Dlines(line,0,0)
         except TypeError:
             pass
 
+class TestClickOnAxisListener(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        self.MD_trajectory_files = glob(molpx._molpxdir(join='notebooks/data/c-alpha_centered.stride.1000*xtc'))
+        self.MD_topology_file = molpx._molpxdir(join='notebooks/data/bpti-c-alpha_centered.pdb')
+        self.MD_topology = md.load(self.MD_topology_file).top
+        self.MD_trajectories = [md.load(ff, top=self.MD_topology_file) for ff in self.MD_trajectory_files]
+        self.MD_trajectory = self.MD_trajectories[0]
 
+        self.pos = np.random.rand(self.MD_trajectory.n_frames, 2)
+        self.kdtree = _cKDTree(self.pos)
+
+    def just_runs(self, ngl_wdg, button=None):
+        # Create the linked objects
+        plt.plot(self.pos[:,0], self.pos[:,1])
+        iax = plt.gca()
+
+        # Prepare a mouse event in the middle of the plot
+        x, y = np.array(iax.get_window_extent()).mean(0)
+
+        # Prepare event
+        lineh = iax.axhline(iax.get_ybound()[0])
+        setattr(lineh, 'whatisthis', 'lineh')
+        dot = iax.plot(self.pos[0, 0], self.pos[0, 1])[0]
+        setattr(dot, 'whatisthis', 'dot')
+
+        # Instantiate the ClickOnAxisListener and call it with the event
+        molpx._linkutils.ClickOnAxisListener(ngl_wdg, self.kdtree, True,
+                                             [lineh],
+                                             iax, self.pos,
+                                             [dot]
+                                             )(MouseEvent(" ", plt.gcf().canvas, x,y,
+                                                          button=button, key=None, step=0,
+                                                          dblclick=False,
+                                                          guiEvent=None))
+
+    def test_just_runs(self):
+        self.just_runs(nglview.show_mdtraj(self.MD_trajectory))
+
+    def test_just_runs_sticky(self):
+        # Create the linked objects (for sticky case, better use _sample
+        ngl_wdg, __ = molpx.visualize.sample(self.pos, self.MD_trajectory, plt.gca(), sticky=True)
+        self.just_runs(ngl_wdg, button=1)
+        [self.just_runs(ngl_wdg, button=2) for ii in range(5)]
+
+class TestChangeInNGLWidgetListener(unittest.TestCase):
+    @classmethod
+    def setUpClass(self):
+        self.MD_trajectory_files = glob(molpx._molpxdir(join='notebooks/data/c-alpha_centered.stride.1000*xtc'))
+        self.MD_topology_file = molpx._molpxdir(join='notebooks/data/bpti-c-alpha_centered.pdb')
+        self.MD_topology = md.load(self.MD_topology_file).top
+        self.MD_trajectories = [md.load(ff, top=self.MD_topology_file) for ff in self.MD_trajectory_files]
+        self.MD_trajectory = self.MD_trajectories[0]
+
+        self.pos = np.random.rand(self.MD_trajectory.n_frames, 2)
+        plt.plot(self.pos[:,0], self.pos[:,1])
+        iax = plt.gca()
+        # Prepare event
+        self.lineh = iax.axhline(iax.get_ybound()[0])
+        setattr(self.lineh, 'whatisthis', 'lineh')
+        self.dot = iax.plot(self.pos[0, 0], self.pos[0, 1])[0]
+        setattr(self.dot, 'whatisthis', 'dot')
+        self.ngl_wdg = nglview.show_mdtraj(self.MD_trajectory)
+    def test_just_runs(self):
+        molpx._linkutils.ChangeInNGLWidgetListener(self.ngl_wdg, [self.lineh, self.dot], self.pos)({"new":0})
+
+    def test_just_runs_past_last_frame(self):
+        molpx._linkutils.ChangeInNGLWidgetListener(self.ngl_wdg, [self.lineh, self.dot], self.pos)({"new":self.pos.shape[0]+1,
+                                                                                                    "old":1})
 
 if __name__ == '__main__':
     unittest.main()

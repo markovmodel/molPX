@@ -99,10 +99,11 @@ import subprocess
 import warnings as _warnings
 
 
-ext_mapping = {"nglview":"nglview",
-               "jupyter":"widgetsnbextension"}
+_ext_mapping = {"nglview-js-widgets": "nglview",
+                "jupyter-matplotlib":"ipympl",
+                "jupyter-js-widgets":"widgetsnbextension"}
 
-def _get_extension_status(ext_list=ext_mapping.keys()):
+def _get_extension_status(ext_list=_ext_mapping.keys()):
     r"""
     Guess the status of the extensions in ext_list. the correct way of doing this
     would be using notebook.nbextensions, but you need paths to the extensions
@@ -153,6 +154,6 @@ if not all(_get_extension_status().values()):
     status = True
     for ext, enabled in _get_extension_status().items():
         if not enabled:
-            if not _enable_extensions(ext_mapping[ext]):
+            if not _enable_extensions(_ext_mapping[ext]):
                 raise ModuleNotFoundError("Could not initialize molpx")
 

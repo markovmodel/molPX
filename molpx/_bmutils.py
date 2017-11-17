@@ -120,7 +120,7 @@ def assert_moldata_belong_data(moldata, data, data_stride=1):
     assert n_traj == len(data), ("Wrong number of molecular traj vs. data trajs: %u vs %u"%(n_traj, len(data)))
     assert _np.allclose(traj_lengths, [len(ii) for ii in data]), "Mismatch in the lengths of individual molecular trajs and data trajs"
 
-def matplotlib_colors_no_blue():
+def matplotlib_colors_no_blue(ncycles=1):
     # Until we get the colorcyle thing working, this is a workaround:
     # http://stackoverflow.com/questions/13831549/get-matplotlib-color-cycle-state
     cc = ['green',
@@ -130,8 +130,7 @@ def matplotlib_colors_no_blue():
           'yellow',
           'black',
           'white']
-    for ii in range(3):
-        cc += cc # this grows quickly
+    cc =list(_np.hstack([cc]*ncycles))
     return cc
 
 def re_warp(array_in, lengths):

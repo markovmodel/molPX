@@ -4,6 +4,9 @@ __author__ = 'gph82'
 
 from pyemma.plots import plot_free_energy as _plot_free_energy
 import numpy as _np
+from matplotlib.widgets import AxesWidget as _AxesWidget
+from matplotlib.figure import Figure as _mplFigure
+from matplotlib.axes import Axes as _mplAxes
 
 from matplotlib.cm import get_cmap as _get_cmap
 from matplotlib.colors import rgb2hex as _rgb2hex, to_hex as _to_hex
@@ -420,7 +423,7 @@ def traj(MD_trajectories,
         corr_dicts = [_bmutils.most_corr(projection, geoms=igeom, proj_idxs=proj_idxs, n_args=n_feats)
                       for igeom in geoms]
         if corr_dicts[0]["feats"] != []:
-            colors = _bmutils.matplotlib_colors_no_blue()
+            colors = _bmutils.matplotlib_colors_no_blue(ncycles=int(_np.ceil(_np.max(proj_idxs)/6.))) # Hack
             colors = [colors[ii] for ii in proj_idxs]
         else:
             n_feats=0

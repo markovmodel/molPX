@@ -255,5 +255,28 @@ class TestFeature(TestWithBPTIData):
         except TypeError:
             pass
 
+
+class TestBoxMe(unittest.TestCase):
+
+    def test_just_runs_and_exits_gracefully(self):
+        from matplotlib.widgets import AxesWidget
+        from ipywidgets.widgets import HBox
+        ifig = plt.figure()
+        iax = plt.gca()
+        nglwdg = nglview.demo()
+        mplw = AxesWidget(iax)
+
+        box_out = visualize._box_me((ifig, iax, nglwdg,
+                                     mplw
+                                     ))
+
+        assert isinstance(box_out, HBox)
+
+
+        assert None is visualize._box_me((ifig, iax, nglwdg,
+                                     mplw, 1
+                                     ))
+
+
 if __name__ == '__main__':
     unittest.main()

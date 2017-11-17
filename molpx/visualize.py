@@ -210,6 +210,58 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
     _linkutils.auto_append_these_mpx_attrs(outbox, geoms, ax, _plt.gcf(), ngl_wdg, axes_wdg, data_sample)
 
     return outbox
+def _box_me(tuple_in, auto_resize=True):
+    r"""
+    A wrapper that tries to put in an HBox whatever it s in
+    the tuple_in as long as it of  the following types:
+     * nglwidget
+     * matplotlib axes widget
+     * matplotlib figure
+     * matplotlib axes
+
+    If it does not succeed, it will let you know without throwing an exception
+
+    auto_resize : bool, default is True
+        Resize everything to the average size (wxh) of the input objects
+
+    :return: obj:IPywdigets.HBox:, if possible
+    """
+
+    widgets_and_canvas = []
+    size_inches = []
+    for obj in tuple_in:
+        if isinstance(obj, _nglview.NGLWidget):
+            toappend = obj
+        elif isinstance(obj, (_AxesWidget, _mplFigure)):
+            toappend = obj.canvas
+        elif isinstance(obj, _mplAxes):
+            toappend = obj.figure.canvas
+        else:
+            _warnings.warn("\nSorry, object %s of type %s is unboxable at the moment"%(obj, type(obj)))
+            return
+        widgets_and_canvas.append(toappend)
+
+    # We ve collected everything, now unique and get sizes:
+    tuple_out = []
+    for obj in widgets_and_canvas:
+        if obj not in tuple_out:
+            tuple_out.append(obj)
+            try:
+                size_inches.append(obj.figure.get_size_inches())
+            except AttributeError:
+                pass
+
+    size_inches = _np.array(_np.vstack(size_inches), ndmin=2).T.mean(1)
+
+    if auto_resize:
+        for obj in tuple_out:
+            if isinstance(obj, _nglview.NGLWidget):
+                obj._set_size("%fin"%size_inches[0],
+                              "%fin"%size_inches[1])
+            elif isinstance(obj, _mplFigure):
+                obj.set_size_inches(*size_inches)
+
+    return _linkutils._HBox(tuple_out)
 
 def _plot_ND_FES(data, ax_labels, weights=None, bins=50, figsize=(4,4)):
     r""" A wrapper for pyemmas FESs plotting function that can also plot 1D

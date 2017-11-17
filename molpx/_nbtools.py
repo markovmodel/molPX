@@ -155,7 +155,9 @@ def example_notebooks(dry_run=False, extra_flags_as_one_string=None, **kwargs_su
                                            "It wil be deleted on exit it and a new one created next time you issue "
                                            "`molpx.example_notebooks()`</font>\\n\\n"
                                            "# "
-                                     %(nb_file, tmpfile),1))
+                                     %(nb_file.replace("\\","\\\\"),  # Windows's os.path.sep gets intepreted as
+                                       tmpfile.replace("\\","\\\\")), # escape character
+                                     1))
             f.close()
 
         cmd = 'jupyter notebook --notebook-dir %s'%tmpdir

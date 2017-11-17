@@ -63,7 +63,6 @@ def update2Dlines(iline, x, y):
 
     y : float with new position
 
-    tested:False
     """
     # TODO FIND OUT A CLEANER WAY TO DO THIS (dict or class)
 

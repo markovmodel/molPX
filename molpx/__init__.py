@@ -12,6 +12,7 @@ from . import visualize
 from . import _bmutils
 
 from ._nbtools import example_notebooks, _molpxdir
+
 def _report_status():
     r"""
     returns a boolen whether molpx is allowed to send user metadata
@@ -95,13 +96,16 @@ del get_versions
 _version_check(__version__).start()
 
 #
-import subprocess
+import subprocess as _subprocess
 import warnings as _warnings
 
 
+# The name by which an extension appears as enabled or not is different
+# from the one used to install it (!!),so we need a mapping
 _ext_mapping = {"nglview-js-widgets": "nglview",
-                "jupyter-matplotlib":"ipympl",
-                "jupyter-js-widgets":"widgetsnbextension"}
+                "jupyter-matplotlib": "ipympl",
+                "jupyter-js-widgets": "widgetsnbextension"
+                }
 
 def _get_extension_status(ext_list=_ext_mapping.keys()):
     r"""
@@ -112,7 +116,7 @@ def _get_extension_status(ext_list=_ext_mapping.keys()):
     """
     enabled_exts = {key:None for key in ext_list}
 
-    lines = subprocess.check_output(("jupyter-nbextension", "list"), stderr=subprocess.DEVNULL)
+    lines = _subprocess.check_output(("jupyter-nbextension", "list"), stderr=_subprocess.DEVNULL)
     for ext in enabled_exts.keys():
         for iline in lines.decode().splitlines():
             if ext in iline and "disabled" in iline.lower():
@@ -129,29 +133,28 @@ def _get_extension_status(ext_list=_ext_mapping.keys()):
     return enabled_exts
 
 def _enable_extensions(this_ext_path):
-    r""" If some of the needed extensions are not enabled,
-    try to install/enable them or prompt the user to do so"""
+    r""" Try to install/enable an extension.
+    Prompt the user to do so if an exception is thrown
+    """
 
     try:
-        subprocess.check_call([
+        _subprocess.check_call([
             'jupyter', 'nbextension', 'install', '--py',
             '--sys-prefix', this_ext_path
-        ], stderr=subprocess.DEVNULL)
+        ], stderr=_subprocess.DEVNULL)
 
-        subprocess.check_call([
+        _subprocess.check_call([
             'jupyter', 'nbextension', 'enable', '--py',
             '--sys-prefix', this_ext_path
-        ], stderr=subprocess.DEVNULL)
+        ], stderr=_subprocess.DEVNULL)
     except:
         _warnings.warn("\nWe could not automatically enable the extention %s.\n"
                        "From the command line type:\n jupyter-nbextension enable %s --py --sys-prefix" % (this_ext_path, this_ext_path))
         return False
     return True
 
-# Try to help the user getting molpx working out of the box
+# Try to help the user getting molpx working out of the box and raise an Exception if molpx wont work
 if not all(_get_extension_status().values()):
-
-    status = True
     for ext, enabled in _get_extension_status().items():
         if not enabled:
             if not _enable_extensions(_ext_mapping[ext]):

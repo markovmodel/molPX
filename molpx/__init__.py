@@ -93,3 +93,66 @@ del get_versions
 
 # start check in background
 _version_check(__version__).start()
+
+#
+import subprocess
+import warnings as _warnings
+
+
+ext_mapping = {"nglview":"nglview",
+               "jupyter":"widgetsnbextension"}
+
+def _get_extension_status(ext_list=ext_mapping.keys()):
+    r"""
+    Guess the status of the extensions in ext_list. the correct way of doing this
+    would be using notebook.nbextensions, but you need paths to the extensions
+    and I dont want to go there
+    :return: dictionary with extensions in ext_list as keys and True or False as values
+    """
+    enabled_exts = {key:None for key in ext_list}
+
+    lines = subprocess.check_output(("jupyter-nbextension", "list"), stderr=subprocess.DEVNULL)
+    for ext in enabled_exts.keys():
+        for iline in lines.decode().splitlines():
+            if ext in iline and "disabled" in iline.lower():
+                enabled_exts[ext] = False
+            elif ext in iline and "enabled" in iline.lower():
+                if enabled_exts[ext] is None:
+                    enabled_exts[ext] = True
+                enabled_exts[ext] = enabled_exts[ext] and True
+
+    for key in enabled_exts.keys():
+        if enabled_exts[key] is None:
+            enabled_exts[key] = False
+
+    return enabled_exts
+
+def _enable_extensions(this_ext_path):
+    r""" If some of the needed extensions are not enabled,
+    try to install/enable them or prompt the user to do so"""
+
+    try:
+        subprocess.check_call([
+            'jupyter', 'nbextension', 'install', '--py',
+            '--sys-prefix', this_ext_path
+        ], stderr=subprocess.DEVNULL)
+
+        subprocess.check_call([
+            'jupyter', 'nbextension', 'enable', '--py',
+            '--sys-prefix', this_ext_path
+        ], stderr=subprocess.DEVNULL)
+    except:
+        _warnings.warn("\nWe could not automatically enable the extention %s.\n"
+                       "From the command line type:\n jupyter-nbextension enable %s --py --sys-prefix" % (this_ext_path, this_ext_path))
+        return False
+    return True
+
+# Try to help the user getting molpx working out of the box
+if not all(_get_extension_status().values()):
+
+    status = True
+    for ext, enabled in _get_extension_status().items():
+        if not enabled:
+            if not _enable_extensions(ext_mapping[ext]):
+                raise ModuleNotFoundError("Could not initialize molpx")
+

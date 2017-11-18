@@ -10,6 +10,10 @@ import molpx
 from matplotlib import pyplot as plt
 plt.switch_backend('Agg') # allow tests
 
+class MyVersion(unittest.TestCase):
+    import molpx
+    molpx.__version__
+
 class MyTestCase(unittest.TestCase):
 
     def setUp(self):
@@ -44,7 +48,7 @@ class MyTestCase(unittest.TestCase):
     def test_visualize_qsample(self):
         pos, geom_smpl = molpx.generate.sample(self.MD_trajectory, self.topology, self.projected_file)
         plt.figure()
-        iwd = molpx.visualize.sample(pos, geom_smpl, plt.gca())
+        __ = molpx.visualize.sample(pos, geom_smpl, plt.gca())
 
     def test_visualize_path_w_tica(self):
         paths_dict, idata = molpx.generate.projection_paths(self.MD_trajectory, self.topology, self.projected_file)
@@ -52,7 +56,7 @@ class MyTestCase(unittest.TestCase):
         path_type = 'min_disp'
         igeom = paths_dict[0][path_type]["geom"]
         ipath = paths_dict[0][path_type]["proj"]
-        iwd = molpx.visualize.sample(ipath, igeom, plt.gca(), projection=self.tica)
+        __ = molpx.visualize.sample(ipath, igeom, plt.gca(), projection=self.tica)
 
 
 if __name__ == '__main__':

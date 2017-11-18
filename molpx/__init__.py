@@ -7,23 +7,12 @@ from __future__ import print_function as _
 
 __author__ = 'gph82'
 
-# To be able to run with a development version of nglview
-# TODO PIN TO NGLVIEW 1.0 once it's released
-pre_release = '1.0.b5'
-try:
-    import nglview
-    if nglview.__version__!=pre_release:
-        raise ImportError
-except ImportError:
-    import os
-    os.system('pip install nglview==%s'%pre_release)
-
-
 from . import generate
 from . import visualize
 from . import _bmutils
 
-from ._nbtools import example_notebooks, example_notebook, _molpxdir
+from ._nbtools import example_notebooks, _molpxdir
+
 def _report_status():
     r"""
     returns a boolen whether molpx is allowed to send user metadata
@@ -105,3 +94,69 @@ del get_versions
 
 # start check in background
 _version_check(__version__).start()
+
+#
+import subprocess as _subprocess
+import warnings as _warnings
+
+
+# The name by which an extension appears as enabled or not is different
+# from the one used to install it (!!),so we need a mapping
+_ext_mapping = {"nglview-js-widgets": "nglview",
+                "jupyter-matplotlib": "ipympl",
+                "jupyter-js-widgets": "widgetsnbextension"
+                }
+
+def _get_extension_status(ext_list=_ext_mapping.keys()):
+    r"""
+    Guess the status of the extensions in ext_list. the correct way of doing this
+    would be using notebook.nbextensions, but you need paths to the extensions
+    and I dont want to go there
+    :return: dictionary with extensions in ext_list as keys and True or False as values
+    """
+    enabled_exts = {key:None for key in ext_list}
+
+    lines = _subprocess.check_output(("jupyter-nbextension", "list"), stderr=_subprocess.DEVNULL)
+    for ext in enabled_exts.keys():
+        for iline in lines.decode().splitlines():
+            if ext in iline and "disabled" in iline.lower():
+                enabled_exts[ext] = False
+            elif ext in iline and "enabled" in iline.lower():
+                if enabled_exts[ext] is None:
+                    enabled_exts[ext] = True
+                enabled_exts[ext] = enabled_exts[ext] and True
+
+    for key in enabled_exts.keys():
+        if enabled_exts[key] is None:
+            enabled_exts[key] = False
+
+    return enabled_exts
+
+def _enable_extensions(this_ext_path):
+    r""" Try to install/enable an extension.
+    Prompt the user to do so if an exception is thrown
+    """
+
+    try:
+        _subprocess.check_call([
+            'jupyter', 'nbextension', 'install', '--py',
+            '--sys-prefix', this_ext_path
+        ], stderr=_subprocess.DEVNULL)
+
+        _subprocess.check_call([
+            'jupyter', 'nbextension', 'enable', '--py',
+            '--sys-prefix', this_ext_path
+        ], stderr=_subprocess.DEVNULL)
+    except:
+        _warnings.warn("\nWe could not automatically enable the extention %s.\n"
+                       "From the command line type:\n jupyter-nbextension enable %s --py --sys-prefix" % (this_ext_path, this_ext_path))
+        return False
+    return True
+
+# Try to help the user getting molpx working out of the box and raise an Exception if molpx wont work
+if not all(_get_extension_status().values()):
+    for ext, enabled in _get_extension_status().items():
+        if not enabled:
+            if not _enable_extensions(_ext_mapping[ext]):
+                raise ModuleNotFoundError("Could not initialize molpx")
+

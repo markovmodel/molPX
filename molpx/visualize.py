@@ -2,26 +2,39 @@ from __future__ import print_function
 
 __author__ = 'gph82'
 
-
 from pyemma.plots import plot_free_energy as _plot_free_energy
 import numpy as _np
+from matplotlib.widgets import AxesWidget as _AxesWidget
+from matplotlib.figure import Figure as _mplFigure
+from matplotlib.axes import Axes as _mplAxes
+
+from matplotlib.cm import get_cmap as _get_cmap
+from matplotlib.colors import rgb2hex as _rgb2hex, to_hex as _to_hex
 
 from . import generate
 from . import _bmutils
+from . import _linkutils
 
 from matplotlib import pylab as _plt, rcParams as _rcParams
 import nglview as _nglview
 import mdtraj as _md
+from ipywidgets import VBox as _VBox, Layout as _Layout, Button as _Button
+
+import warnings as _warnings
 
 # All calls to nglview call actually this function
-def _nglwidget_wrapper(geom, mock=True, iwd=None, n_small=10):
+def _nglwidget_wrapper(geom, ngl_wdg=None, n_small=10):
     r""" Wrapper to nlgivew.show_geom's method that allows for some other automatic choice of
-    representation and avoids the actual widget if one is calling from terminal (for unit tests)
+    representation
 
     Parameters
     ----------
 
     geom : :obj:`mdtraj.Trajectory` object or str with a filename to anything that :obj:`mdtraj` can read
+
+    ngl_wdg : an already instantiated widget to add the geom, default is None
+
+    n_small : if the geometry has less than n_small residues, force a "ball and stick" represenation
 
 
     :return: :nglview.widget object
@@ -29,67 +42,32 @@ def _nglwidget_wrapper(geom, mock=True, iwd=None, n_small=10):
 
     if isinstance(geom, str):
         geom = _md.load(geom)
-    try:
-        if iwd is None:
-            iwd = _nglview.show_mdtraj(geom)
-        else:
-            iwd.add_trajectory(geom)
 
-    except:
-        if mock:
-            print("molPX has to be used inside a notebook, not from terminal. A mock nglwidget is being returned."
-                  "Ignore this message if testing, "
-                  "otherwise refer to molPX documentation")
-            iwd = _mock_nglwidget(geom)
+    if ngl_wdg is None:
+        if geom is None:
+            ngl_wdg = _nglview.NGLWidget()
         else:
-            raise Exception("molPX has to be used inside a notebook, not from terminal")
+            ngl_wdg = _nglview.show_mdtraj(geom)
+    else:
+        ngl_wdg.add_trajectory(geom)
 
     # Let' some customization take place
     ## Do we need a ball+stick representation?
-    if geom.top.n_residues < n_small:
-        for ic in range(len(iwd._ngl_component_ids)):
-            # TODO FIND OUT WHY THIS FAILS FOR THE LAST REPRESENTATION
-            #print("removing reps for component",ic)
-            iwd.remove_cartoon(component=ic)
-            iwd.clear_representations(component=ic)
-            iwd.add_ball_and_stick(component=ic)
+    if geom is not None:
+        if geom.top.n_residues < n_small:
+            for ic in range(len(ngl_wdg._ngl_component_ids)):
+                # TODO FIND OUT WHY THIS FAILS FOR THE LAST REPRESENTATION
+                #print("removing reps for component",ic)
+                ngl_wdg.remove_cartoon(component=ic)
+                ngl_wdg.clear_representations(component=ic)
+                ngl_wdg.add_ball_and_stick(component=ic)
 
-    return iwd
+    return ngl_wdg
 
-class _mock_nglwidget(object):
-    r"""
-    mock widget, which isn't even a widget, to allow for testing inside of the terminal.
-    """
-    # TODO nglvwidget inside terminal one should follow this comment
-    # https://github.com/markovmodel/PyEMMA/issues/1062#issuecomment-288494497
-
-    def __init__(self, geom):
-        self.trajectory_0 = geom
-    def observe(self,*args, **kwargs):
-        print("The method 'observe' of a mock nglwidget is called. "
-              "Ignore this message if testing, otherwise refer to molPX documentation.")
-
-    def add_spacefill(self, *args, **kwargs):
-        print("The method 'add_spacefill' of a mock nglwidget is called. "
-              "Ignore this message if testing, otherwise refer to molPX documentation.")
-
-    @property
-    def _ngl_component_ids(self):
-        print("The method '_ngl_component_ids' of a mock nglwidget is called. "
-              "Ignore this message if testing, otherwise refer to molPX documentation.")
-        return []
-
-    def remove_cartoon(self):
-        print("The method 'remove_cartoon' of a mock nglwidget is called. "
-              "Ignore this message if testing, otherwise refer to molPX documentation.")
-
-    def remove_backbone(self):
-        print("The method 'remove_backbone' of a mock nglwidget is called. "
-              "Ignore this message if testing, otherwise refer to molPX documentation.")
-
-    def add_ball_and_stick(self):
-        print("The method 'add_ball_and_stick' of a mock nglwidget is called. "
-              "Ignore this message if testing, otherwise refer to molPX documentation.")
+def _add_y2_label(iax, label):
+    iax2 = iax.twinx()
+    iax2.set_yticklabels('')
+    iax2.set_ylabel(label, rotation = -90, va = 'bottom', ha = 'center')
 
 def FES(MD_trajectories, MD_top, projected_trajectories,
         proj_idxs = [0,1],
@@ -162,16 +140,20 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
     Returns
     --------
 
-    ax :
+    widgetbox:
+        :obj:`ipywidgets.HBox` containing both the NGLWidget (ngl_wdg) and the interactive figure. It also
+        contains the extra attributes
+        # TODO reshape this docstring
+         ax :
         :obj:`pylab.Axis` object
     fig :
         :obj:`pylab.Figure` object
-    iwd :
+    ngl_wdg :
         :obj:`nglview.NGLWidget`
     data_sample:
         numpy ndarray of shape (n, n_sample) with the position of the dots in the plot
     geoms:
-        :obj:`mdtraj.Trajectory` object with the geometries n_sample geometries shown by the nglwidget
+        :obj:`mdtraj.Trajectory` object with the geometries n_sample geometries shown by the ngl_wdg
 
     """
 
@@ -202,9 +184,12 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
             weights = [_np.array(iw, ndmin=2).T for iw in weights]
         weights = _np.vstack(weights).squeeze()
 
+    _plt.ioff()
     ax, FES_data, edges = _plot_ND_FES(data[:,proj_idxs],
                                        _bmutils.labelize(proj_labels, proj_idxs),
                                        weights=weights, bins=nbins)
+    _plt.ion()
+
     if edges[0] is not None:
         # We have the luxury of sorting!
         sorts_data = data_sample[:,0].argsort()
@@ -217,12 +202,68 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
         FES_sample = FES_data[_np.digitize(data_sample, edges[0][:-2])]
         data_sample = _np.hstack((data_sample, FES_sample))
 
-    iwd = sample(data_sample, geoms, ax, clear_lines=False, **sample_kwargs)
-    iwd._set_size(*['%fin' % inches for inches in ax.get_figure().get_size_inches()])
+    ngl_wdg, axes_wdg = sample(data_sample, geoms, ax, clear_lines=False, **sample_kwargs)
+    ngl_wdg._set_size(*['%fin' % inches for inches in ax.get_figure().get_size_inches()])
+    ax.figure.tight_layout()
+    axes_wdg.canvas.set_window_title("FES")
+    outbox = _linkutils.MolPXHBox([ngl_wdg, axes_wdg.canvas])
+    _linkutils.auto_append_these_mpx_attrs(outbox, geoms, ax, _plt.gcf(), ngl_wdg, axes_wdg, data_sample)
 
-    return _plt.gca(), _plt.gcf(), iwd, data_sample, geoms
+    return outbox
+def _box_me(tuple_in, auto_resize=True):
+    r"""
+    A wrapper that tries to put in an HBox whatever it s in
+    the tuple_in as long as it of  the following types:
+     * nglwidget
+     * matplotlib axes widget
+     * matplotlib figure
+     * matplotlib axes
 
-def _plot_ND_FES(data, ax_labels, weights=None, bins=50, figsize=(7,7)):
+    If it does not succeed, it will let you know without throwing an exception
+
+    auto_resize : bool, default is True
+        Resize everything to the average size (wxh) of the input objects
+
+    :return: obj:IPywdigets.HBox:, if possible
+    """
+
+    widgets_and_canvas = []
+    size_inches = []
+    for obj in tuple_in:
+        if isinstance(obj, _nglview.NGLWidget):
+            toappend = obj
+        elif isinstance(obj, (_AxesWidget, _mplFigure)):
+            toappend = obj.canvas
+        elif isinstance(obj, _mplAxes):
+            toappend = obj.figure.canvas
+        else:
+            _warnings.warn("\nSorry, object %s of type %s is unboxable at the moment"%(obj, type(obj)))
+            return
+        widgets_and_canvas.append(toappend)
+
+    # We ve collected everything, now unique and get sizes:
+    tuple_out = []
+    for obj in widgets_and_canvas:
+        if obj not in tuple_out:
+            tuple_out.append(obj)
+            try:
+                size_inches.append(obj.figure.get_size_inches())
+            except AttributeError:
+                pass
+
+    size_inches = _np.array(_np.vstack(size_inches), ndmin=2).T.mean(1)
+
+    if auto_resize:
+        for obj in tuple_out:
+            if isinstance(obj, _nglview.NGLWidget):
+                obj._set_size("%fin"%size_inches[0],
+                              "%fin"%size_inches[1])
+            elif isinstance(obj, _mplFigure):
+                obj.set_size_inches(*size_inches)
+
+    return _linkutils._HBox(tuple_out)
+
+def _plot_ND_FES(data, ax_labels, weights=None, bins=50, figsize=(4,4)):
     r""" A wrapper for pyemmas FESs plotting function that can also plot 1D
 
     Parameters
@@ -242,6 +283,7 @@ def _plot_ND_FES(data, ax_labels, weights=None, bins=50, figsize=(7,7)):
     edges : tuple containimg the axes along which FES is to be plotted (only in the 1D case so far, else it's None)
 
     """
+
     _plt.figure(figsize=figsize)
     ax = _plt.gca()
     idata = _np.vstack(data)
@@ -254,19 +296,20 @@ def _plot_ND_FES(data, ax_labels, weights=None, bins=50, figsize=(7,7)):
         ax.set_ylabel('$\Delta G / \kappa T $')
 
     elif idata.shape[1] == 2:
-        _plot_free_energy(idata[:,0], idata[:,1], weights=weights, nbins=bins, ax=ax)
+        _plot_free_energy(idata[:,0], idata[:,1], weights=weights, nbins=bins, ax=ax,
+                          cmap='nipy_spectral'
+                           )
         ax.set_ylabel(ax_labels[1])
         edges, FES_data = [None], None
         # TODO: retrieve the actual edges from pyemma's "plot_free_energy"'s axes
     else:
         raise NotImplementedError('Can only plot 1D or 2D FESs, but data has %s columns' % _np.shape(idata)[0])
 
-    return ax, FES_data, edges,
+    return ax, FES_data, edges
 
 def traj(MD_trajectories,
          MD_top, projected_trajectories,
-         active_traj=0,
-         max_frames=2000,
+         max_frames=1e4,
          stride=1,
          proj_stride=1,
          proj_idxs=[0,1],
@@ -299,9 +342,6 @@ def traj(MD_trajectories,
     (.dat, .txt etc)
     NOTE: molpx assumes that there is no time column.
 
-    active_traj : int, default 0
-        Index of the trajectory that will be responsive. (zero-indexing)
-
     max_frames : int, default is 1000
         If the trajectoy is longer than this, stride to this length (in frames)
 
@@ -320,7 +360,7 @@ def traj(MD_trajectories,
 
     proj_labels : either string or list of strings
 	    The projection plots will get this paramter for labeling their yaxis. If a str is
-        provided, that will be the base name proj_labels='%s_%u'%(proj_labels,ii) for each 
+        provided, that will be the base name proj_labels='%s_%u'%(proj_labels,ii) for each
         projection. If a list, the list will be used. If not enough labels are there
         the module will complain
 
@@ -358,183 +398,218 @@ def traj(MD_trajectories,
     n_feats : int, default is 1
         If a :obj:`projection` is passed along, the first n_feats features that most correlate the
         the projected trajectories will be represented, both in form of trajectories feat vs t as well as in
-        the nglwidget. If :obj:`projection` is None, :obj:`nfeats`  will be ignored.
+        the ngl_wdg. If :obj:`projection` is None, :obj:`nfeats`  will be ignored.
 
     Returns
     ---------
 
-    ax, iwd, data_sample, geoms
+    ax, ngl_wdg, data_sample, geoms
         return _plt.gca(), _plt.gcf(), widget, geoms
 
     ax :
         :obj:`pylab.Axis` object
     fig :
         :obj:`pylab.Figure` object
-    iwd :
+    ngl_wdg :
         :obj:`nglview.NGLWidget`
     geoms:
-        :obj:`mdtraj.Trajectory` object with the geometries n_sample geometries shown by the nglwidget
+        :obj:`mdtraj.Trajectory` object with the geometries n_sample geometries shown by the ngl_wdg
 
 
     """
-
+    smallfontsize = int(_rcParams['font.size'] / 1.5)
     proj_idxs = _bmutils.listify_if_int(proj_idxs)
 
     # Parse input
-    data = [iY[:,proj_idxs] for iY in _bmutils.data_from_input(projected_trajectories)]
+    Y = _bmutils.data_from_input(projected_trajectories)
+    data = [iY[:,proj_idxs] for iY in Y]
 
     MD_trajectories = _bmutils.listify_if_not_list(MD_trajectories)
 
     assert len(data) == len(MD_trajectories), "Mismatch between number of MD-trajectories " \
                                            "and projected trajectores %u vs %u"%(len(MD_trajectories), len(data))
-    assert len(MD_trajectories) > active_traj, "parameter active_traj selected for traj nr. %u to be active " \
-                                            " but your input has only %u trajs. Note: the parameter active_traj " \
-                                            "is zero-indexed"%(active_traj, len(MD_trajectories))
 
     traj_selection = _bmutils.listify_if_int(traj_selection)
-
     if traj_selection is None:
         traj_selection = _np.arange(len(data))
     assert _np.max(traj_selection) < len(data), "Selected up to traj. nr. %u via the parameter traj_selection, " \
                                                 "but only provided %u trajs"%(_np.max(traj_selection), len(data))
-    assert active_traj in traj_selection, "Selected traj. nr. %u to be the active one, " \
-                                          "but it is not contained in traj_selection: %s"%(active_traj, traj_selection)
-    if isinstance(MD_trajectories[active_traj], _md.Trajectory):
-        geoms = MD_trajectories[active_traj][::proj_stride]
-    else: # let mdtraj fail
-        geoms = _md.load(MD_trajectories[active_traj], stride=proj_stride, top=MD_top)
 
-    # Do the projected trajectory and the data match?
-    assert geoms.n_frames == len(data[active_traj]), (geoms.n_frames, len(data[active_traj]))
+    n_trajs = len(traj_selection)
+    n_projs = len(proj_idxs)
+    # Get the geometries as usable mdtraj.Trajectory
+    geoms = []
+    for igeom, idata in zip(MD_trajectories, data):
+        if isinstance(igeom, _md.Trajectory):
+            geoms.append(igeom[::proj_stride])
+        else: # let mdtraj fail
+            geoms.append(_md.load(igeom, stride=proj_stride, top=MD_top))
+
+        # Do the projected trajectory and the data match?
+        assert geoms[-1].n_frames == len(idata), (geoms[-1].n_frames, len(idata))
 
     # Stride to avoid representing huge vectors
     times = []
-    for ii in range(len(data)):
-        time = _np.arange(data[ii].shape[0])*dt*proj_stride
+    for proj_counter in range(len(data)):
+        time = _np.arange(data[proj_counter].shape[0])*dt*proj_stride
         if len(time[::stride]) > max_frames:
-            stride = int(_np.floor(data[ii].shape[0]/max_frames))
+            stride = int(_np.floor(data[proj_counter].shape[0]/max_frames))
 
         times.append(time[::stride])
-        data[ii] = data[ii][::stride]
-        if ii == active_traj:
-            geoms = geoms[::stride]
+        data[proj_counter] = data[proj_counter][::stride]
+        geoms[proj_counter] = geoms[proj_counter][::stride]
+
 
     # For axes-cosmetics later on
     tmax, tmin = _np.max([time[-1] for time in times]), _np.min([time[0] for time in times])
-    ylims = _np.zeros((2, len(proj_idxs)))
-    for ii, __ in enumerate(proj_idxs):
-        ylims[0, ii] = _np.min([idata[:,ii].min() for idata in data])
-        ylims[1, ii] = _np.max([idata[:,ii].max() for idata in data])
-
+    ylims = _np.zeros((2, n_projs))
+    for proj_counter, __ in enumerate(proj_idxs):
+        ylims[0, proj_counter] = _np.min([idata[:,proj_counter].min() for idata in data])
+        ylims[1, proj_counter] = _np.max([idata[:,proj_counter].max() for idata in data])
+    
     ylabels = _bmutils.labelize(proj_labels, proj_idxs)
 
     # Do we have usable projection information?
+    corr_dicts = [[]]*n_trajs
     if projection is not None:
-        corr_dict = _bmutils.most_corr(projection, geoms=geoms, proj_idxs=proj_idxs, n_args=n_feats)
-        if corr_dict["feats"] != []:
-            # Then extend the trajectory selection to include the active trajectory twice
-            traj_selection = _np.insert(traj_selection,
-                                        _np.argwhere([active_traj==ii for ii in traj_selection]).squeeze(),
-                                        [active_traj] * n_feats)
+        corr_dicts = [_bmutils.most_corr(projection, geoms=igeom, proj_idxs=proj_idxs, n_args=n_feats)
+                      for igeom in geoms]
+        if corr_dicts[0]["feats"] != []:
+            colors = _bmutils.matplotlib_colors_no_blue(ncycles=int(_np.ceil(_np.max(proj_idxs)/6.))) # Hack
+            colors = [colors[ii] for ii in proj_idxs]
+        else:
+            n_feats=0
     else:
         # squash whatever input we had if the projection-info input wasn't actually usable
         n_feats = 0
 
-    myfig, myax = _plt.subplots(len(traj_selection)*len(proj_idxs),1, sharex=True, figsize=(7, len(data)*len(proj_idxs)*panel_height), squeeze=False)
-    myax = myax.reshape(len(traj_selection), -1)
+    _plt.ioff()
+    n_rows = n_trajs*n_projs+n_trajs*n_projs*n_feats
+    if n_rows == 1:
+        panel_height = _np.max((panel_height, 2) )
+
+    myfig, myax = _plt.subplots(n_rows,1, sharex=True, figsize=(5, n_rows*panel_height),
+                                squeeze=True
+                                )
+    if n_rows == 1:
+        myax = _np.array(myax, ndmin=1)
 
     # Initialize some things
-    widget = None
-    projections_plotted = 0
-    for kk, (jj, time, jdata, jax) in enumerate(zip(traj_selection,
-                                                    [times[jj] for jj in traj_selection],
-                                                    [data[jj] for jj in traj_selection],
-                                                    myax)):
-        for ii, (idata, iax) in enumerate(zip(jdata.T, jax)):
-            data_sample =_np.vstack((time, idata)).T
+    ngl_wdg_list = []
+    axes_iterator = iter(myax)
+    linked_data_arrays = []
+    linked_axes_wdgs = []
+    vboxes_left = [_Button(description='NGL widgets', layout=_Layout(width='100%'))]
+    for traj_idx, time, jdata, jgeom, jcorr_dict in zip(traj_selection,
+                                                        [times[jj] for jj in traj_selection],
+                                                        [data[jj] for jj in traj_selection],
+                                                        [geoms[jj] for jj in traj_selection],
+                                                        [corr_dicts[jj] for jj in traj_selection]
+                                                        ):
+        ngl_wdg = _nglwidget_wrapper(jgeom)
+        ngl_wdg_list.append(ngl_wdg)
+        vboxes_left.append(_VBox([ngl_wdg], layout=_Layout(border='solid')))
+        ngl_wdg._set_size(*["%fin"%ll for ll in myfig.get_size_inches()])
 
-            # Inactive trajectories, act normal
-            if jj != active_traj:
-                iax.plot(time, idata)
-            # Active trajectory, distinguish between projection and feature
-            else:
-                if projections_plotted < len(proj_idxs): #projection
-                    iax.plot(time, idata)
-                    widget = sample(data_sample, geoms.superpose(geoms[0]), iax,
-                                    clear_lines=False, widget=widget,
-                                    crosshairs='v',
-                                    exclude_coord=1)
-                    projections_plotted += 1
-                    time_feat = time
-                    # TODO find out why this is needed
+        for proj_counter, idata in enumerate(jdata.T):
+            iax = next(axes_iterator)
+            data_sample = _np.vstack((time, idata)).T
+            linked_data_arrays.append(data_sample)
+            iax.plot(time, idata)
+            ngl_wdg, axes_traj_wdg = sample(data_sample, jgeom.superpose(geoms[0]), iax,
+                                               clear_lines=False,
+                                               ngl_wdg=ngl_wdg,
+                                               crosshairs='v',
+                                               exclude_coord=1
+                                               )
+            linked_axes_wdgs.append(axes_traj_wdg)
 
             # Axis-Cosmetics
-            iax.set_ylabel(ylabels[ii])
+            iax.set_ylabel(ylabels[proj_counter])
             iax.set_xlim([tmin, tmax])
-            iax2 = iax.twinx()
-            iax2.set_yticklabels('')
-            iax2.set_ylabel('traj %u'%jj, rotation =-90, va='bottom', ha='center')
+            _add_y2_label(iax, 'traj %u' % traj_idx)
             if sharey_traj:
-                iax.set_ylim(ylims[:,ii]+[-1,1]*_np.diff(ylims[:,ii])*.1)
+                iax.set_ylim(ylims[:,proj_counter]+[-1,1]*_np.diff(ylims[:,proj_counter])*.1)
+
+            # Now go over the correlated features
+            for ifeat in range(n_feats):
+                iax = next(axes_iterator)
+                ifeat_val = jcorr_dict["feats"][proj_counter][:, ifeat]
+                ilabel = jcorr_dict["labels"][proj_counter][ifeat]
+                icol = colors[proj_counter]
+
+                # Plot
+                lines = iax.plot(time, ifeat_val,
+                                 color=icol
+                                 )[0]
+                iax.set_ylabel('\n'.join(_bmutils.re_warp(ilabel, 16)), fontsize=smallfontsize)
+                _add_y2_label(iax, 'traj %u' % traj_idx)
+
+                # Add the correlation value
+                iax.legend([lines], ['Corr(feat|%s)=%2.1f' % (ylabels[proj_counter],
+                                                              jcorr_dict["vals"][proj_counter][ifeat])],
+                           fontsize=smallfontsize, loc='best', frameon=False)
+
+                # Link widget
+                fdata_sample = _np.vstack((time, ifeat_val)).T
+                ngl_wdg, axes_traj_corr_wdg = sample(fdata_sample, jgeom.superpose(geoms[0]), iax,
+                                           clear_lines=False, ngl_wdg=ngl_wdg,
+                                           crosshairs='v',
+                                           exclude_coord=1,
+                                           )
+                linked_data_arrays.append(fdata_sample)
+                linked_axes_wdgs.append(axes_traj_corr_wdg)
+                # Add visualization (let the method decide if it's possible or not)
+                ngl_wdg = _bmutils.add_atom_idxs_widget([jcorr_dict["atom_idxs"][proj_counter][ifeat]], ngl_wdg,
+                                                        color_list=[icol])
 
     # Last of axis cosmetics
-    iax.set_xlabel(tunits)
+    iax.set_xlabel('t / %s'%tunits)
+    myfig.tight_layout()
 
-    # Now let's go to the feature axes
-    # Some bookkeping about axis and features
-    first_empty_axis = _np.argwhere([active_traj==ii for ii in traj_selection])[0]*len(proj_idxs)+len(proj_idxs)
-    last_empty_axis = first_empty_axis+ len(proj_idxs) * n_feats
-    rows, cols = _np.unravel_index(_np.arange(first_empty_axis,last_empty_axis), myax.shape)
-    colors = _bmutils.matplotlib_colors_no_blue()
-    smallfontsize = int(_rcParams['font.size']/2)
-    for kk, (ir, ic)  in enumerate(zip(rows, cols)):
-        # Determine axis
-        iax = myax[ir, ic]
-        # Grab the right properties
-        iproj, ifeat = _np.unravel_index(kk, (len(proj_idxs), n_feats))
-        ifeat_val = corr_dict["feats"][iproj][:, ifeat]
-        ilabel = corr_dict["labels"][iproj][ifeat]
-        icol = colors[iproj]
-        # Plot
-        lines = iax.plot(time_feat, ifeat_val, color=icol)[0]
-        #Cosmetics
-        iax.set_ylabel('\n'.join(_bmutils.re_warp(ilabel, 16)), fontsize=smallfontsize)
-        iax.set_ylim([ifeat_val.min(),
-                      ifeat_val.max(),
-                      ] + _np.array([-1, 1]) * (ifeat_val.max()-ifeat_val.min()) * .05)
+    # Widget cosmetics
+    fig_w, fig_h = myfig.get_size_inches()
+    widget_h = fig_h / len(traj_selection)
+    [iwd._set_size('4in', '%fin' % widget_h) for iwd in ngl_wdg_list]
+    [iwd.center() for iwd in ngl_wdg_list]
 
-        # Link widget
-        fdata_sample = _np.vstack((time_feat, ifeat_val)).T
-        widget = sample(fdata_sample, geoms.superpose(geoms[0]), iax,
-                        clear_lines=False, widget=widget,
-                        crosshairs=False, directionality='w2a')
 
-        # Add the correlation value
-        iax.legend([lines],['Corr(feat|%s)=%2.1f' % (ylabels[iproj], corr_dict["vals"][iproj][ifeat])],
-                   fontsize=smallfontsize, loc='best', frameon=False)
+    mpx_wdg_box = _linkutils.MolPXHBox([_VBox(vboxes_left,
+                                              layout=_Layout(width='%sin'%fig_w, height='%sin'%fig_h,
+                                                      #align_items='baseline'
+                                                             )),
+                                        axes_traj_wdg.canvas]
+                                       )
 
-        # Add visualization (let the method decide if it's possible or not)
-        widget = _bmutils.add_atom_idxs_widget([corr_dict["atom_idxs"][iproj][ifeat]], widget, color_list=[icol])
-
-        widget._set_size(*['%fin' % inches for inches in iax.get_figure().get_size_inches()])
+    # Append the linked objects
+    _linkutils.auto_append_these_mpx_attrs(mpx_wdg_box, _plt.gcf(),
+                                            list(myax.flat),
+                                            linked_data_arrays,
+                                            ngl_wdg_list,
+                                            linked_axes_wdgs,
+                                            [geoms[jj] for jj in traj_selection]
+                                            )
 
     if plot_FES:
-        ax, FES_data, edges = _plot_ND_FES(data, ylabels, weights=weights)
-        if edges[0] is not None:
-            print(edges)
-            FES_data = [FES_data[_np.digitize(idata, edges[0][:-2])] for idata in data]
-            data = [_np.hstack((idata, iFES_data)) for idata, iFES_data in zip(data, FES_data)]
+        FES_HBox = FES([MD_trajectories[jj] for jj in traj_selection],
+                               MD_top,
+                               [Y[jj] for jj in traj_selection],
+                               proj_idxs=proj_idxs,
+                               proj_labels=ylabels,
+                               proj_stride=proj_stride,
+                               weights=weights
+                               )
 
-        widget = sample(data[active_traj], geoms.superpose(geoms[0]), ax, widget=widget, clear_lines=False)
+        FES_HBox.linked_ngl_wdgs[0].center()
+        FES_HBox.linked_figs[0].set_size_inches(fig_w, h=fig_w)
+        FES_HBox.linked_ngl_wdgs[0]._set_size("%sin"%fig_w, "%sin"%fig_w)
+        FES_HBox.linked_figs[0].tight_layout()
 
-    widget_w = iax.get_figure().get_size_inches()[0]
-    try:
-        widget._set_size('%fin'%widget_w, '4in')
-    except AttributeError:
-        pass
+        mpx_wdg_box = _linkutils.MolPXVBox([mpx_wdg_box, FES_HBox])
 
+    _plt.ion()
 
-    return _plt.gca(), _plt.gcf(), widget, geoms
+    return mpx_wdg_box
 
 def correlations(correlation_input,
                  geoms=None,
@@ -556,9 +631,9 @@ def correlations(correlation_input,
         for each projection, very much like the :obj:`feature_TIC_correlation` of the TICA object of pyemma.
 
     geoms : None or :obj:`mdtraj.Trajectory`, default is None
-        The values of the most correlated features will be returned for the geometires in this object. If widget is
+        The values of the most correlated features will be returned for the geometries in this object. If widget is
         left to its default, None, :obj:`correlations` will create a new widget and try to show the most correlated
-        features on top of the widget
+        features on top of the widget.
 
     widget : None or :obj:`nglview NGLWidget`
         Provide an already existing widget to visualize the correlations on top of. This is only for expert use,
@@ -601,7 +676,7 @@ def correlations(correlation_input,
 
     Returns
     -------
-    corr_dict and iwd
+    corr_dict and ngl_wdg
 
     corr_dict:
         A dictionary with items:
@@ -640,7 +715,7 @@ def correlations(correlation_input,
 
     # Create ngl_viewer widget
     if geoms is not None and widget is None:
-        widget = _nglwidget_wrapper(geoms.superpose(geoms))
+        widget = _nglwidget_wrapper(_bmutils.superpose_to_most_compact_in_list(True, [geoms])[0])
 
     if proj_color_list is None:
         proj_color_list = ['blue'] * len(corr_dict["idxs"])
@@ -650,8 +725,7 @@ def correlations(correlation_input,
         raise TypeError("parameter proj_color_list should be either None or a list, not %s of type %s"%(proj_color_list, type(proj_color_list)))
 
     if len(corr_dict["atom_idxs"]) == 0:
-        # TODO : WRITE PROPER WARNINGS
-        print("Warning: Not enough information to display atoms on widget. Turning verbose on.")
+        _warnings.warn("Not enough information to display atoms on widget. Turning verbose on.")
         verbose = True
 
     # Add the represenation
@@ -663,6 +737,7 @@ def correlations(correlation_input,
         for ii, line in enumerate(corr_dict["info"]):
             print('%s is most correlated with '%(line["name"] ))
             for line in line["lines"]:
+                # TODO: this is for when tica is there but no featurizer is there
                 if widget is not None and len(corr_dict["atom_idxs"]) != 0:
                     line += ' (in %s in the widget)'%(proj_color_list[ii])
                 print(line)
@@ -733,18 +808,20 @@ def sample(positions, geom, ax,
            plot_path=False,
            clear_lines=True,
            n_smooth = 0,
-           widget=None,
+           ngl_wdg=None,
            superpose=True,
            projection = None,
            n_feats = 1,
            sticky=False,
+           list_of_repr_dicts=None,
+           color_list=None,
            **link_ax2wdg_kwargs
            ):
 
     r"""
     Visualize the geometries in :obj:`geom` according to the data in :obj:`positions` on an existing matplotlib axes :obj:`ax`
 
-    Use this method when the array of positions, the geometries, the axes (and the widget, optionally) have already been
+    Use this method when the array of positions, the geometries, the axes (and the ngl_wdg, optionally) have already been
     generated elsewhere.
 
     Parameters
@@ -756,7 +833,7 @@ def sample(positions, geom, ax,
         The geometries associated with the the :obj:`positions`. Hence, all have to have the same number of n_frames
 
     ax : matplotlib.pyplot.Axes object
-        The axes to be linked with the nglviewer widget
+        The axes to be linked with the nglviewer ngl_wdg
 
     plot_path : bool, default is False
         whether to draw a line connecting the positions in :obj:`positions`
@@ -768,14 +845,14 @@ def sample(positions, geom, ax,
         if n_smooth > 0, the shown geometries and paths will be smoothed out by 2*n frames.
         See :obj:`molpx._bmutils.smooth_geom` for more information
 
-    widget : None or existing nglview widget
-        you can provide an already instantiated nglviewer widget here (avanced use)
+    ngl_wdg : None or existing nglview ngl_wdg
+        you can provide an already instantiated nglviewer ngl_wdg here (avanced use)
 
     superpose : boolean, default is True
         The geometries in :obj:`geom` may or may not be oriented, depending on where they were generated.
         Since this method is mostly for visualization purposes, the default behaviour is to orient them all to
-        maximally overlap with the first frame (of the first :obj:`mdtraj.Trajectory` object, in case :obj:`geom`
-        is a list)
+        maximally overlap with the most compact frame available
+
     projection : object that generated the projection, default is None
         The projected coordinates may come from a variety of sources. When working with :obj:`pyemma` a number of objects
         might have generated this projection, like a
@@ -790,11 +867,19 @@ def sample(positions, geom, ax,
     n_feats : int, default is 1
         If a :obj:`projection` is passed along, the first n_feats features that most correlate the
         the projected trajectories will be represented, both in form of trajectories feat vs t as well as in
-        the nglwidget. If :obj:`projection` is None, :obj:`nfeats`  will be ignored.
+        the ngl_wdg. If :obj:`projection` is None, :obj:`nfeats`  will be ignored.
 
     sticky : boolean, default is False,
-        If set to True, the widget the generated visualizations will be sticky in that they do not disappear with
+        If set to True, the ngl_wdg the generated visualizations will be sticky in that they do not disappear with
         the next click event. Particularly useful for represeting more minima simultaneously.
+
+    color_list : None or list of len(pos)
+        The colors with which the sticky frames will be plotted.
+        Can by anything that yields matplotlib.colors.is_color_like == True
+
+    list_of_repr_dicts : None or list of dictionaries having at least keys 'repr_type' and 'selection' keys.
+        Other **kwargs are currently ignored but will be implemented in the future (see nglview.add_representation
+        for more info). Only active for sticky widgets
 
     link_ax2wdg_kwargs: dictionary of named arguments, optional
         named arguments for the function :obj:`_link_ax_w_pos_2_nglwidget`, which is the one that internally
@@ -803,7 +888,9 @@ def sample(positions, geom, ax,
     Returns
     --------
 
-    iwd : :obj:`nglview.NGLWidget`
+    ngl_wdg : :obj:`nglview.NGLWidget`
+
+    axes_wdg: obj:`matplotlib.Axes.AxesWidget`
 
     """
 
@@ -812,37 +899,60 @@ def sample(positions, geom, ax,
                        plot_path = plot_path,
                        clear_lines = clear_lines,
                        n_smooth = n_smooth,
-                       widget = widget,
+                       ngl_wdg= ngl_wdg,
                        superpose = superpose,
                        projection = projection,
                        n_feats = n_feats,
                        **link_ax2wdg_kwargs)
     else:
+
         if isinstance(geom, _md.Trajectory):
             geom=[geom]
-        iwd = _nglwidget_wrapper(geom[0])
-        iwd.component_0.clear() #somehow not working properly
-        sel = _bmutils.parse_atom_sel(superpose, geom[0].top)
-        # TODO rewrite parse_atom_sel. This if condition is very BAD
-        if sel is not None:
-            geom = [igeom.superpose(geom[0][0], atom_indices=sel) for igeom in geom]
+
+        # The method takes care of whatever superpose
+        geom = _bmutils.superpose_to_most_compact_in_list(superpose, geom)
+
+        if color_list is None:
+            sticky_colors_hex = ['Element' for ii in range(len(positions))]
+        elif isinstance(color_list, list) and len(color_list) == len(positions):
+            sticky_colors_hex = [_to_hex(cc) for cc in color_list]
+        elif isinstance(color_list, str) and color_list.lower().startswith('rand'):
+            # TODO: create a path through the colors that maximizes distance between averages (otherwise some colors
+            # are too close
+            cmap = _get_cmap('rainbow')
+            cmap_table = _np.linspace(0, 1, len(positions))
+            sticky_colors_hex = [_rgb2hex(cmap(ii)) for ii in _np.random.permutation(cmap_table)]
         else:
-            geom = [igeom.superpose(geom[0][0]) for igeom in geom]
-        iwd._hidden_sticky_frames = geom
-        _bmutils.link_ax_w_pos_2_nglwidget(ax,
+            raise TypeError('argument color_list should be either None, "random", or a list of len(pos)=%u, '
+                            'instead of type %s and len %u' % (len(positions), type(color_list), len(color_list)))
+        sticky_rep = 'cartoon'
+        if geom[0].top.n_residues < 10:
+            sticky_rep = 'ball+stick'
+        if list_of_repr_dicts is None:
+            list_of_repr_dicts = [{'repr_type': sticky_rep, 'selection': 'all'}]
+
+        # Now instantiate the ngl_wdg
+        ngl_wdg = _nglwidget_wrapper(None)
+        # Prepare Geometry_in_widget_list
+        ngl_wdg._GeomsInWid = [_linkutils.GeometryInNGLWidget(igeom, ngl_wdg,
+                                                          color_molecule_hex= cc,
+                                                          list_of_repr_dicts=list_of_repr_dicts) for igeom, cc in zip(_bmutils.transpose_geom_list(geom), sticky_colors_hex)]
+
+        axes_wdg = _linkutils.link_ax_w_pos_2_nglwidget(ax,
                                    positions,
-                                   iwd,
+                                   ngl_wdg,
                                    directionality='a2w',
+                                   dot_color = 'None',
                                    **link_ax2wdg_kwargs
                                    )
-        return iwd
 
+        return ngl_wdg, axes_wdg
 
 def _sample(positions, geoms, ax,
             plot_path=False,
             clear_lines=True,
             n_smooth = 0,
-            widget=None,
+            ngl_wdg=None,
             superpose=True,
             projection = None,
             n_feats = 1,
@@ -852,7 +962,7 @@ def _sample(positions, geoms, ax,
     r"""
     Visualize the geometries in :obj:`geoms` according to the data in :obj:`positions` on an existing matplotlib axes :obj:`ax`
 
-    Use this method when the array of positions, the geometries, the axes (and the widget, optionally) have already been
+    Use this method when the array of positions, the geometries, the axes (and the ngl_wdg, optionally) have already been
     generated elsewhere.
 
     Parameters
@@ -864,7 +974,7 @@ def _sample(positions, geoms, ax,
         The geometries associated with the the :obj:`positions`. Hence, all have to have the same number of n_frames
 
     ax : matplotlib.pyplot.Axes object
-        The axes to be linked with the nglviewer widget
+        The axes to be linked with the nglviewer ngl_wdg
 
     plot_path : bool, default is False
         whether to draw a line connecting the positions in :obj:`positions`
@@ -876,8 +986,8 @@ def _sample(positions, geoms, ax,
         if n_smooth > 0, the shown geometries and paths will be smoothed out by 2*n frames.
         See :any:`bmutils.smooth_geom` for more information
 
-    widget : None or existing nglview widget
-        you can provide an already instantiated nglviewer widget here (avanced use)
+    ngl_wdg : None or existing nglview ngl_wdg
+        you can provide an already instantiated nglviewer ngl_wdg here (avanced use)
 
     superpose : boolean, default is True
         The geometries in :obj:`geoms` may or may not be oriented, depending on where they were generated.
@@ -897,7 +1007,7 @@ def _sample(positions, geoms, ax,
     n_feats : int, default is 1
         If a :obj:`projection` is passed along, the first n_feats features that most correlate the
         the projected trajectories will be represented, both in form of trajectories feat vs t as well as in
-        the nglwidget. If :obj:`projection` is None, :obj:`nfeats`  will be ignored.
+        the ngl_wdg. If :obj:`projection` is None, :obj:`nfeats`  will be ignored.
 
     link_ax2wdg_kwargs: dictionary of named arguments, optional
         named arguments for the function :obj:`_link_ax_w_pos_2_nglwidget`, which is the one that internally
@@ -906,7 +1016,9 @@ def _sample(positions, geoms, ax,
     Returns
     --------
 
-    iwd : :obj:`nglview.NGLWidget`
+    ngl_wdg : :obj:`nglview.NGLWidget`
+
+    axes_wdg :obj:`matplotlib.Axes.AxesWidget`
 
     """
 
@@ -927,14 +1039,13 @@ def _sample(positions, geoms, ax,
 
     geoms = _bmutils.superpose_to_most_compact_in_list(superpose, geoms)
 
-    # Create ngl_viewer widget
-    if widget is None:
-        iwd = _nglwidget_wrapper(geoms[0])
+    # Create ngl_viewer ngl_wdg
+    if ngl_wdg is None:
+        ngl_wdg = _nglwidget_wrapper(geoms[0])
         for igeom in geoms[1:]:
-            # TODO THIS IS THE PLACE TO CORRECT FOR NOT SEEING OVERLAYS OF SMALL MOLECUlES
-            iwd = _nglwidget_wrapper(igeom, iwd=iwd)
+            ngl_wdg = _nglwidget_wrapper(igeom, ngl_wdg=ngl_wdg)
     else:
-        iwd = widget
+        ngl_wdg = ngl_wdg
 
     if clear_lines == True:
         [ax.lines.pop() for ii in range(len(ax.lines))]
@@ -942,10 +1053,10 @@ def _sample(positions, geoms, ax,
     if plot_path:
         ax.plot(positions[:,0], positions[:,1], '-g', lw=3)
 
-    # Link the axes widget with the ngl widget
-    ax_wdg = _bmutils.link_ax_w_pos_2_nglwidget(ax,
-                                        positions,
-                                        iwd,
+    # Link the axes ngl_wdg with the ngl ngl_wdg
+    axes_wdg = _linkutils.link_ax_w_pos_2_nglwidget(ax,
+                                         positions,
+                                         ngl_wdg,
                                         band_width=band_width,
                                         **link_ax2wdg_kwargs
                                         )
@@ -958,11 +1069,9 @@ def _sample(positions, geoms, ax,
             for ifeat in range(n_feats):
                 ilabel = corr_dict["labels"][iproj][ifeat]
                 print(ilabel)
-                iwd = _bmutils.add_atom_idxs_widget([corr_dict["atom_idxs"][iproj][ifeat]], iwd,
+                ngl_wdg = _bmutils.add_atom_idxs_widget([corr_dict["atom_idxs"][iproj][ifeat]], ngl_wdg,
                                             color_list=['green']
                                             )
 
-    # somehow returning the ax_wdg messes the displaying of both widgets
-
-    return iwd
+    return ngl_wdg, axes_wdg
 

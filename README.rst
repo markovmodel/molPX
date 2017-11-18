@@ -33,7 +33,7 @@ If you can't wait to play around with molPX, and you have the `Anaconda scientif
 <https://www.continuum.io/downloads>`_ (which we strongly recommend), the easiest way to get molPX is to issue
 the `conda command <https://conda.io/docs/intro.html>`_:
 
-   >>> conda install molpx -c omnia
+   >>> conda install molpx -c conda-forge
 
 and jump to the Quick Start section of this document. Otherwise, check out our more exhaustive
 
@@ -48,7 +48,7 @@ Start an ``IPython`` console
 
     >>> ipython
 
-Import ``molpx`` and let the example notebook guide you
+Import ``molpx`` and let the example notebooks guide you
 
     >>> import molpx
     >>> molpx.example_notebooks()

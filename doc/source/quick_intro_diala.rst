@@ -3,13 +3,13 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-molPX intro
-===========
+Quick Intro with DiAla
+======================
 
 .. toctree::
    :maxdepth: 0
 
-   PyEMMA_Features_Copy.ipynb
+   0.molPX_quick_intro_Ala2_Copy.ipynb
 
 
 

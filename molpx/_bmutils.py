@@ -1,9 +1,6 @@
 from __future__ import print_function
 import numpy as _np
 import mdtraj as _md
-from matplotlib.widgets import AxesWidget as _AxesWidget
-from matplotlib.cm import get_cmap as _get_cmap
-from matplotlib.colors import rgb2hex as _rgb2hex, is_color_like as _is_color_like, to_hex as _to_hex
 
 try:
     from sklearn.mixture import GaussianMixture as _GMM
@@ -30,8 +27,6 @@ from pyemma.coordinates.transform import TICA as _TICA, PCA as _PCA
 # From coor.util
 from pyemma.util.discrete_trajectories import index_states as _index_states
 from pyemma.util.types import is_string as _is_string,  is_int as _is_int
-
-from scipy.spatial import cKDTree as _cKDTree
 
 def listify_if_int(inp):
     if _is_int(inp):
@@ -125,7 +120,7 @@ def assert_moldata_belong_data(moldata, data, data_stride=1):
     assert n_traj == len(data), ("Wrong number of molecular traj vs. data trajs: %u vs %u"%(n_traj, len(data)))
     assert _np.allclose(traj_lengths, [len(ii) for ii in data]), "Mismatch in the lengths of individual molecular trajs and data trajs"
 
-def matplotlib_colors_no_blue():
+def matplotlib_colors_no_blue(ncycles=1):
     # Until we get the colorcyle thing working, this is a workaround:
     # http://stackoverflow.com/questions/13831549/get-matplotlib-color-cycle-state
     cc = ['green',
@@ -135,8 +130,7 @@ def matplotlib_colors_no_blue():
           'yellow',
           'black',
           'white']
-    for ii in range(3):
-        cc += cc # this grows quickly
+    cc =list(_np.hstack([cc]*ncycles))
     return cc
 
 def re_warp(array_in, lengths):
@@ -151,8 +145,11 @@ def re_warp(array_in, lengths):
 
     lengths : int or iterable of integers
         Lengths of the individual elements of the returned array. If only one int is parsed, all lengths will
-        be that int
-
+        be that int. Special cases:
+            * more lengths than needed are parsed: the last elements of the returned value are empty
+            until all lengths have been used
+            * less lengths than array_in could take: only the lenghts specified are returned in the
+            warped list, the rest is unreturned
     Returns
     -------
     warped: list
@@ -187,8 +184,8 @@ def regspace_cluster_to_target(data, n_clusters_target,
     tested:True
     """
     delta = delta/100
-
-    assert _np.vstack(data).shape[0] >= n_clusters_target, "Cannot cluster " \
+    ndim = _np.vstack(data).shape[0]
+    assert ndim >= n_clusters_target, "Cannot cluster " \
                                                       "%u datapoints on %u clustercenters. Reduce the number of target " \
                                                       "clustercenters."%(_np.vstack(data).shape[0], n_clusters_target)
     # Works well for connected, 1D-clustering,
@@ -203,7 +200,7 @@ def regspace_cluster_to_target(data, n_clusters_target,
         n_cl_now = cl.n_clusters
         delta_cl_now = _np.abs(n_cl_now - n_clusters_target)
         if not n_clusters_target-err <= cl.n_clusters <= n_clusters_target+err:
-            # Cheap (and sometimes bad) heuristic to get relatively close relatively quick
+            # Cheap (VERY BAD IN HIGH DIM) heuristic to get relatively close relatively quick
             dmin = cl.dmin*cl.n_clusters/   n_clusters_target
             cl = _cluster_regspace(data, dmin=dmin, max_centers=5000)# max_centers is given so that we never reach it (dangerous)
         else:
@@ -326,7 +323,9 @@ def min_rmsd_path(start, path_of_candidates, selection=None, history_aware=False
     return path_out
 
 def catalogues(cl, data=None, sort_by=None):
-    r""" Returns a catalogue of frames from a :obj:`pyemma.coordinates.cluster_regspace` object
+    r""" Returns the frames in catalogues form by cluster index:
+     one as list (len Ncl) of ndarrays each of shape (Ni, 2) containing pairs of (traj_idx, frame_idx) values
+     and one as lists of ndarrays of the actual (continous) data values at the (traj_idx, frame_idx)
 
     Parameters
     ----------
@@ -335,7 +334,7 @@ def catalogues(cl, data=None, sort_by=None):
 
     data : None or list, default is None
        The :obj:`cl` has its own  :obj:`cl.dataproducer.data` attribute from which it can
-       retrieve the necessary information for  the :obj:`cat_cont` (default behaviour)
+       retrieve the necessary information for  the :obj:`cat_data` (default behaviour)
        However, any other any data can be given here, **as long as the user is sure that it represents EXACTLY
        the data that was used to parametrize the :obj:`cl` object.
        Internally, the only checks that are carried out are:
@@ -358,7 +357,7 @@ def catalogues(cl, data=None, sort_by=None):
         The discrete catalogue. It is a list of len = :obj:`cl.n_clustercenters` containing a 2D vector
         with all the (file, frame)-pairs in which each clustercenter appears
 
-    cat_cont : list of ndarrays
+    cat_data : list of ndarrays
         The actual value (assumed continuous) of the data at the (file-frame)-pairs of the :obj:`cat_idxs` list
 
     tested: True
@@ -384,19 +383,29 @@ def catalogues(cl, data=None, sort_by=None):
 
     return cat_idxs, cat_cont
 
-def visual_path(cat_idxs, cat_cont, path_type='min_disp', start_pos='maxpop', start_frame=None, **path_kwargs):
+def visual_path(cat_idxs, cat_data, path_type='min_disp', start_pos='maxpop', start_frame=None, **path_kwargs):
     r""" Create a path that advances in the coordinate of interest
     # while minimizing distance in the other coordinates (minimal displacement path)
 
-    start_pos: str, defualt is 'maxpop', alternatives are 'left', 'right'
-       Where to start the path. Since the path is constructed to be visually appealing,
-       it makes sense to start the path close to the most visited value of the coordinatet. Options are
+    cat_idxs : list or np.ndarray of len(cat_data)
+        Each element of this iterable is an ndarray (N,2) whith (traj_idx, frame_idx)
+        pairs pointing towards the trajectory frames. It usually has been generated
+        using cl.sample_indexes_by_cluster.
+
+    cat_data:  iterable of length len(cat_idxs)
+        Each element of this iterable contains the data correspoding to the frames contained
+        in :py:obj:cat_idxs. At the moment, this data can be either an nd.array or an
+        :py:obj:mdtraj.Trajectory
+
+    start_pos: str or int, default is 'maxpop', alternatives are 'left', 'right'
+       Where to start the path. It refers to an index of :py:obj:cat_idxs and :py:obj:cat_data
+       Since the path is constructed to be visually appealing, it makes sense to start the path close to the most visited value of the coordinate. Options are
        'maxpop': does exactly that: Starting from the most populated value of the coordinate,
                  it creates two projection_paths, one moving forward and one moving backward.
                  These are the n and backward ('left') create a coordinate-increasing, diffusion-minimizing path from
        'left':   starts at the "left end" of the coordinate, i.e. at its minimum value, and moves forward
        'right'   starts at the "right end" of the coordinate, i.e. at its maximum value, and moves backward
-
+        int:    path from cat_idxs[start_pop] and cat_data[start_pop]
     path_type = 'min_disp' or 'minRMSD'
 
     start_frame = if the user already knows, of the start_pos index, the frame that's best
@@ -406,6 +415,12 @@ def visual_path(cat_idxs, cat_cont, path_type='min_disp', start_pos='maxpop', st
     *path_kwargs: keyword arguments for the path-choosing algorithm. See min_disp_path or min_rmsd_path for details, but
      in the meantime, these are history_aware=True or False and exclude_coords=None or [0], or [0,1] etc...
     """
+    #First sanity check
+    assert len(cat_data) == len(cat_idxs)
+    # Second sanity check
+    assert _np.all([len(icd)==len(ici) for icd, ici in zip(cat_data, cat_idxs)])
+
+
     if start_pos == 'maxpop':
        start_idx = _np.argmax([len(icat) for icat in cat_idxs])
     elif _is_int(start_pos):
@@ -417,23 +432,18 @@ def visual_path(cat_idxs, cat_cont, path_type='min_disp', start_pos='maxpop', st
         # Draw a random frame from the starting point's catalgue
         start_frame = _np.random.randint(0, high=len(cat_idxs[start_idx]))
 
-    start_fwd = cat_cont[start_idx][start_frame]
+    start_fwd = cat_data[start_idx][start_frame]
+    start_bwd = cat_data[start_idx][start_frame]
     if path_type == 'min_disp':
-       path_fwd = [start_frame]+min_disp_path(start_fwd, cat_cont[start_idx+1:], **path_kwargs)
+       path_fwd = [start_frame]+min_disp_path(start_fwd, cat_data[start_idx + 1:], **path_kwargs)
+       path_bwd = [start_frame]+min_disp_path(start_bwd, cat_data[:start_idx][::-1], **path_kwargs)
     elif path_type == 'min_rmsd':
-       path_fwd = [start_frame]+min_rmsd_path(start_fwd, cat_cont[start_idx+1:], **path_kwargs)
+       path_fwd = [start_frame]+min_rmsd_path(start_fwd, cat_data[start_idx + 1:], **path_kwargs)
+       path_bwd = [start_frame]+min_rmsd_path(start_bwd, cat_data[:start_idx][::-1], **path_kwargs)
     else:
          raise NotImplementedError(path_type)
     path_fwd = _np.vstack([cat_idxs[start_idx:][ii][idx] for ii, idx in enumerate(path_fwd)])
-    # Path backward,
     # Take the catalogue entries until :start_idx and invert them
-    start_bwd = cat_cont[start_idx][start_frame]
-    if path_type == 'min_disp':
-       path_bwd = [start_frame]+min_disp_path(start_bwd, cat_cont[:start_idx][::-1], **path_kwargs)
-    elif path_type == 'min_rmsd':
-         path_bwd = [start_frame]+min_rmsd_path(start_bwd, cat_cont[:start_idx][::-1], **path_kwargs)
-    else:
-         raise NotImplementedError(path_type)
     # Slice up to including start_idx, need a plus one
     path_bwd = _np.vstack([cat_idxs[:start_idx+1][::-1][ii][idx] for ii, idx in enumerate(path_bwd)])
     # Invert path_bwd it and exclude last frame (otherwise the most visited appears twice)
@@ -605,12 +615,17 @@ def save_traj_wrapper(traj_inp, indexes, outfile, top=None, stride=1, chunksize=
 
     return geom_smpl
 
-def minimize_rmsd2ref_in_sample(sample, ref):
-    # Candidate selection
-
+def slice_list_of_geoms_to_closest_to_ref(geom_list, ref):
+    r"""
+    For a list of md.Trajectory objects, reduce md.Trajectory in the list
+    to the frame closest to a reference
+    :param geom_list: list of md.Trajectories
+    :param ref: md.Trajectory
+    :return: md.Trajectory of n_frames = len(geom_list), oriented wrt to ref
+    """
     out_geoms = None
-    for cand_geoms in sample:
-        igeom = cand_geoms[(_np.argmin(_md.rmsd(cand_geoms, ref)))]
+    for cand_geoms in geom_list:
+        igeom = cand_geoms[_np.argmin(_md.rmsd(cand_geoms, ref))]
         if out_geoms is None:
             out_geoms = igeom
         else:
@@ -618,188 +633,6 @@ def minimize_rmsd2ref_in_sample(sample, ref):
 
     return out_geoms.superpose(ref)
 
-def link_ax_w_pos_2_nglwidget(ax, pos, nglwidget,
-                              crosshairs=True,
-                              dot_color='red',
-                              band_width=None,
-                              radius=False,
-                              directionality=None,
-                              exclude_coord=None,
-                              color_list=None,
-                              list_of_repr_dicts = None
-                              ):
-    r"""
-    Initial idea for this function comes from @arose, the rest is @gph82
-
-    Parameters
-    ---------
-    band_with : None or float,
-        band_width is in units of the axis of (it will be tranlated to pts internally)
-
-    crosshairs : Boolean or str
-        If True, a crosshair will show where the mouse-click ocurred. If 'h' or 'v', only the horizontal or
-        vertical line of the crosshair will be shown, respectively. If False, no crosshair will appear
-
-    dot_color : Anything that yields matplotlib.colors.is_color_like(dot_color)==True
-        Default is 'red'. dot_color='None' yields no dot
-
-    directionality : str or None, default is None
-        If not None, directionality can be either 'a2w' or 'w2a', meaning that connectivity
-         between axis and widget will be only established as
-         * 'a2w' : action in axis   triggers action in widget, but not the other way around
-         * 'w2a' : action in widget triggers action in axis, but not the other way around
-
-    exclude_coord : None or int , default is None
-        The excluded coordinate will not be considered when computing the nearest-point-to-click.
-        Typical use case is for visualize.traj to only compute distances horizontally along the time axis
-
-    color_list : None or list of len(pos)
-        The colors with which the sticky frames will be plotted.
-        Can by anything that yields matplotlib.colors.is_color_like == True
-
-    list_of_repr_dicts : None or list of dictionaries having at least keys 'repr_type' and 'selection' keys.
-        Other **kwargs are currently ignored but will be implemented in the future (see nglview.add_representation
-        for more info). Only active for sticky widgets
-    #TODO consider implementing list_of_repr_dicts in visualize.sample
-    """
-
-    assert directionality in [None, 'a2w', 'w2a'], "The directionality parameter has to be in [None, 'a2w', 'w2a'] " \
-                                                   "not %s"%directionality
-
-    assert crosshairs in [True, False, 'h', 'v'], "The crosshairs parameter has to be in [True, False, 'h','v'], " \
-                                                   "not %s" % crosshairs
-    ipos = _np.copy(pos)
-    if _is_int(exclude_coord):
-        ipos[:,exclude_coord] = 0
-    kdtree = _cKDTree(ipos)
-    assert nglwidget.trajectory_0.n_frames == pos.shape[0], \
-        ("Mismatching frame numbers %u vs %u"%( nglwidget.trajectory_0.n_frames, pos.shape[0]))
-
-    x, y = pos.T
-
-    sticky = False
-    # Are we in a sticky situation?
-    if hasattr(nglwidget, '_hidden_sticky_frames'):
-        cmap = _get_cmap('rainbow')
-        cmap_table = _np.linspace(0, 1, len(x))
-        sticky_overlays_by_frame = transpose_geom_list(nglwidget._hidden_sticky_frames)
-        overlay_iterator_by_frame = {ff: iter(sgeom) for ff, sgeom in enumerate(sticky_overlays_by_frame)}
-        # TODO: create a path through the colors that maximizes distance between averages (otherwise some colors
-        # are too close
-        if color_list is None:
-            sticky_colors_hex = [_rgb2hex(cmap(ii)) for ii in _np.random.permutation(cmap_table)]
-        elif isinstance(color_list, list) and len(color_list)==len(pos):
-            sticky_colors_hex = [_to_hex(cc) for cc in color_list]
-        else:
-            raise TypeError('argument color_list should be either None or a list of len(pos), '
-                            'instead of type %s and len %u'%(type(color_list), len(color_list)))
-        sticky_rep = 'cartoon'
-        if nglwidget._hidden_sticky_frames[0].top.n_residues < 10:
-            sticky_rep = 'ball+stick'
-        if list_of_repr_dicts is None:
-            list_of_repr_dicts = [{'repr_type': sticky_rep, 'selection': 'all'}]
-        sticky = True
-
-    # Basic interactive objects
-    showclick_objs = []
-    if crosshairs in [True, 'h']:
-        lineh = ax.axhline(ax.get_ybound()[0], c="black", ls='--')
-        setattr(lineh, 'whatisthis', 'lineh')
-        showclick_objs.append(lineh)
-    if crosshairs in [True, 'v']:
-        linev = ax.axvline(ax.get_xbound()[0], c="black", ls='--')
-        setattr(linev, 'whatisthis', 'linev')
-        showclick_objs.append(linev)
-
-    if _is_color_like(dot_color):
-        pass
-    else:
-        raise TypeError('dot_color should be a matplotlib color')
-
-    dot = ax.plot(pos[0,0],pos[0,1], 'o', c=dot_color, ms=7, zorder=100)[0]
-    setattr(dot,'whatisthis','dot')
-    closest_to_click_obj = [dot]
-
-    # Other objects, related to smoothing options
-    if band_width is not None:
-        if radius:
-            band_width_in_pts = int(_np.round(pts_per_axis_unit(ax).mean() * band_width.mean()))
-            rad = ax.plot(pos[0, 0], pos[0, 1], 'o',
-                          ms=_np.round(band_width_in_pts),
-                          c='green', alpha=.25, markeredgecolor='None')[0]
-            setattr(rad, 'whatisthis', 'dot')
-            if not sticky:
-                closest_to_click_obj.append(rad)
-        else:
-            # print("Band_width(x,y) is %s" % (band_width))
-            coord_idx = get_ascending_coord_idx(pos)
-            band_width_in_pts = int(_np.round(pts_per_axis_unit(ax)[coord_idx] * band_width[coord_idx]))
-            # print("Band_width in %s is %s pts"%('xy'[coord_idx], band_width_in_pts))
-
-
-            band_call = [ax.axvline, ax.axhline][coord_idx]
-            band_init = [ax.get_xbound, ax.get_ybound][coord_idx]
-            band_type = ['linev',  'lineh'][coord_idx]
-            band = band_call(band_init()[0],
-                             lw=band_width_in_pts,
-                             c="green", ls='-',
-                             alpha=.25)
-            setattr(band, 'whatisthis', band_type)
-            closest_to_click_obj.append(band)
-
-    nglwidget.isClick = False
-    def onclick(event):
-        if crosshairs:
-            for iline in showclick_objs:
-                update2Dlines(iline,event.xdata, event.ydata)
-
-        data = [event.xdata, event.ydata]
-        _, index = kdtree.query(x=data, k=1)
-        for idot in closest_to_click_obj:
-            update2Dlines(idot,x[index],y[index])
-
-        nglwidget.isClick = True
-        if not sticky:
-            nglwidget.frame = index
-        else:
-            nglwidget.add_trajectory(next(overlay_iterator_by_frame[index]))
-            nglwidget.clear_representations(component=nglwidget.n_components)
-            for irepr in list_of_repr_dicts:
-                nglwidget.add_representation(irepr['repr_type'],
-                                             selection=irepr['selection'],
-                                             component=nglwidget.n_components,
-                                             color=sticky_colors_hex[index],
-                                             )
-            ax.plot(pos[index, 0], pos[index, 1], 'o', c=sticky_colors_hex[index], ms=7)
-
-    def my_observer(change):
-        r"""Here comes the code that you want to execute
-        """
-        #for c in change:
-        #    print("%s -> %s" % (c, change[c]))
-        nglwidget.isClick = False
-        _idx = change["new"]
-        try:
-            for idot in closest_to_click_obj:
-                update2Dlines(idot, x[_idx], y[_idx])
-            #print("caught index error with index %s (new=%s, old=%s)" % (_idx, change["new"], change["old"]))
-        except IndexError as e:
-            for idot in closest_to_click_obj:
-                update2Dlines(idot, x[0], y[0])
-            print("caught index error with index %s (new=%s, old=%s)" % (_idx, change["new"], change["old"]))
-            pass
-        #print("set xy = (%s, %s)" % (x[_idx], y[_idx]))
-
-    # Connect axes to widget
-    axes_widget = _AxesWidget(ax)
-    if directionality in [None, 'a2w']:
-        axes_widget.connect_event('button_release_event', onclick)
-
-    # Connect widget to axes
-    if directionality in [None, 'w2a']:
-        nglwidget.observe(my_observer, "frame", "change")
-
-    return axes_widget
 
 def get_ascending_coord_idx(pos, fail_if_empty=False, fail_if_more_than_one=False):
     r"""
@@ -825,12 +658,12 @@ def get_ascending_coord_idx(pos, fail_if_empty=False, fail_if_more_than_one=Fals
     """
 
     idxs = _np.argwhere(_np.all(_np.diff(pos,axis=0)>0, axis=0)).squeeze()
-    if _is_int(idxs):
-        idxs = _np.array(idxs)
+    if isinstance(idxs, _np.ndarray) and idxs.ndim==0:
+        idxs = idxs[()]
     elif idxs == [] and fail_if_empty:
-        raise ValueError('No column was found in ascending order')
+            raise ValueError('No column was found in ascending order')
 
-    if idxs.ndim > 0:
+    if _np.size(idxs) > 1:
         print('Found that more than one column in ascending order %s' % idxs)
         if fail_if_more_than_one:
             raise Exception
@@ -840,68 +673,6 @@ def get_ascending_coord_idx(pos, fail_if_empty=False, fail_if_more_than_one=Fals
             idxs = idxs[0]
     return idxs
 
-def pts_per_axis_unit(mplax, pt_per_inch=72):
-    r"""
-    Return how many pt per axis unit of a given maptplotlib axis a figure has
-
-    Parameters
-    ----------
-
-    mplax : :obj:`matplotlib.axes._subplots.AxesSubplot`
-
-    pt_per_inch : how many points are in an inch (this number should not change)
-
-    Returns
-    --------
-
-    pt_per_xunit, pt_per_yunit
-
-    """
-
-    # matplotlib voodoo
-    # Get bounding box
-    bbox = mplax.get_window_extent().transformed(mplax.get_figure().dpi_scale_trans.inverted())
-
-    span_inch = _np.array([bbox.width, bbox.height], ndmin=2).T
-
-    span_units = [mplax.get_xlim(), mplax.get_ylim()]
-    span_units = _np.diff(span_units, axis=1)
-
-    inch_per_unit = span_inch / span_units
-    return inch_per_unit * pt_per_inch
-
-def update2Dlines(iline, x, y):
-    """
-    provide a common interface to update objects on the plot to a new position (x,y) depending
-    on whether they are hlines, vlines, dots etc
-
-    Parameters
-    ----------
-
-    iline: :obj:`matplotlib.lines.Line2D` object
-
-    x : float with new position
-
-    y : float with new position
-
-    tested:False
-    """
-    # TODO FIND OUT A CLEANER WAY TO DO THIS (dict or class)
-
-    if not hasattr(iline,'whatisthis'):
-        raise AttributeError("This method will only work if iline has the attribute 'whatsthis'")
-    else:
-        # TODO find cleaner way of distinguishing these 2Dlines
-        if iline.whatisthis in ['dot']:
-            iline.set_xdata((x))
-            iline.set_ydata((y))
-        elif iline.whatisthis in ['lineh']:
-            iline.set_ydata((y,y))
-        elif iline.whatisthis in ['linev']:
-            iline.set_xdata((x,x))
-        else:
-            # TODO: FIND OUT WNY EXCEPTIONS ARE NOT BEING RAISED
-            raise TypeError("what is this type of 2Dline?")
 
 def running_avg_idxs(l, n, symmetric=True, debug=False):
     r"""
@@ -1205,9 +976,9 @@ def atom_idxs_from_feature(ifeat):
     else:
         raise NotImplementedError('bmutils.atom_idxs_from_feature cannot interpret the atoms behind %s yet'%ifeat)
 
-def add_atom_idxs_widget(atom_idxs, widget, color_list=None, radius=1):
+def add_atom_idxs_widget(atom_idxs, ngl_wdg, color_list=None, radius=1):
     r"""
-    provided a list of atom_idxs and a widget, try to represent them as well as possible in the widget
+    provided a list of atom_idxs and a ngl_wdg, try to represent them as well as possible in the ngl_wdg
     It is assumed that this method is called once per feature, ie. the number of atoms defines the
     feature. This way, the method decides how to best represent them
     best to represent them. Currently, that means:
@@ -1220,7 +991,7 @@ def add_atom_idxs_widget(atom_idxs, widget, color_list=None, radius=1):
 
     atom_idxs : list of iterables of integers. If [], the method won't do anything
 
-    widget : nglview widget on which to represent stuff
+    ngl_wdg : nglview ngl_wdg on which to represent stuff
 
     color_list: list, default is None
         list of colors to provide the representations with. The default None yields blue.
@@ -1233,7 +1004,7 @@ def add_atom_idxs_widget(atom_idxs, widget, color_list=None, radius=1):
 
     Returns
     -------
-    widget : Input widget with the representations added
+    ngl_wdg : Input ngl_wdg with the representations added
 
     """
 
@@ -1243,23 +1014,23 @@ def add_atom_idxs_widget(atom_idxs, widget, color_list=None, radius=1):
         color_list += [color_list[-1]]*(len(atom_idxs)-len(color_list))
 
     if atom_idxs is not []:
-        for cc in range(len(widget._ngl_component_ids)):
+        for cc in range(len(ngl_wdg._ngl_component_ids)):
             for iidxs, color in zip(atom_idxs, color_list):
                 if _is_int(iidxs):
-                    widget.add_spacefill(selection=[iidxs], radius=radius, color=color, component=cc)
+                    ngl_wdg.add_spacefill(selection=[iidxs], radius=radius, color=color, component=cc)
                 elif _np.ndim(iidxs)>0 and len(iidxs)==2:
-                    widget.add_distance(atom_pair=[[ii for ii in iidxs]], # yes it has to be this way for now
+                    ngl_wdg.add_distance(atom_pair=[[ii for ii in iidxs]],  # yes it has to be this way for now
                      color=color,
-                     #label_color='black',
+                                         #label_color='black',
                      label_size=0,
-                    component=cc)
+                                         component=cc)
                     # TODO add line thickness as **kwarg
                 elif _np.ndim(iidxs) > 0 and len(iidxs) in [3,4]:
-                    widget.add_spacefill(selection=iidxs, radius=radius, color=color, component=cc)
+                    ngl_wdg.add_spacefill(selection=iidxs, radius=radius, color=color, component=cc)
                 else:
                     print("Cannot represent features involving more than 5 atoms per single feature")
 
-    return widget
+    return ngl_wdg
 
 def transpose_geom_list(geom_list):
     r"""
@@ -1333,87 +1104,6 @@ def geom_list_2_geom(geom_list):
 
 
     return(geom)
-
-def auto_GMM_model(Y, ncs=_np.arange(2, 7)):
-    bics = []
-    for nc in ncs:
-        igmm = _GMM(n_components=nc)
-        igmm.fit(Y)
-        bics.append(igmm.bic(Y))
-    nc = ncs[_np.argmin(bics)]
-    if len(ncs) > 1:
-        igmm = _GMM(n_components=nc)
-        igmm.fit(Y)
-
-    return igmm
-
-def MEP_naive(euc_points, V, start_idx, end_idx, step_size=10, allow_jumps=True):
-    r"""
-    return the indices of a path that connects the start and end points miniminzing the energy
-
-    Parameters
-    ----------
-
-    euc_points : np.ndarray of shape (n, m)
-        n points of dimension m in euclidean space that the path can consist of
-
-    V : iterable of floats of len(n)
-        energy value for each of the points in :py:obj:`euc_points`
-
-    start_idx : int
-        where the path is supossed to start
-
-    end_idx : int
-        where the path is supossed to end
-
-    step_size : int, default is 10
-        parameter of the method, something like the radius of the hypershpere around the current path point
-        for next-step search
-    """
-
-    from scipy.spatial.distance import pdist, squareform
-
-    assert _np.ndim(euc_points) == 2
-    assert len(V) == euc_points.shape[0], (len(V), euc_points.shape)
-
-    # Distance matrix with infinity in the diagonal
-    D = squareform(pdist(euc_points)) + _np.diag(_np.ones(euc_points.shape[0]) + _np.inf)
-
-    imax = 1000
-    path = [start_idx]
-
-    for ii in range(imax):
-        # Update actual distance to final step
-        d2end = D[path[-1], end_idx]
-
-        # Closest candidates
-        cands = D[path[-1]].argsort()[:step_size]
-        if end_idx in cands:
-            path.append(end_idx)
-            break
-        # print(ii, ":", path[-1], cands, end_idx, end_idx in cands)
-
-        # Take those who reduce the distance (advanced cands) and have note yet been selected
-        cands = [ii for ii in cands if D[end_idx][ii] <= d2end and ii not in path]
-
-        # Take the one with the minimum energy among the advanced cands
-        try:
-            path.append(cands[_np.argmin([V[ii] for ii in cands])])
-        except ValueError:
-            if allow_jumps:
-                cands = [ii for ii in D[path[-1]].argsort()]  # Don't use step_size
-                cands = [ii for ii in cands if ii not in path]  # Do not revisit
-                cands = [ii for ii in cands if D[ii, end_idx] < d2end]  # Go fwd
-                cands = [ii for ii in cands if D[ii, start_idx] > D[path[-1], start_idx]]  # Don't go bckwd
-                path.append(cands[0])
-            else:
-                print("Path interrupted because of need to jump.\n", \
-                      "Please inspect this result and decide for larger step_size or simply allowing for jumps")
-                break
-
-        if end_idx == path[-1]:
-            break
-    return path
 
 def labelize(proj_labels, proj_idxs):
     r"""

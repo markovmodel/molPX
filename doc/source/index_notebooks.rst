@@ -29,10 +29,11 @@ installation directory.
 .. toctree::
    :maxdepth: 1
 
-   Intro with BPTI <notebook_molpx_intro.rst>
-   Intro with Di-Alanine <notebook_molpx_intro_DiAla.rst>
-   Metadynamics <notebook_molpx_meta.rst>
-   PyEMMA features <notebook_molpx_features.rst>
+   Quick Intro with DiAla <quick_intro_diala.rst>
+   molPX and PyEMMA <molpx_and_pyemma.rst>
+   molPX and TICA with BPTI <molpx_and_TICA_BPTI.rst>
+   molPX and TICA with DiAla <molpx_and_TICA_DiAla.rst>
+   molPX and Metadynamics with DiAla <molpx_and_metadynamics_with_DiAla.rst>
 
 3. Watch:
     Our :doc:`Youtube video </about>`  or the :doc:`gif animation </index>` show ``molpx`` in action.

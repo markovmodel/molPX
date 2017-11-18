@@ -6,7 +6,7 @@ import sys as _sys
 from glob import glob
 from inspect import getfile
 import shutil
-from time import sleep
+import subprocess
 
 from tempfile import mkdtemp
 
@@ -113,65 +113,7 @@ class TemporaryDirectory(object):
         except OSError:
             pass
 
-def example_notebook(extra_flags_as_one_string=None, nb_file='Projection_Explorer.ipynb', just_show_available_nbs=False):
-    r"""
-    Open the example notebook in the default browser. The ipython terminal stays active while the notebook is still active.
-    Ctr+C in the ipython terminal will close the notebook.
-
-    Note: The displayed notebook is a working copy of the original notebook. Feel free to mess around with it
-
-    Parameters
-    ----------
-
-    extra_flags_as_one_string : str
-        Any flags you would parse along to the "jupyter notebook" command, like --no-browser etc
-
-    nb_file : str, default is "Projection_Explorer.ipynb"
-        The notebook file that will be opened. If you want to choose from other notebooks, set
-         :py:obj:`just_show_available_nbs` to True
-
-    just_show_available_nbs` : bool, default is False
-        Show a list of available notebooks and exit.
-    """
-
-    # TODO create deprecation annotator?
-    _warnings.warn('molpx.example_notebooks will be deprecated in future releases. Use molpx.example_notebooks() instead.')
-    sleep(5)
-
-    if just_show_available_nbs:
-        print("List of available notebooks found in molpx's notebook directory %s"%_molpxdir(join='notebooks/'))
-        print("You can use any of them as 'nb_file' to open them in a safe environment")
-        for ff in glob(_molpxdir(join='notebooks/*.ipynb')):
-            print('* %s'%ff.replace(_molpxdir(join='notebooks/'),''))
-        return
-
-    from IPython.terminal.interactiveshell import TerminalInteractiveShell
-    origfile = _molpxdir('notebooks/%s'%nb_file)
-
-
-    with TemporaryDirectory(suffix='_test_molpx_notebook') as tmpdir:
-        tmpfile = _os.path.abspath(_os.path.join(tmpdir, nb_file))
-        shutil.copy(origfile, tmpfile)
-
-        nbstring = open(tmpfile).read()
-        f = open(tmpfile,'w')
-        f.write(nbstring.replace("# ", "<font color='red', size=1>"
-                                       "This is a temporary copy of the original notebook found in `%s`. "
-                                       "This temporary copy is located in `%s`. "
-                                       "Feel free to play around, modify or even break this notebook. "
-                                       "It wil be deleted on exit it and a new one created next time you issue "
-                                       "`molpx.example_notebooks()`</font>\\n\\n"
-                                       "# "
-                                 %(origfile, tmpfile),1))
-        f.close()
-        cmd = 'jupyter notebook %s'%tmpfile
-        if isinstance(extra_flags_as_one_string,str):
-            cmd ='%s %s'%(cmd,extra_flags_as_one_string)
-
-        eshell = TerminalInteractiveShell()
-        eshell.system_raw(cmd)
-
-def example_notebooks(dry_run=False, extra_flags_as_one_string=None):
+def example_notebooks(dry_run=False, extra_flags_as_one_string=None, **kwargs_subprocess):
     r"""
     Open the list of available example notebooks in the default browser.
     The ipython terminal stays active while ipython kernel still active.
@@ -188,8 +130,9 @@ def example_notebooks(dry_run=False, extra_flags_as_one_string=None):
     extra_flags_as_one_string : str
         Any flags you would parse along to the "jupyter notebook" command, like --no-browser etc
 
+    **kwargs_subprocess: named arguments for the subprocess call.
+        You can ignore this safely, this makes testing possible
     """
-
     avail_nbs = glob(_molpxdir(join='notebooks/*.ipynb'))
     if dry_run:
         print("List of available notebooks found in molpx's notebook directory %s"%_molpxdir(join='notebooks/'))
@@ -197,9 +140,6 @@ def example_notebooks(dry_run=False, extra_flags_as_one_string=None):
         for ff in avail_nbs:
             print('* %s'%_os.path.basename(ff))
         return
-
-    from IPython.terminal.interactiveshell import TerminalInteractiveShell
-
 
     with TemporaryDirectory(suffix='_test_molpx_notebook') as tmpdir:
         for nb_file in avail_nbs:
@@ -215,12 +155,18 @@ def example_notebooks(dry_run=False, extra_flags_as_one_string=None):
                                            "It wil be deleted on exit it and a new one created next time you issue "
                                            "`molpx.example_notebooks()`</font>\\n\\n"
                                            "# "
-                                     %(nb_file, tmpfile),1))
+                                     %(nb_file.replace("\\","\\\\"),  # Windows's os.path.sep gets intepreted as
+                                       tmpfile.replace("\\","\\\\")), # escape character
+                                     1))
             f.close()
 
         cmd = 'jupyter notebook --notebook-dir %s'%tmpdir
         if isinstance(extra_flags_as_one_string,str):
             cmd ='%s %s'%(cmd,extra_flags_as_one_string)
 
-        eshell = TerminalInteractiveShell()
-        eshell.system_raw(cmd)
+        try:
+            subprocess.run(cmd.split(), **kwargs_subprocess)
+        except AssertionError:
+            _warnings.warn("molpx.example_notebooks could not open an in interactive shell. "
+                           "Nothing happened.")
+

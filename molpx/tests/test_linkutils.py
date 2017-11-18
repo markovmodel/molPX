@@ -180,7 +180,7 @@ class TestClickOnAxisListener(unittest.TestCase):
         setattr(dot, 'whatisthis', 'dot')
 
         # Instantiate the ClickOnAxisListener and call it with the event
-        molpx._linkutils.ClickOnAxisListener(ngl_wdg, self.kdtree, True,
+        return molpx._linkutils.ClickOnAxisListener(ngl_wdg, True,
                                              [lineh],
                                              iax, self.pos,
                                              [dot]
@@ -197,6 +197,31 @@ class TestClickOnAxisListener(unittest.TestCase):
         ngl_wdg, __ = molpx.visualize.sample(self.pos, self.MD_trajectory, plt.gca(), sticky=True)
         self.just_runs(ngl_wdg, button=1)
         [self.just_runs(ngl_wdg, button=2) for ii in range(5)]
+
+    def test_just_runs_recomputes_kdtree(self):
+        plt.plot(self.pos[:, 0], self.pos[:, 1])
+        iax = plt.gca()
+
+        # Prepare a mouse event in the middle of the plot
+        x, y = np.array(iax.get_window_extent()).mean(0)
+
+        # Prepare event
+        lineh = iax.axhline(iax.get_ybound()[0])
+        setattr(lineh, 'whatisthis', 'lineh')
+        dot = iax.plot(self.pos[0, 0], self.pos[0, 1])[0]
+        setattr(dot, 'whatisthis', 'dot')
+        CLAL = molpx._linkutils.ClickOnAxisListener(nglview.show_mdtraj(self.MD_trajectory), True,
+                                             [lineh],
+                                             iax, self.pos,
+                                             [dot]
+                                             )
+        # Resize the figure
+        CLAL.ax.figure.set_size_inches(1,1)
+        # Send an event
+        CLAL(MouseEvent(" ",  CLAL.ax.figure.canvas, x, y,
+                    button=1, key=None, step=0,
+                    dblclick=False,
+                    guiEvent=None))
 
 class TestChangeInNGLWidgetListener(unittest.TestCase):
     @classmethod

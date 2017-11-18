@@ -83,27 +83,41 @@ def update2Dlines(iline, x, y):
 
 
 class ClickOnAxisListener(object):
-    def __init__(self, ngl_wdg, kdtree, crosshairs, showclick_objs, ax, pos,
+    def __init__(self, ngl_wdg, crosshairs, showclick_objs, ax, pos,
                  list_mpl_objects_to_update):
         self.ngl_wdg = ngl_wdg
-        self.kdtree = kdtree
         self.crosshairs = crosshairs
         self.showclick_objs = showclick_objs
         self.ax = ax
         self.pos = pos
         self.list_mpl_objects_to_update = list_mpl_objects_to_update
         self.list_of_dots = [None]*self.pos.shape[0]
+        self.fig_size = self.ax.figure.get_size_inches()
+        self.build_tree()
+
+    def build_tree(self):
+        # Use ax.transData to compute distance in pixels
+        # regardelss of the axes units (http://matplotlib.org/users/transforms_tutorial.html)
+        # Corresponds to the visual distance between clicked point and target point
+        self.kdtree = _cKDTree(self.ax.transData.transform(self.pos))
+
+    @property
+    def figure_changed_size(self):
+        return not _np.allclose(self.fig_size, self.ax.figure.get_size_inches())
 
     def __call__(self, event):
+        # Re-build tree if there s been a figsize change
+        if self.figure_changed_size:
+            self.build_tree()
+            self.fig_size = self.ax.figure.get_size_inches()
 
-        data = [event.xdata, event.ydata]
         # Was the click inside the bounding box?
         if self.ax.get_window_extent().contains(event.x, event.y):
             if self.crosshairs:
                 for iline in self.showclick_objs:
                     update2Dlines(iline, event.xdata, event.ydata)
 
-            _, index = self.kdtree.query(x=data, k=1)
+            _, index = self.kdtree.query(x=[event.x, event.y], k=1)
             for idot in self.list_mpl_objects_to_update:
                 update2Dlines(idot, self.pos[index, 0], self.pos[index, 1])
 
@@ -382,7 +396,6 @@ def link_ax_w_pos_2_nglwidget(ax, pos, ngl_wdg,
     ipos = _np.copy(pos)
     if _is_int(exclude_coord):
         ipos[:,exclude_coord] = 0
-    kdtree = _cKDTree(ipos)
 
     # Are we in a sticky situation?
     if hasattr(ngl_wdg, '_GeomsInWid'):
@@ -442,7 +455,7 @@ def link_ax_w_pos_2_nglwidget(ax, pos, ngl_wdg,
 
     ngl_wdg.isClick = False
 
-    CLA_listener = ClickOnAxisListener(ngl_wdg, kdtree, crosshairs, showclick_objs, ax, pos,
+    CLA_listener = ClickOnAxisListener(ngl_wdg, crosshairs, showclick_objs, ax, pos,
                                        list_mpl_objects_to_update)
 
     NGL_listener = ChangeInNGLWidgetListener(ngl_wdg, list_mpl_objects_to_update, pos)

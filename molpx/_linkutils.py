@@ -93,7 +93,7 @@ class ClickOnAxisListener(object):
         self.list_mpl_objects_to_update = list_mpl_objects_to_update
         self.list_of_dots = [None]*self.pos.shape[0]
         self.fig_size = self.ax.figure.get_size_inches()
-        self.build_tree()
+        self.kdtree = None
 
     def build_tree(self):
         # Use ax.transData to compute distance in pixels
@@ -106,8 +106,9 @@ class ClickOnAxisListener(object):
         return not _np.allclose(self.fig_size, self.ax.figure.get_size_inches())
 
     def __call__(self, event):
-        # Re-build tree if there s been a figsize change
-        if self.figure_changed_size:
+        # Wait for the first click or a a figsize change
+        # to build the kdtree
+        if self.figure_changed_size or self.kdtree is None:
             self.build_tree()
             self.fig_size = self.ax.figure.get_size_inches()
 

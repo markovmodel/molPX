@@ -10,7 +10,7 @@ from matplotlib.axes import Axes as _mplAxes
 from matplotlib.cm import get_cmap as _get_cmap
 from matplotlib.colors import rgb2hex as _rgb2hex, to_hex as _to_hex
 
-from . import generate
+from . import generate as _generate
 from . import _bmutils
 from . import _linkutils
 
@@ -166,7 +166,7 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
     # Prepare for 1D case
     proj_idxs = _bmutils.listify_if_int(proj_idxs)
 
-    data_sample, geoms, data = generate.sample(MD_trajectories, MD_top, projected_trajectories,
+    data_sample, geoms, data = _generate.sample(MD_trajectories, MD_top, projected_trajectories,
                                                atom_selection=atom_selection,
                                                proj_idxs=proj_idxs,
                                                n_points=n_sample,

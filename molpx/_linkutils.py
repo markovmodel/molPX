@@ -1,4 +1,3 @@
-from __future__ import print_function
 import numpy as _np
 
 from matplotlib.widgets import AxesWidget as _AxesWidget

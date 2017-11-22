@@ -7,7 +7,7 @@ available in their required versions, the installation will fail. We recommend o
 that is relatively safe, but you are welcome to try another approaches if you know what you are doing.
 
 
-Anaconda install (Recommended)
+Anaconda Install (recommended)
 ==============================
 
 We strongly recommend to use the Anaconda scientific python distribution in order to install
@@ -18,8 +18,7 @@ but play at your own risk.
 
 If you already have a conda installation, directly go to step 3:
 
-1. Download and install miniconda for Python 2.7 or 3+, 32 or 64 bit depending on your system. Note that
-   you can still use Python 2.7, however we recommend to use Python3:
+1. Download and install miniconda for Python 3+, 32 or 64 bit depending on your system.
 
    http://conda.pydata.org/miniconda.html
 
@@ -35,27 +34,33 @@ If you already have a conda installation, directly go to step 3:
 2. If you have installed from a Linux shell, either open a new shell to have an updated PATH,
    or update your PATH variable by ``source ~/.bashrc`` (or .tcsh, .csh - whichever shell you are using).
 
-3. Add the omnia-md software channel, and install (or update) molPX:
+3. Install molPX using the conda-forge channel:
 
-   .. code::
+   ::
 
-      conda config --add channels omnia
-      conda install pyemma
+      conda install molpx -c conda-forge
 
-   if the command conda is unknown, the PATH variable is probably not set correctly (see 1. and 2.)
+   if the command ``conda`` is unknown, the PATH variable is probably not set correctly (see 1. and 2.)
 
 4. Check installation:
 
-   .. code::
+   ::
 
       conda list
 
-   shows you the installed python packages. You should find a molpx 0.1.2 (or later)
-   and ipython, ipython-notebook 3.1 (or later). If ipython is not up to date, you canot use molPX. Please update it by
+   shows you the installed python packages. You should find a molpx 0.1.2 (or later).
+   molPX requires all the following packages, s. t. they will be installed (and their dependencies) if they
+   are not installed already.
 
-   .. code::
+   ::
 
-      conda install ipython-notebook
+      nglview>=1
+      ipywidgets>=7
+      pyemma
+      scikit-learn
+      notebook
+      mdtraj
+      ipympl
 
 Python Package Index (PyPI)
 ===========================
@@ -116,7 +121,23 @@ but be aware that success is not guaranteed. See the "Known Issues" below.
 
 Known Issues
 =============
- * A ``SandboxViolation`` error might appear when installing from source. Until we figure this out,
+ * After a successfull installation and execution of ``molpx.example_notebooks()``...no widgets are shown! Most probably, this has to do with `nglview <https://github.com/arose/nglview/#released-version>`_ and its needed Jupyter notebook extensions.
+ **This is a known, frustrating behaviour:**
+
+    * `deja vu: nglview widget does not appear <https://github.com/arose/nglview/issues/599>`_
+    * `nglview widget does not appear <https://github.com/arose/nglview/issues/718>`_
+    * `Troubleshooting: nglviewer fresh install tips <https://github.com/SBRG/ssbio/wiki/Troubleshooting#nglviewer-fresh-install-tips>`_
+
+  We'are aware of this and molPX automatically checks for the needed extensions every time it gets imported, s.t. it will refuse
+  to start-up if it finds any problems. If somehow it manages to start-up but no widget is shown, try issuing
+    ::
+
+        molpx._auto_enable_extensions()
+
+    restarting everything and trying again. Otherwise, check the above links.
+
+ * A ``SandboxViolation`` error might appear when installing from source. This is because the ``nglview`` dependency
+ is trying to enable the needed extensions. Until we figure this out,
  try to install ``nglview`` externally issuing:
 
 
@@ -127,5 +148,3 @@ Known Issues
     >>> pip install nglview
 
  * Note that molPX only works with ``nglview`` versions >=0.6.2.1.
-
- * The interplay between some modules (nglview, nbextensions, ipywidgets) might limit you to use python3.X on some platforms. Sorry about that.

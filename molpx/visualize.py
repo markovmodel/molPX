@@ -85,8 +85,7 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
     ----------
 
     MD_trajectories : str, or list of strings with the filename(s) the the molecular dynamics (MD) trajectories.
-        Any file extension that :py:obj:`mdtraj` (.xtc, .dcd etc) can read is accepted.
-
+        Any file extension that :obj:`mdtraj` (.xtc, .dcd, etc) can read is accepted.
         Alternatively, a single :obj:`mdtraj.Trajectory` object or a list of them can be given as input.
 
     MD_top : str to topology filename or directly an :obj:`mdtraj.Topology` object
@@ -104,7 +103,7 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
 
     n_sample : int, default is 100
         The number of geometries that will be used to represent the FES. The higher the number, the higher the spatial
-        resolution of the "click"-action.
+        resolution of the "click"-action. (And the longer it will take to generate the plot)
 
     proj_stride : int, default is 1
         Stride value that was used in the :obj:`projected_trajectories` relative to the :obj:`MD_trajectories`
@@ -113,13 +112,14 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
         the user that the :obj:`MD_trajectories` and the :obj:`projected_trajectories` have different number of frames.
 
     weights : iterable of floats (or list thereof) each of shape (n_frames, 1) or (n_frames)
-        The sample weights, typically coming from a metadynamics run. Has to have the same length
-        as the :py:obj:`projected_trajectories` argument.
+        The sample weights can come from a metadynamics run or an MSM-object, e.g.
+        via the method :obj:`pyemma.msm.BayesianMSM.trajectory_weights`.
+        Has to have the same length as the :py:obj:`projected_trajectories`
 
-    proj_labels : either string or list of strings or (experimental PyEMMA featurizer)
-        The projection plots will get this paramter for labeling their yaxis. If a str is
-        provided, that will be the base name proj_labels='%s_%u'%(proj_labels,ii) for each
-        projection. If a list, the list will be used. If not enough labels are there
+    proj_labels : either string or list of strings or (experimental) PyEMMA featurizer
+        The projection plots will get this parameter for labeling their yaxis. If a str is
+        provided, that will be the base name ``proj_labels='%s_%u'%(proj_labels,ii)`` for each
+        projection. If :obj:`proj_labels` is a list, the list will be used as is. If there are not enough labels,
         the module will complain
 
     n_overlays : int, default is 1
@@ -128,31 +128,41 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
 
     atom_selection : string or iterable of integers, default is None
         The geometries of the original trajectory files will be filtered down to these atoms. It can be any DSL string
-        that   :obj:`mdtraj.Topology.select` could understand or directly the iterable of integers.
-        If :py:obj`MD_trajectories` is already a (list of) md.Trajectory objects, the atom-slicing can take place
-        before calling this method.
+        that :obj:`mdtraj.Topology.select` could understand or directly the iterable of integers.
+        If :obj:`MD_trajectories` is already a (list of) :obj:`mdtraj.Trajectory` objects, the atom-slicing can be
+        done by the user place before calling this method.
 
     sample_kwargs : dictionary of named arguments, optional
-        named arguments for the function :obj:`visualize.sample`. Non-expert users can safely ignore this option. Examples
-        are superpose or proj_
+        named arguments for the function :obj:`molpx.visualize.sample`. Non-expert users can safely ignore this option. Examples
+        are :obj:`superpose` or :obj:`proj_idxs`
 
     Returns
-    --------
+    -------
 
-    widgetbox:
-        :obj:`ipywidgets.HBox` containing both the NGLWidget (ngl_wdg) and the interactive figure. It also
-        contains the extra attributes
-        # TODO reshape this docstring
-         ax :
-        :obj:`pylab.Axis` object
-    fig :
-        :obj:`pylab.Figure` object
-    ngl_wdg :
-        :obj:`nglview.NGLWidget`
-    data_sample:
-        numpy ndarray of shape (n, n_sample) with the position of the dots in the plot
-    geoms:
-        :obj:`mdtraj.Trajectory` object with the geometries n_sample geometries shown by the ngl_wdg
+    widgetbox :
+        A :obj:`molpx._linkutils.MolPXHBox`-object
+        It contains the :obj:`nglview.NGLWidget` and the :obj:`matplotlib.axes.AxesWidget` (which is
+        responsible for the interactive figure). It is child-class of the :obj:`ipywidgets.HBox`-class and
+        has been monkey-patched to have the following extra attributes so that the user has access to all the
+        information being displayed.
+
+        linked_axes :
+            list with all the :obj:`pylab.Axis`-objects contained in the :obj:`widgetbox`
+
+        linked_ax_wdgs :
+            list with all the :obj:`matplotlib.axes.AxesWidget`objects contained in the :obj:`widgetbox`
+
+        linked_figs :
+            list with all the :obj:`pylab.Figure`-objects contained in the :obj:`widgetbox`
+
+        linked_ngl_wdgs :
+            list with all the :obj:`nglview.NGLWidget`-objects contained in the :obj:`widgetbox`
+
+        linked_data_arrays :
+            list with all the numpy ndarrays contained in the :obj:`widgetbox`
+
+        linked_mdgeoms:
+            list with all the :obj:`mdtraj.Trajectory`-objects contained in the :obj:`widgetbox`
 
     """
 
@@ -624,17 +634,21 @@ def correlations(correlation_input,
     Parameters
     ---------
 
-    correlation_input : anything
-        Something that could, in principle, be a :obj:`pyemma.coordinates.transformer`,
-        like a TICA, PCA object or directly a correlation matrix, with a row for each feature and a column
-        for each projection, very much like the :obj:`feature_TIC_correlation` of the TICA object of pyemma.
+    correlation_input : numpy ndarray (m,m) or some PyEMMA objects 
+
+        if array : 
+            a correlation matrix, with a row for each feature and a column
+        
+        if PyEMMA-object :
+            :obj:`~pyemma.coordinates.transform.TICA`, :obj:`~pyemma.coordinates.transform.PCA` or
+            :obj:`~pyemma.coordinates.data.featurization.featurizer.MDFeaturizer`. 
 
     geoms : None or :obj:`mdtraj.Trajectory`, default is None
         The values of the most correlated features will be returned for the geometries in this object. If widget is
         left to its default, None, :obj:`correlations` will create a new widget and try to show the most correlated
         features on top of the widget.
 
-    widget : None or :obj:`nglview NGLWidget`
+    widget : None or :obj:`nglview.NGLWidget`, default is None
         Provide an already existing widget to visualize the correlations on top of. This is only for expert use,
         because no checks are done to see if :obj:`correlation_input` and the geometry contained in the
         widget **actually match**. Use with caution.
@@ -652,23 +666,25 @@ def correlations(correlation_input,
         projection specific list of colors to provide the representations with. The default None yields blue.
         In principle, the list can contain one color for each projection (= as many colors as len(proj_idxs)
         but if your list is short it will just default to the last color. This way, proj_color_list=['black'] will paint
-        all black regardless len(proj_idxs)
+        all black regardless len(proj_idxs). Input anything that yields :obj:`matplotlib.colors.is_color_like` == True
 
     proj_idxs : None, or int, or iterable of integers, default is None
-        The indices of the projections for which the most correlated feture will be returned
+        The indices of the projections for which the most correlated feture will be returned.
         If none it will default to the dimension of the correlation_input object
 
     feat_name : None or str, default is None
         The prefix with which to prepend the labels of the most correlated features. If left to None, the feature
-        description found in :obj:`correlation_input` will be used (if available)
+        description found in :obj:`correlation_input` will be used, if available
 
     n_feats : int, default is 1
-        Number of argmax correlation to return for each feature.
+        Number of most correlated features to return for each projection
 
-    featurizer : optional featurizer, default is None
-        If :obj:`correlation_input` is not an :obj:`_MDFeautrizer` itself or doesn't have a
-        data_producer.featurizer attribute, the user can input one here. If both an _MDfeaturizer *and* an :obj:`featurizer`
-        are provided, the latter will be ignored.
+    featurizer : None or :obj:`~pyemma.coordinates.data.featurization.featurizer.MDFeaturizer`, default is None
+        If :obj:`correlation_input` is not an :obj:`~pyemma.coordinates.data.featurization.featurizer.MDFeaturizer`
+        itself, or doesn't have a :obj:`~pyemma.coordinates.transform.TICA.data_producer` attribute, the user can input one here.
+        If :obj:`correlation_input` and :obj:`featurizer`
+        **are both** :obj:`~pyemma.coordinates.data.featurization.featurizer.MDFeaturizer`-objects,
+        :obj:`featurizer`  will be ignored.
 
     verbose : Bool, default is True
         print to standard output
@@ -677,8 +693,8 @@ def correlations(correlation_input,
     -------
     corr_dict and ngl_wdg
 
-    corr_dict:
-        A dictionary with items:
+    corr_dict :
+        Dictionary with items:
 
         idxs :
             List of length len(proj_idxs) with lists of length n_feat with the idxs of the most correlated features
@@ -702,8 +718,9 @@ def correlations(correlation_input,
         info :
             List of length len(proj_idxs) with lists of length n_feat with strings describing the correlations
 
-    widget :
-        obj:`nglview.NGLwidget` with the correlations visualized on top of it
+    ngl_wdg :
+        :obj:`nglview.NGLWidget` with the most correlated features (distances, angles, dihedrals, positions)
+        visualized on top of it.
 
     """
     # todo consider kwargs for most_corr

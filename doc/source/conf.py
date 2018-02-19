@@ -380,8 +380,9 @@ texinfo_documents = [
 # Example configuration for intersphinx: refer to the Python standard library.
 #intersphinx_mapping = {'https://docs.python.org/': None, 
 intersphinx_mapping = {'pyemma': ('http://www.emma-project.org/latest/', None),
+                       'matplotlib': ('http://matplotlib.org/', None),
                        'mdtraj': ('http://mdtraj.org/latest/', None),
-                       'pylab' : ('http://matplotlib.org/api/', None),
+                       #'pylab' : ('http://matplotlib.org/api/', None),
                        'nglview' : ('http://arose.github.io/nglview/latest/', None)
 }
 

@@ -140,8 +140,9 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
     -------
 
     widgetbox :
-        A :obj:`molpx._linkutils.MolPXHBox`-object
-        It contains the :obj:`nglview.NGLWidget` and the :obj:`matplotlib.axes.AxesWidget` (which is
+        A :obj:`molpx._linkutils.MolPXHBox`-object.
+
+        It contains the :obj:`~nglview.NGLWidget` and the :obj:`~matplotlib.widgets.AxesWidget` (which is
         responsible for the interactive figure). It is child-class of the :obj:`ipywidgets.HBox`-class and
         has been monkey-patched to have the following extra attributes so that the user has access to all the
         information being displayed.
@@ -150,7 +151,7 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
             list with all the :obj:`pylab.Axis`-objects contained in the :obj:`widgetbox`
 
         linked_ax_wdgs :
-            list with all the :obj:`matplotlib.axes.AxesWidget`objects contained in the :obj:`widgetbox`
+            list with all the :obj:`matplotlib.widgets.AxesWidget`objects contained in the :obj:`widgetbox`
 
         linked_figs :
             list with all the :obj:`pylab.Figure`-objects contained in the :obj:`widgetbox`
@@ -634,10 +635,10 @@ def correlations(correlation_input,
     Parameters
     ---------
 
-    correlation_input : numpy ndarray (m,m) or some PyEMMA objects 
+    correlation_input : numpy ndarray or some PyEMMA objects
 
         if array : 
-            a correlation matrix, with a row for each feature and a column
+            (m,m) correlation matrix, with a row for each feature and a column for each projection
         
         if PyEMMA-object :
             :obj:`~pyemma.coordinates.transform.TICA`, :obj:`~pyemma.coordinates.transform.PCA` or
@@ -709,14 +710,15 @@ def correlations(correlation_input,
 
         feats :
             If an :obj:`mdtraj.Trajectory` is passed as an :obj:`geom` argument, the most correlated features will
-            be evaluated for that geom and returned as list of length len(proj_idxs) with arrays with shape
+            be evaluated and returned as list of length len(:obj:`proj_idxs`). Each element in th elist
+            is an arrays with shape (:obj:`geom.n_frames`, :obj:`n_feats`)
 
         atom_idxs :
             List of length len(proj_idxs) each with an nd.array of shape (nfeat, m), where m is the number of atoms needed
             to describe each feature (1 of cartesian, 2 for distances, 3 for angles, 4 for dihedrals)
 
         info :
-            List of length len(proj_idxs) with lists of length n_feat with strings describing the correlations
+            List of length len(:obj:`proj_idxs`) with lists of length :obj:`n_feat` with strings describing the correlations
 
     ngl_wdg :
         :obj:`nglview.NGLWidget` with the most correlated features (distances, angles, dihedrals, positions)
@@ -843,70 +845,82 @@ def sample(positions, geom, ax,
     Parameters
     ----------
     positions : numpy nd.array of shape (n_frames, 2)
-        Contains the position associated with each frame in :obj:`geom` in that order
+        Contains the position associated the geometries in :obj:`geom`. See below for more details
 
-    geom : :obj:`mdtraj.Trajectory` objects or a list thereof.
-        The geometries associated with the the :obj:`positions`. Hence, all have to have the same number of n_frames
+    geom : :obj:`mdtraj.Trajectory` object or a list thereof.
+        The geometries associated with the the :obj:`positions`.
+        # TODO: WRITE HOW THE LISTS-LENGTHS CORRESPONDS FOR THE STICKY OPTION
 
-    ax : matplotlib.pyplot.Axes object
-        The axes to be linked with the nglviewer ngl_wdg
+    ax : :obj:`matplotlib.pyplot.Axes`  object
+        The axes to be linked with the :obj:`~nglview.NGLWidget`
 
     plot_path : bool, default is False
         whether to draw a line connecting the positions in :obj:`positions`
 
     clear_lines : bool, default is True
-        whether to clear all the lines that were previously drawn in :obj:`ax`
+        whether to clear all the 2D objects that were previously drawn in :obj:`ax`
 
     n_smooth : int, default is 0,
-        if n_smooth > 0, the shown geometries and paths will be smoothed out by 2*n frames.
+        if :obj:`n_smooth` > 0, the shown geometries and paths will be smoothed out by 2* :obj:`n_smooth` +1.
         See :obj:`molpx._bmutils.smooth_geom` for more information
 
-    ngl_wdg : None or existing nglview ngl_wdg
-        you can provide an already instantiated nglviewer ngl_wdg here (avanced use)
+    ngl_wdg : None or an existing :obj:`~nglview.NGLWidget`, default is None
+        you can provide an already instantiated  :obj:`~nglview.NGLWidget` here (avanced use)
 
     superpose : boolean, default is True
-        The geometries in :obj:`geom` may or may not be oriented, depending on where they were generated.
+        The geometries in :obj:`geom` may or may not be oriented, depending on how they were generated.
         Since this method is mostly for visualization purposes, the default behaviour is to orient them all to
         maximally overlap with the most compact frame available
 
-    projection : object that generated the projection, default is None
-        The projected coordinates may come from a variety of sources. When working with :obj:`pyemma` a number of objects
+    projection : object that generated the :obj:`positions`, default is None
+        The projected coordinates may come from a variety of sources. When working with PyEMMA, a number of objects
         might have generated this projection, like a
-        * :obj:`pyemma.coordinates.transform.TICA` or a
-        * :obj:`pyemma.coordinates.transform.PCA` or a
 
-        Expert use. Pass this object along ONLY if the :obj:`positions` have been generetaed using :any:`projection_paths`,
-        so that looking at linear correlations makes sense. Observe the features that are most correlated with the projections
-        will be plotted for the sample, allowing the user to establish a visual connection between the
-        projected coordinate and the original features (distances, angles, contacts etc)
+        * :obj:`~pyemma.coordinates.transform.TICA`- or a
+        * :obj:`~pyemma.coordinates.transform.PCA`- or an
+        * :obj:`~pyemma.coordinates.data.featurization.featurizer.MDFeaturizer`-object.
+
+        Makes most sense when :obj:`positions` where generated with :obj:`molpx.generate.projection_paths`,
+        otherwise might produce rubbish. See :obj:`n_feats` for more info.
+        # TODO: delete from here below?
+        The features most correlated with the :obj:`positions` will be shown
+        in the widget
+        # TODO CHECK THIS
+        geometries in :obj:`geom`, allowing the user to establish a visual connection between the
+        projected coordinate and the original features (distances, angles, contacts etc).
 
     n_feats : int, default is 1
-        If a :obj:`projection` is passed along, the first n_feats features that most correlate the
-        the projected trajectories will be represented, both in form of trajectories feat vs t as well as in
-        the ngl_wdg. If :obj:`projection` is None, :obj:`nfeats`  will be ignored.
+        If a :obj:`projection` is passed along, the first :obj:`n_feats` features that most correlate the
+        the projected trajectories will be represented, both in form of figures of feat(t) as well as in
+        the on top of the :obj:`ngl_wdg`. If :obj:`projection == None`, :obj:`nfeats` will be ignored.
 
-    sticky : boolean, default is False,
-        If set to True, the ngl_wdg the generated visualizations will be sticky in that they do not disappear with
-        the next click event. Particularly useful for represeting more minima simultaneously.
+    sticky : boolean, default is False
+        If set to True, the :obj:`ngl_wdg` will be *sticky* in that every click adds a new molecular
+        structure without deleting the previous one. Left-clicks adds a structure, right-clicks deletes
+        a structure. Particularly useful for representing more minima simultaneously.
 
-    color_list : None or list of len(pos)
+    color_list : None, list of len(:obj:`positions`), or "random"
         The colors with which the sticky frames will be plotted.
-        Can by anything that yields matplotlib.colors.is_color_like == True
+        A color is anything that yields :obj:`matplotlib.colors.is_color_like == True`
+        "None" defaults to coloring by element.
+        "random" randomizes the color choice
 
-    list_of_repr_dicts : None or list of dictionaries having at least keys 'repr_type' and 'selection' keys.
-        Other **kwargs are currently ignored but will be implemented in the future (see nglview.add_representation
-        for more info). Only active for sticky widgets
+    list_of_repr_dicts : None or list of dictionaries, default is None
+        Has an effect only for :obj:`sticky == True`, s.t. these reps instead of the default
+        ones are used. The dictionaries must have at least the keys 'repr_type' and 'selection'.
+        Other key-value pairs are currently ignored but, will be implemented in the future.
+        See :obj:`nglview.NGLWidget.add_representation` for more info).
 
     link_ax2wdg_kwargs: dictionary of named arguments, optional
-        named arguments for the function :obj:`_link_ax_w_pos_2_nglwidget`, which is the one that internally
+        named arguments for the function :obj:`molpx._linkutils.link_ax_w_pos_2_nglwidget`, which is the one that internally
         provides the interactivity. Non-expert users can safely ignore this option.
 
     Returns
     --------
 
-    ngl_wdg : :obj:`nglview.NGLWidget`
+    ngl_wdg : :obj:`~nglview.NGLWidget`
 
-    axes_wdg: obj:`matplotlib.Axes.AxesWidget`
+    axes_wdg: :obj:`~matplotlib.Axes.AxesWidget`
 
     """
 

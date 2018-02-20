@@ -32,10 +32,11 @@ test:
     - pytest ==3.2.5
     - pytest-cov ==2.5.1
     - coverage ==4.4.2
-    - nbval ==0.7
+#    - nbval ==0.7
   imports:
     - molpx
   commands:
+    - pip install https://github.com/computationalmodelling/nbval@0.9
     - pytest -vv --pyargs molpx --cov=molpx --cov-report=xml --current-env --nbval-lax
     #- pytest -vv --pyargs molpx --cov=molpx --current-env --cov-report=xml
     #- ls -R

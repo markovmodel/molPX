@@ -34,7 +34,7 @@ test:
     - molpx
   commands:
     - pip install git+https://github.com/computationalmodelling/nbval
-    - pytest -vv --pyargs molpx --cov=molpx --cov-report=xml --current-env --nbval-lax
+    - pytest -vv --pyargs molpx --cov=molpx --cov-report=xml --current-env # --nbval-lax
     - python -c "import shutil, os; shutil.copy('coverage.xml', os.path.expanduser('~'))"
 about:
   home: https://github.com/gph82/projection_explorer

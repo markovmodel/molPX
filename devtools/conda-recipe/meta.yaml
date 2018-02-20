@@ -42,7 +42,7 @@ test:
     #- ls -R
     #- pwd
     #- pytest -vv --current-env --nbval-lax
-    - python -c "import shutil, os; shutil.copy('coverage.xml', os.path.expanduser('~'))"
+    - python -c "import shutil, os; shutil.copy('coverage.xml', os.path.expanduser('~'))" || true
 about:
   home: https://github.com/gph82/projection_explorer
   license: GNU Lesser Public License v3+

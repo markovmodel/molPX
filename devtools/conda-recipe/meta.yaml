@@ -26,17 +26,21 @@ requirements:
 test:
   source_files:
     - .coveragerc
+    - molpx/notebooks/*
   requires:
     - pip
-    - pytest
-    - pytest-cov
+    - pytest ==3.2.5
+    - pytest-cov ==2.5.1
+    - coverage ==4.4.2
+    - nbval ==0.7
   imports:
     - molpx
   commands:
-    - pip install git+https://github.com/computationalmodelling/nbval
-    - #pytest -vv --pyargs molpx --cov=molpx --cov-report=xml --current-env --nbval-lax
-    - pytest -vv --pyargs molpx --cov=molpx --current-env --cov-report=xml
-    - pytest molpx/notebooks/ -vv --current-env --nbval-lax
+    - pytest -vv --pyargs molpx --cov=molpx --cov-report=xml --current-env --nbval-lax
+    #- pytest -vv --pyargs molpx --cov=molpx --current-env --cov-report=xml
+    #- ls -R
+    #- pwd
+    #- pytest -vv --current-env --nbval-lax
     - python -c "import shutil, os; shutil.copy('coverage.xml', os.path.expanduser('~'))"
 about:
   home: https://github.com/gph82/projection_explorer

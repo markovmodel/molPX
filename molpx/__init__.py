@@ -132,6 +132,11 @@ def _get_extension_status(ext_list=_ext_mapping.keys()):
 
     return enabled_exts
 
+def _auto_enable_extensions():
+    r"""Try to automatically enable the needed extensions. Won't throw exception on failuer"""
+    for _ext, _path in _ext_mapping.items():
+        _enable_extensions(_ext_mapping[_ext])
+
 def _enable_extensions(this_ext_path):
     r""" Try to install/enable an extension.
     Prompt the user to do so if an exception is thrown
@@ -155,8 +160,10 @@ def _enable_extensions(this_ext_path):
 
 # Try to help the user getting molpx working out of the box and raise an Exception if molpx wont work
 if not all(_get_extension_status().values()):
-    for ext, enabled in _get_extension_status().items():
-        if not enabled:
-            if not _enable_extensions(_ext_mapping[ext]):
+    for _ext, _enabled in _get_extension_status().items():
+        if not _enabled:
+            if not _enable_extensions(_ext_mapping[_ext]):
                 raise ModuleNotFoundError("Could not initialize molpx")
+
+
 

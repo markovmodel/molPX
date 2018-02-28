@@ -31,6 +31,9 @@ class Mock(MagicMock):
         return MagicMock()
 
 MOCK_MODULES = ['mdtraj',
+                'pyemma',
+                'pyemma.util',
+                'pyemma.util.types',
                 'pyemma.coordinates.transform',
                 'pyemma.coordinates',
                 'pyemma.coordinates.data',
@@ -45,12 +48,19 @@ MOCK_MODULES = ['mdtraj',
                 'pyemma.coordinates.data.featurization.misc',
                 'pyemma.coordinates.data.featurization.distances',
                 'nglview',
-                #'matplotlib',
-                #'matplotlib.widgets',
+                'matplotlib',
+                'matplotlib.widgets',
+                'matplotlib.figure',
+                'matplotlib.axes',
+                'matplotlib.cm',
+                'matplotlib.colors',
+                'IPython.display',
                 'sklearn.mixture',
-                #'scipy.spatial',
+                'scipy.spatial',
                 'six.moves.urllib.request',
-                #'numpy',
+                'numpy',
+ # fixme: can not mock ipywidgets because of multi-inheritance within molpx               
+ #'ipywidgets',
                 ]
 
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)

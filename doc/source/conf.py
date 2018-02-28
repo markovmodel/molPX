@@ -59,7 +59,7 @@ MOCK_MODULES = ['mdtraj',
                 'scipy.spatial',
                 'six.moves.urllib.request',
                 'numpy',
- # fixme: can not mock ipywidgets because of multi-inheritance within molpx               
+ # fixme: can not mock ipywidgets because of multi-inheritance within molpx
  #'ipywidgets',
                 ]
 
@@ -81,8 +81,8 @@ release = molpx.__version__
 extensions = [
     'sphinx.ext.intersphinx',
     'sphinx.ext.mathjax',
-    'sphinx.ext.autodoc', 
-    'sphinx.ext.autosummary', 
+    'sphinx.ext.autodoc',
+    'sphinx.ext.autosummary',
     'sphinx.ext.napoleon',
     'nbsphinx',
     'IPython.sphinxext.ipython_console_highlighting'  # https://github.com/spatialaudio/nbsphinx/issues/24 and https://github.com/ContinuumIO/anaconda-issues/issues/1430
@@ -388,7 +388,7 @@ texinfo_documents = [
 
 
 # Example configuration for intersphinx: refer to the Python standard library.
-#intersphinx_mapping = {'https://docs.python.org/': None, 
+#intersphinx_mapping = {'https://docs.python.org/': None,
 intersphinx_mapping = {'pyemma': ('http://www.emma-project.org/latest/', None),
                        'matplotlib': ('http://matplotlib.org/', None),
                        'mdtraj': ('http://mdtraj.org/latest/', None),
@@ -398,6 +398,7 @@ intersphinx_mapping = {'pyemma': ('http://www.emma-project.org/latest/', None),
 
 
 autosummary_generate = True
+nbsphinx_execute = 'never'
 #autodoc_default_flags = ['members', 'inherited-members']
 exclude_patterns = ['_build', '**.ipynb_checkpoints']
 

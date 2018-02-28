@@ -158,12 +158,13 @@ def _enable_extensions(this_ext_path):
         return False
     return True
 
+import os as _os
+_on_rtd = _os.environ.get('READTHEDOCS') == 'True'
 # Try to help the user getting molpx working out of the box and raise an Exception if molpx wont work
-if not all(_get_extension_status().values()):
+if not _on_rtd and not all(_get_extension_status().values()):
     for _ext, _enabled in _get_extension_status().items():
         if not _enabled:
             if not _enable_extensions(_ext_mapping[_ext]):
                 raise ModuleNotFoundError("Could not initialize molpx")
 
-
-
+del _os, _on_rtd

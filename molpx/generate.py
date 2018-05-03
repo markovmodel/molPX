@@ -117,8 +117,8 @@ def projection_paths(MD_trajectories, MD_top, projected_trajectories,
                              "min_disp": _defdict(dict)
                            }
         # Cluster in regspace along the dimension you want to advance, to approximately n_points
-        cl = _bmutils.regspace_cluster_to_target([jdata[:,[coord]] for jdata in idata],
-                                n_points, n_try_max=3,
+        cl = _bmutils.regspace_cluster_to_target_kmeans([jdata[:,[coord]] for jdata in idata],
+                                n_points, max_iter=3,
                                 verbose=verbose,
                                 )
 
@@ -298,7 +298,7 @@ def sample(MD_trajectories, MD_top, projected_trajectories,
         cl = projected_trajectories
     except:
         idata = _bmutils.data_from_input(projected_trajectories)
-        cl = _bmutils.regspace_cluster_to_target([dd[:,proj_idxs] for dd in idata], n_points, n_try_max=10, verbose=verbose)
+        cl = _bmutils.regspace_cluster_to_target_kmeans([dd[:,proj_idxs] for dd in idata], n_points, verbose=verbose)
 
     pos = cl.clustercenters
     cat_smpl = cl.sample_indexes_by_cluster(_np.arange(cl.n_clusters), n_geom_samples)

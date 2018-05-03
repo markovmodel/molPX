@@ -11,6 +11,9 @@ import mdtraj as md
 from glob import glob
 import molpx
 
+from scipy.spatial.distance import pdist as _pdist, squareform as _squareform
+
+
 class TestWithBPTIData(unittest.TestCase):
     r"""
     A class that contains all the TestCase with the MD info
@@ -225,9 +228,36 @@ class TestClusteringAndCatalogues(unittest.TestCase):
 
     def test_cluster_to_target(self):
         n_target = 15
-        data = [np.random.randn(100, 1), np.random.randn(100,1)+10]
-        cl = _bmutils.regspace_cluster_to_target(data, n_target, n_try_max=10, delta=0, verbose=True)
-        assert n_target - 1 <= cl.n_clusters <= n_target + 1
+        n_tol = 1
+        data = [np.random.randn(5000, 1), np.random.randn(5000,1)+10]
+        cl = _bmutils.regspace_cluster_to_target_kmeans(data, n_target, k_centers=100, max_iter=100, n_tol=n_tol)
+        assert n_target - n_tol <= cl.n_clusters <= n_target + n_tol, (cl.n_clusters, n_tol)
+
+    def test_regspace_from_distance_matrix(self):
+        data = np.random.rand(100, 2)
+        D = _squareform(_pdist(data))
+
+        centers = _bmutils.regspace_from_distance_matrix(D, D.mean())
+
+        # Re-compute distances, only for the centers
+        Drs = _pdist(data[centers])
+        assert Drs.min()>=D.mean(), (Drs.min(), D.mean())
+
+    def test_interval_schachtelung(self):
+
+        y = lambda x:x**2 # parabolic curve, monotically increasing between [0, +inf]
+
+        interval = [2, 500]
+        eps = .1
+
+        target_y = np.random.randint(np.ceil(y(interval[0])),
+                                    np.floor(y(interval[1])), size=1).squeeze()
+
+        x_sol = _bmutils.interval_schachtelung(y, [2, 500], target=target_y, eps=eps,
+                                               #verbose=True
+                                               )
+        assert y(x_sol)-eps <= target_y < y(x_sol)+eps, (y(x_sol)-target_y, eps)
+
 
     def test_catalogues(self):
         cl = _bmutils.regspace_cluster_to_target(self.data_for_cluster, 3, n_try_max=10, delta=0)

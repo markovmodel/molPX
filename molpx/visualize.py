@@ -14,7 +14,7 @@ from . import generate as _generate
 from . import _bmutils
 from . import _linkutils
 
-from matplotlib import rcParams as _rcParams
+from matplotlib import pylab as _plt, rcParams as _rcParams
 import nglview as _nglview
 import mdtraj as _md
 from ipywidgets import VBox as _VBox, Layout as _Layout, Button as _Button
@@ -166,7 +166,7 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
             list with all the :obj:`mdtraj.Trajectory`-objects contained in the :obj:`widgetbox`
 
     """
-    from matplotlib import pylab as _plt
+
     # Prepare the overlay option
     n_overlays = _np.min([n_overlays,50])
     if n_overlays>1:
@@ -220,8 +220,6 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
     _linkutils.auto_append_these_mpx_attrs(outbox, geoms, ax, _plt.gcf(), ngl_wdg, axes_wdg, data_sample)
 
     return outbox
-
-
 def _box_me(tuple_in, auto_resize=True):
     r"""
     A wrapper that tries to put in an HBox whatever it s in
@@ -275,7 +273,6 @@ def _box_me(tuple_in, auto_resize=True):
 
     return _linkutils._HBox(tuple_out)
 
-
 def _plot_ND_FES(data, ax_labels, weights=None, bins=50, figsize=(4,4)):
     r""" A wrapper for pyemmas FESs plotting function that can also plot 1D
 
@@ -296,7 +293,7 @@ def _plot_ND_FES(data, ax_labels, weights=None, bins=50, figsize=(4,4)):
     edges : tuple containimg the axes along which FES is to be plotted (only in the 1D case so far, else it's None)
 
     """
-    from matplotlib import pylab as _plt
+
     _plt.figure(figsize=figsize)
     ax = _plt.gca()
     idata = _np.vstack(data)
@@ -431,7 +428,6 @@ def traj(MD_trajectories,
 
 
     """
-    from matplotlib import pylab as _plt
     smallfontsize = int(_rcParams['font.size'] / 1.5)
     proj_idxs = _bmutils.listify_if_int(proj_idxs)
 
@@ -481,7 +477,7 @@ def traj(MD_trajectories,
     for proj_counter, __ in enumerate(proj_idxs):
         ylims[0, proj_counter] = _np.min([idata[:,proj_counter].min() for idata in data])
         ylims[1, proj_counter] = _np.max([idata[:,proj_counter].max() for idata in data])
-
+    
     ylabels = _bmutils.labelize(proj_labels, proj_idxs)
 
     # Do we have usable projection information?
@@ -626,7 +622,6 @@ def traj(MD_trajectories,
 
     return mpx_wdg_box
 
-
 def correlations(correlation_input,
                  geoms=None,
                  proj_idxs=None,
@@ -643,7 +638,7 @@ def correlations(correlation_input,
 
     correlation_input : numpy ndarray or some PyEMMA objects
 
-        if array :
+        if array : 
             (m,m) correlation matrix, with a row for each feature and a column for each projection
 
         if PyEMMA-object :
@@ -768,7 +763,6 @@ def correlations(correlation_input,
 
     return corr_dict, widget
 
-
 def feature(feat,
             widget,
             idxs=0,
@@ -828,7 +822,6 @@ def feature(feat,
     _bmutils.add_atom_idxs_widget(atom_idxs, widget, color_list=color_list, **kwargs)
 
     return widget
-
 
 def sample(positions, geom, ax,
            plot_path=False,
@@ -985,7 +978,6 @@ def sample(positions, geom, ax,
                                    )
 
         return ngl_wdg, axes_wdg
-
 
 def _sample(positions, geoms, ax,
             plot_path=False,

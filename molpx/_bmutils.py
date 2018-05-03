@@ -6,10 +6,13 @@ try:
 except ImportError:
     from sklearn.mixture import GMM as _GMM
 
+from scipy.spatial.distance import pdist as _pdist, squareform as _squareform
+
 # From pyemma's coordinates
 from pyemma.coordinates import \
     source as _source, \
     cluster_regspace as _cluster_regspace, \
+    cluster_kmeans as _cluster_kmeans, \
     save_traj as _save_traj
 
 # From coor.data
@@ -164,7 +167,8 @@ def re_warp(array_in, lengths):
         idxi += ll
     return warped
 
-def regspace_cluster_to_target(data, n_clusters_target,
+# TODO deprecate properly
+def _regspace_cluster_to_target(data, n_clusters_target,
                                n_try_max=5, delta=5.,
                                verbose=False):
     r"""
@@ -208,6 +212,174 @@ def regspace_cluster_to_target(data, n_clusters_target,
             print('cl iter %u %u -> %u (Delta to target (%u +- %u): %u'%(cc, n_cl_now, cl.n_clusters,
                                                                          n_clusters_target, err, delta_cl_now))
     return cl
+
+def regspace_cluster_to_target_kmeans(data, n_clusters_target,
+                                      k_centers=1000,
+                                      k_stride=50,
+                                      n_tol = 5,
+                                      max_iter=5,
+                                      verbose=False):
+    r""" Wrapper of :obj:`pyemma.coordinates.cluster_regspace` but using n_clusters (instead of dmin)
+    as a parameter.
+
+    By using a preliminary :obj:`pyemma.coordinates.cluster_kmeans`-run, a dmin value is optimized to return
+    approximately :obj:`n_clusters` clustercenters.
+
+    Parameters :
+    ------------
+
+    data: ndarray or list thereof
+        Data to be used for clustering
+
+    n_clusters_target: int,
+        Approximate number of regularly spaced clustercenters wanted
+
+    k_centers : int, default is 1000
+        Number of centers of the preliminary kmeans clustering. Should be between 2 and 10 times
+        larger than n_clusters
+
+    k_stride : int, default is 50
+        Stride for the preliminary kmeans clustering. This clustering is supposed to not be the bottleneck
+
+    n_tol : int, default is 5
+        Consider :obj:`n_clusters_target` \pm :obj:`n_tol` as converged
+
+    max_iter : int, default is 5
+        Will stop after :obj:`max_iter` regspace-clustering attempts regardless
+
+    Returns :
+    --------
+        cl : a :obj:`pyemma.coordinates.cluster_regspace` object with approximately :obj:n_clusters
+
+    tested:True
+    """
+
+    # The parameter k_centers is just an initialization and has only impact on speed,
+    # not on the deterministic result. We catch some pathological data inputs
+    # Amount of strided frames
+    n_frames_kmeans = _np.sum([len(idata[::k_stride]) for idata in data])
+    if n_frames_kmeans< k_centers:
+        k_stride = 1
+    n_frames_kmeans = _np.sum([len(idata[::k_stride]) for idata in data])
+
+    # 1. Arrive at an approximate dmin by
+    # 1.1 Preliminary clustering
+    pre_cl = _cluster_kmeans(data, k=k_centers, stride=k_stride)
+    print(pre_cl.n_clusters, k_centers)
+    # 1.2 Distance matrix
+    D = _squareform(_pdist(pre_cl.clustercenters))
+    # 1.3 Define the objective function to be optimized for dmin by interval_schachtelung
+    J = lambda dmin: len(regspace_from_distance_matrix(D, dmin))
+    # 1.4 Optimize for dmin on the preliminary clustercenters
+    dmin = interval_schachtelung(J, [D.min(), D.max()], target=n_clusters_target, verbose=verbose)
+    # 2. Now that we have an approximate dmin, cluster in regspace iteratively:
+    cl = _cluster_regspace(data, dmin=dmin)
+
+    ii = 0
+    while (_np.abs(cl.n_clusters-n_clusters_target) > n_tol):
+        if ii >= max_iter:
+            print("Reaced max_iter %u."%ii)
+            break
+        # Distance matrix
+        D = _squareform(_pdist(cl.clustercenters))
+        # Define the objective function to be optimized for dmin
+        J = lambda dmin: len(regspace_from_distance_matrix(D, dmin))
+        # Optimize, starting at the actual dmin
+        dmin = interval_schachtelung(J, [D.min(), D.max()], target=n_clusters_target, verbose=verbose)
+        cl = _cluster_regspace(data, dmin)
+        #print(ii, dmin, cl.n_clusters)
+        ii +=1
+
+    return cl
+
+def interval_schachtelung(f, interval, target=0, eps=1, verbose=False):
+    r"""
+    Find the value m s.t. f(m) = target +- eps using interval optimization
+
+    :param function to be optimized
+    :param interval: iterable of len 2 with the left and right limits of input interval
+    :param target: objective
+    :param eps: convergence criterion
+    :param verbose: whether to inform of each iteration or not
+    :return: m
+
+    tested : True
+    """
+
+    left, right = interval[0], interval[1]
+    def inform(left, fl, right, fr, middle, fm, delta, eps, str0=''):
+        print(str0)
+        print('%04.2f: %04.2f' % (left, fl))
+        print('%04.2f: %04.2f %f %f' % (middle, fm, delta, eps), ~(delta >= eps))
+        print('%04.2f: %04.2f' % (right, fr))
+        print()
+
+    middle = (left + right) / 2
+    fl, fr, fm = f(left), f(right), f(middle)
+    delta = _np.abs(fm - target)
+    if verbose:
+        inform(left, fl, right, fr, middle, fm, delta, eps, str0='Init:')
+
+    while delta >= eps:
+        middle = (left + right) / 2
+        fm = f(middle)
+        delta = _np.abs(fm - target)
+
+        if verbose:
+            inform(left, fl, right, fr, middle, fm, delta, eps)
+
+        if fl <= target <= fm or fl >= target >= fm:
+            right, fr = middle, fm
+        elif fm <= target <= fr or fm >= target >= fr:
+            left, fl = middle, fm
+        else:
+            print(fl, target, fm, middle)
+            raise Exception("Failed while optimizing")
+    return middle
+
+
+def regspace_from_distance_matrix(D, dmin):
+    r""" Return the indices idxs of the rows/columns of the symmetric matrix (D[idxs,idxs] > dmin).all() == True
+
+    Can be used as an analogue to :obj:pyemma.coordinates.cluster_regpsace if all pairwise distances have been
+    recomputed
+
+
+    Parameters :
+    ------------
+
+        D: 2D np.ndarray of shape (m,m)
+            Symmetric matrix containing pairwise distances
+
+        dmin : float or int, must be > 0
+            Cutoff
+
+    Returns :
+    ---------
+
+        centers : list
+            Integers of the the rows/columns that contain distances > dmin
+
+    """
+
+    assert _np.allclose(D, D.T), "Input matrix is not symmetric"
+    assert dmin >= 0, ("dmin has to be > 0, not", dmin)
+
+    Dprime = _np.copy(D)
+    _np.fill_diagonal(Dprime, _np.inf)
+    assigned = []
+    for ii, irow in enumerate(Dprime):
+        if ii not in assigned:
+            assigned.extend(_np.argwhere(irow < dmin).flatten())
+    assigned = _np.unique(assigned)
+    centers = [ii for ii in range(Dprime.shape[0]) if ii not in assigned]
+    Dprime = Dprime[centers, :]
+    Dprime = Dprime[:, centers]
+
+    # This is the method testing itself
+    #assert Dprime.min() > dmin, (Dprime.min(), dmin)
+
+    return centers
 
 def min_disp_path(start, path_of_candidates,
                   exclude_coords=None, history_aware=False):
@@ -1019,11 +1191,10 @@ def add_atom_idxs_widget(atom_idxs, ngl_wdg, color_list=None, radius=1):
                     ngl_wdg.add_spacefill(selection=[iidxs], radius=radius, color=color, component=cc)
                 elif _np.ndim(iidxs)>0 and len(iidxs)==2:
                     ngl_wdg.add_distance(atom_pair=[[ii for ii in iidxs]],  # yes it has to be this way for now
-                     color=color,
-                                         #label_color='black',
-                     label_size=0,
+                                         color=color,
+                                         label_size=0,
                                          component=cc)
-                    # TODO add line thickness as **kwarg
+                    # TODO add line thickness as **kwarg, see nglview usage questions for answer
                 elif _np.ndim(iidxs) > 0 and len(iidxs) in [3,4]:
                     ngl_wdg.add_spacefill(selection=iidxs, radius=radius, color=color, component=cc)
                 else:

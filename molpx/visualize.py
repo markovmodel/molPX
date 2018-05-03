@@ -166,7 +166,6 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
             list with all the :obj:`mdtraj.Trajectory`-objects contained in the :obj:`widgetbox`
 
     """
-
     # Prepare the overlay option
     n_overlays = _np.min([n_overlays,50])
     if n_overlays>1:
@@ -394,7 +393,7 @@ def traj(MD_trajectories,
 
     traj_selection : None, int, iterable of ints, default is None
         Don't plot all trajectories but only few of them. The default None implies that all trajs will be plotted.
-        Note: the data used for the FES will always include all trajectories, regardless of this value
+        Note: the data used for the FES will only include these trajectories
 
     projection : object that generated the projection, default is None
         The projected coordinates may come from a variety of sources. When working with :obj:`pyemma` a number of objects
@@ -480,7 +479,7 @@ def traj(MD_trajectories,
     ylabels = _bmutils.labelize(proj_labels, proj_idxs)
 
     # Do we have usable projection information?
-    corr_dicts = [[]]*n_trajs
+    corr_dicts = [[]]*len(data)
     if projection is not None:
         corr_dicts = [_bmutils.most_corr(projection, geoms=igeom, proj_idxs=proj_idxs, n_args=n_feats)
                       for igeom in geoms]

@@ -133,8 +133,8 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
         done by the user place before calling this method.
 
     sample_kwargs : dictionary of named arguments, optional
-        named arguments for the function :obj:`molpx.visualize.sample`. Non-expert users can safely ignore this option. Examples
-        are :obj:`superpose` or :obj:`proj_idxs`
+        named arguments for the function :obj:`molpx.visualize.sample`. Non-expert users can safely ignore this option.
+        Examples are :obj:`superpose` or :obj:`proj_idxs`
 
     Returns
     -------
@@ -486,6 +486,7 @@ def traj(MD_trajectories,
         if corr_dicts[0]["feats"] != []:
             colors = _bmutils.matplotlib_colors_no_blue(ncycles=int(_np.ceil(_np.max(proj_idxs)/6.))) # Hack
             colors = [colors[ii] for ii in proj_idxs]
+            colors = ['red']*10 # for the paper, to be deleted later
         else:
             n_feats=0
     else:
@@ -1051,7 +1052,7 @@ def _sample(positions, geoms, ax,
 
     """
 
-    assert isinstance(geoms, (list, _md.Trajectory))
+    assert isinstance(geoms, (list, _md.Trajectory)), type(geoms)
 
     # Dow I need to smooth things out?
     if n_smooth > 0:
@@ -1080,7 +1081,7 @@ def _sample(positions, geoms, ax,
         [ax.lines.pop() for ii in range(len(ax.lines))]
     # Plot the path on top of it
     if plot_path:
-        ax.plot(positions[:,0], positions[:,1], '-g', lw=3)
+        ax.plot(positions[:,0], positions[:,1], '-k', lw=3)
 
     # Link the axes ngl_wdg with the ngl ngl_wdg
     axes_wdg = _linkutils.link_ax_w_pos_2_nglwidget(ax,

@@ -209,7 +209,7 @@ def projection_paths(MD_trajectories, MD_top, projected_trajectories,
 
         #TODO : consider storing the data in each dict. It's redundant but makes each dict kinda standalone
 
-    return paths_dict, idata
+    return paths_dict , idata # why were we returning idata in the first place?
 
 
 def sample(MD_trajectories, MD_top, projected_trajectories,

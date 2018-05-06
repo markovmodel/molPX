@@ -264,8 +264,7 @@ def regspace_cluster_to_target_kmeans(data, n_clusters_target,
 
     # 1. Arrive at an approximate dmin by
     # 1.1 Preliminary clustering
-    pre_cl = _cluster_kmeans(data, k=k_centers, stride=k_stride)
-    print(pre_cl.n_clusters, k_centers)
+    pre_cl = _cluster_kmeans(data, k=k_centers, stride=k_stride,init_strategy='uniform' )
     # 1.2 Distance matrix
     D = _squareform(_pdist(pre_cl.clustercenters))
     # 1.3 Define the objective function to be optimized for dmin by interval_schachtelung
@@ -778,9 +777,16 @@ def save_traj_wrapper(traj_inp, indexes, outfile, top=None, stride=1, chunksize=
                                chunksize=chunksize, image_molecules=image_molecules, verbose=verbose)
     elif isinstance(traj_inp[0], _md.Trajectory):
         file_idx, frame_idx = indexes[0]
-        geom_smpl = traj_inp[file_idx][frame_idx]
-        for file_idx, frame_idx in indexes[1:]:
-            geom_smpl = geom_smpl.join(traj_inp[file_idx][frame_idx])
+        if False:
+            geom_smpl = traj_inp[file_idx][frame_idx]
+            for file_idx, frame_idx in indexes[1:]:
+                geom_smpl = geom_smpl.join(traj_inp[file_idx][frame_idx])
+            # TODO this takes too much time for large topologies, consider copying
+        else:
+            xyz =[]
+            for file_idx, frame_idx in indexes:
+                xyz.append(traj_inp[file_idx].xyz[frame_idx].squeeze())
+            geom_smpl = _md.Trajectory(xyz, traj_inp[0][0].top)
     else:
         raise TypeError("Cant handle input of type %s now"%(type(traj_inp[0])))
 
@@ -921,10 +927,6 @@ def smooth_geom(geom, n, geom_data=None, superpose=True, symmetric=True):
         Note: you might need to re-orient this averaged geometry again
     """
 
-    # Input checking here, otherwise we're seriously in trouble
-
-
-
     # Get the indices necessary for the running average
     frame_idxs, frame_windows = running_avg_idxs(geom.n_frames, n, symmetric=symmetric)
 
@@ -941,6 +943,7 @@ def smooth_geom(geom, n, geom_data=None, superpose=True, symmetric=True):
     xyz = _np.zeros((len(frame_idxs), geom.n_atoms, 3))
     for ii, idx in enumerate(frame_idxs):
         #print(ii, idx, frame_windows[ii][n])
+        # TODO avoid casting an entire geometry (which triggers deepcopys which are time consuming) 
         if superpose:
             xyz[ii,:,:] = geom[frame_windows[ii]].superpose(geom, frame=frame_windows[ii][n]).xyz.mean(0)
         else:
@@ -1093,21 +1096,35 @@ def most_corr(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_a
         info.append({"lines":[], "name":iproj})
         for jj, jidx in enumerate(most_corr_idxs[ii]):
             if avail_FT:
-                istr = 'Corr[%s|feat] = %2.1f for %-30s (feat nr. %u, atom idxs %s' % \
+                istr = 'Corr[%s|feat] = %2.1f || %-30s || feat nr. %u, atom idxs %s' % \
                        (iproj, most_corr_vals[ii][jj], most_corr_labels[ii][jj], jidx, most_corr_atom_idxs[ii][jj])
             else:
-                istr = 'Corr[%s|feat] = %2.1f (feat nr. %u)' % \
+                istr = 'Corr[%s|feat] = %2.1f || nfeat nr. %u' % \
                        (iproj, most_corr_vals[ii][jj],jidx)
 
             info[-1]["lines"].append(istr)
 
-    corr_dict = {'idxs': most_corr_idxs,
+    corr_dict = CorrelationDict({'idxs': most_corr_idxs,
                  'vals': most_corr_vals,
                  'labels': most_corr_labels,
                  'feats':  most_corr_feats,
                  'atom_idxs': most_corr_atom_idxs,
-                 'info':info}
+                 'info':info})
     return corr_dict
+
+class CorrelationDict(dict):
+    r""" This is just a dictionary
+    with the print method
+    rewritten to a pretty-print"""
+    def __str__(self):
+        nfeats = len(self["idxs"])
+        output = 'Correlation dictionary for %u projections\n'%nfeats
+        for ii in range(nfeats):
+            for iline in self["info"][ii]["lines"]:
+                output += ' '+iline.replace(' || ','\n  ')+'\n'
+            output+='\n'
+
+        return output
 
 def atom_idxs_from_feature(ifeat):
     r"""

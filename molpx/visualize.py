@@ -808,7 +808,7 @@ def feature(feat,
     """
 
     idxs = _bmutils.listify_if_int(idxs)
-    atom_idxs = _bmutils.atom_idxs_from_feature(feat)[idxs]
+    atom_idxs = _bmutils.atom_idxs_from_general_input(feat)[idxs]
 
     if color_list is None:
         color_list = ['blue'] * len(idxs)

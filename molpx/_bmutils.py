@@ -1087,12 +1087,7 @@ def most_corr(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_a
             most_corr_labels.append([featurizer.describe()[jj] for jj in most_corr_idxs[-1]])
 
         if avail_FT:
-            if len(featurizer.active_features) > 1:
-                pass
-                # TODO write a warning
-            else:
-                ifeat = featurizer.active_features[0]
-                most_corr_atom_idxs.append(atom_idxs_from_feature(ifeat)[most_corr_idxs[-1]])
+            most_corr_atom_idxs.append([atom_idxs_from_general_input(featurizer)[ii] for ii in most_corr_idxs[-1]])
 
     for ii, iproj in enumerate(proj_names):
         info.append({"lines":[], "name":iproj})
@@ -1128,6 +1123,27 @@ class CorrelationDict(dict):
 
         return output
 
+def atom_idxs_from_general_input(input):
+    r"""
+    Provided with anything that has a list of ifet.active_features, return the representative
+    atom indices for each feature component
+    :param input: can be TICA, PCA, or MDfeaturizer
+    :return:
+    """
+
+    if isinstance(input, (_TICA, _PCA)):
+        MDfeat = input.data_producer.featurizer
+    elif isinstance(input, _MDFeaturizer):
+        MDfeat = input
+    else:
+        raise TypeError("Sorry, input has to be of type %s, not %s" % ([_MDFeaturizer, _TICA, _PCA], type(input)))
+
+    # Get atom lists for each active feature
+    out_idxs = [atom_idxs_from_feature(jfeat) for jfeat in MDfeat.active_features]
+    # Get one singlelist
+    return [item for sublist in out_idxs for item in sublist]
+
+
 def atom_idxs_from_feature(ifeat):
     r"""
     Return the atom_indices that best represent this input feature
@@ -1135,21 +1151,15 @@ def atom_idxs_from_feature(ifeat):
     Parameters
     ----------
 
-    ifeat : input feature, can be of two types:
+    ifeat : input featurizer:
         a :any:`pyemma.coordinates.featurizer` (Distancefeaturizer, AngleFeaturizer etc) or
-        a :any:`pyemma.coordinates.data.featurization.featurizer.MDFeaturizer` itself, in which case the first of the
-        obj:`ifeat.active_features` will be used
+
 
     Returns
     -------
 
     atom_indices : list with the atoms indices representative of this feature, whatever the feature
     """
-
-    try:
-        ifeat = ifeat.active_features[0]
-    except AttributeError:
-        pass
 
     if isinstance(ifeat, _DF) and not isinstance(ifeat, _ResMinDF):
         return ifeat.distance_indexes

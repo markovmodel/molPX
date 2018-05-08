@@ -486,9 +486,9 @@ def traj(MD_trajectories,
         corr_dicts = [_bmutils.most_corr(projection, geoms=igeom, proj_idxs=proj_idxs, n_args=n_feats)
                       for igeom in geoms]
         if corr_dicts[0]["feats"] != []:
-            colors = _bmutils.matplotlib_colors_no_blue(ncycles=int(_np.ceil(_np.max(proj_idxs)/6.))) # Hack
+            colors = _bmutils.matplotlib_colors_no_blue(ncycles=int(_np.ceil((_np.max(proj_idxs)+1)/6.))) # Hack
             colors = [colors[ii] for ii in proj_idxs]
-            colors = ['red']*10 # for the paper, to be deleted later
+            #colors = ['red']*10 # for the paper, to be deleted later
         else:
             n_feats=0
     else:

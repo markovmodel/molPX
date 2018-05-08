@@ -1074,6 +1074,8 @@ def most_corr(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_a
 
     for ii in proj_idxs:
         icorr = corr[:, ii]
+        # NaN's will screw up this argsort, so
+        icorr[_np.isnan(icorr)] = 0
         most_corr_idxs.append(_np.abs(icorr).argsort()[::-1][:n_args])
         most_corr_vals.append([icorr[jj] for jj in most_corr_idxs[-1]])
         if geoms is not None and avail_FT:
@@ -1155,7 +1157,7 @@ def atom_idxs_from_feature(ifeat):
         return _np.repeat(ifeat.indexes, 3)
     elif isinstance(ifeat, _ResMinDF):
         # Comprehend all the lists!!!!
-        return _np.vstack([[list(ifeat.top.residue(pj).atoms_by_name('CA'))[0].index for pj in pair] for pair in ifeat.contacts])
+        return _np.vstack([[get_repr_atom_for_residue(ifeat.top.residue(pj)).index for pj in pair] for pair in ifeat.contacts])
     if isinstance(ifeat, (_DihF, _AF)):
         ai = ifeat.angle_indexes
         if ifeat.cossin:
@@ -1163,6 +1165,26 @@ def atom_idxs_from_feature(ifeat):
         return ai
     else:
         raise NotImplementedError('bmutils.atom_idxs_from_feature cannot interpret the atoms behind %s yet'%ifeat)
+
+def get_repr_atom_for_residue(rr, cands = ['CA','C','C1'], one_atom_residues=True):
+    r"""
+    Tries to return a representative atom per residue. For AAs, it is the CA,
+    then, the next atom-name in cands is looked for
+    :param rr: mdtraj-residue object
+    :param one_atom_residues, bool, default is True
+            if the residue has one atom, return that atom directly
+            # TODO consider this not even an optarg and code it hard
+    """
+
+    if rr.n_atoms==1:
+        return list(rr.atoms)[0]
+
+    for cc in cands:
+        out = list(rr.atoms_by_name(cc))
+        if len(out)>0:
+            return out[0]
+    if len(out)==0:
+        raise ValueError("Could not find any atoms named %s in the residue %s"%(cands, rr))
 
 def add_atom_idxs_widget(atom_idxs, ngl_wdg, color_list=None, radius=1):
     r"""

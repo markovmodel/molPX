@@ -331,6 +331,7 @@ def traj(MD_trajectories,
          tunits = 'frames',
          traj_selection = None,
          projection = None,
+         input_feature_traj = None,
          n_feats = 1,
          ):
     r"""Link one or many :obj:`projected trajectories`, [Y_0(t), Y_1(t)...], with the :obj:`MD_trajectories` that
@@ -341,7 +342,6 @@ def traj(MD_trajectories,
 
     MD_trajectories : str, or list of strings with the filename(s) the the molecular dynamics (MD) trajectories.
         Any file extension that :py:obj:`mdtraj` (.xtc, .dcd etc) can read is accepted.
-
         Alternatively, a single :obj:`mdtraj.Trajectory` object or a list of them can be given as input.
 
     MD_top : str to topology filename or directly :obj:`mdtraj.Topology` object
@@ -400,9 +400,13 @@ def traj(MD_trajectories,
         might have generated this projection, like a
             :obj:`pyemma.coordinates.transform.TICA` or a
             :obj:`pyemma.coordinates.transform.PCA`
-        Pass this object along and observe and the features that are most correlated with the projections
+        Pass this object along and observe the features that are most correlated with the projections
         will be plotted for the active trajectory, allowing the user to establish a visual connection between the
         projected coordinate and the original features (distances, angles, contacts etc)
+        These trajectories will be re-computed by applyiing
+        :obj:`projection.transform(MD_trajectories)', unless :obj:`input_feature_traj` is parsed
+
+    input_feature_traj : TODO
 
     n_feats : int, default is 1
         If a :obj:`projection` is passed along, the first n_feats features that most correlate the

@@ -25,7 +25,7 @@ requirements:
 
 test:
   source_files:
-    - .coveragerc
+    #- .coveragerc
     - molpx/notebooks/*
   requires:
     - pip

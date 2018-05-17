@@ -7,6 +7,12 @@ from __future__ import print_function as _
 
 __author__ = 'gph82'
 
+def _ensure_ipympl_backend():
+    import matplotlib
+    matplotlib.use('module://ipympl.backend_nbagg', force=True, warn=True)
+
+_ensure_ipympl_backend()
+
 from . import generate
 from . import visualize
 from . import _bmutils

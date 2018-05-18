@@ -21,6 +21,8 @@ from ipywidgets import VBox as _VBox, Layout as _Layout, Button as _Button
 
 import warnings as _warnings
 
+from itertools import product as _it_prod
+
 # All calls to nglview call actually this function
 def _nglwidget_wrapper(geom, ngl_wdg=None, n_small=10):
     r""" Wrapper to nlgivew.show_geom's method that allows for some other automatic choice of
@@ -77,6 +79,7 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
         proj_labels='proj',
         n_overlays=1,
         atom_selection=None,
+        verbose=False,
         **sample_kwargs):
     r"""
     Return a molecular visualization widget connected with a free energy plot.
@@ -132,6 +135,9 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
         If :obj:`MD_trajectories` is already a (list of) :obj:`mdtraj.Trajectory` objects, the atom-slicing can be
         done by the user place before calling this method.
 
+    verbose : bool, default is False
+        Be verbose while computing the FES
+
     sample_kwargs : dictionary of named arguments, optional
         named arguments for the function :obj:`molpx.visualize.sample`. Non-expert users can safely ignore this option.
         Examples are :obj:`superpose` or :obj:`proj_idxs`
@@ -184,7 +190,8 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
                                                return_data=True,
                                                n_geom_samples=n_overlays,
                                                keep_all_samples=keep_all_samples,
-                                               proj_stride=proj_stride
+                                               proj_stride=proj_stride,
+                                               verbose=verbose
                                                )
 
     data = _np.vstack(data)
@@ -1111,3 +1118,88 @@ def _sample(positions, geoms, ax,
 
     return ngl_wdg, axes_wdg
 
+def contacts(contact_map, input, average=False, panelsize=4):
+    r"""
+    Provide a contact map and a widget or geometry, return an interactive contact map
+
+    :param contact_map:
+    :param residue_idxs:
+    :return:
+    """
+
+    # Add one axis to the input if necessary
+    if _np.ndim(contact_map)==2:
+        contact_map = _np.array(contact_map, ndmin=3)
+
+    # Check that the number of frames match if no average is requested
+    if _np.ndim(contact_map)==3 and not average:
+        assert len(contact_map) == input.n_frames, "If average is False, the number of contact maps (%u) must " \
+                                                   "match the number of frames in input (%u)" % (
+                                                   len(contact_map), input.n_frames)
+    # Assert squaredness
+    assert all([ict.shape[0] == ict.shape[1] for ict in contact_map]), "The input has to be a square matrix"
+
+    # Needed arrays
+    nres = contact_map[0].shape[0]
+    residue_idxs = _np.arange(nres)
+    residue_pairs = _np.vstack(_it_prod(residue_idxs, residue_idxs))
+    positions = _np.vstack(_it_prod(range(nres), range(nres)))
+
+    # Create a color list
+    cmap = _get_cmap('rainbow')
+    cmap_table = _np.linspace(0, 1, len(positions))
+    sticky_colors_hex = [_rgb2hex(cmap(ii)) for ii in _np.random.permutation(cmap_table)]
+
+    # Instantiate widget
+    iwd = _nglwidget_wrapper(input)
+
+    # Do the plot
+    _plt.ioff()
+    _plt.figure(figsize=(panelsize, panelsize))
+    iax = _plt.gca()
+    # _plt.plot(positions[:,0], positions[:,1], ' ok')
+    # Make the average if wanted
+    if average:
+        iax.matshow(_np.average(contact_map, axis=0))
+    else:
+        # Monkey-Patch the matshow_data into the object
+        iwd._MatshowData = {"image" : iax.matshow(contact_map[0]),
+                            "data"  : contact_map}
+    _plt.ion()
+
+
+    # Relabel the plot
+    # TODO make sure that zooming works even if a sub-set of res_idxs is given
+    """
+    for axtype in ['x', 'y']:
+        tic_idxs = [int(tl) for tl in getattr(iax, 'get_%sticks'%axtype)()[1:-1]]
+        tic_labels = ['']+['%u'%residue_idxs[ii] for ii in tic_idxs]+['']
+        getattr(iax,'set_%sticklabels'%axtype)(tic_labels)
+    """
+
+    # Monkey-Patch the ContactInNGLWidgets into the widget
+    iwd._CtcsInWid = [_linkutils.ContactInNGLWidget
+        (iwd, [_bmutils.get_repr_atom_for_residue(input.top.residue(aa)).index for aa in [ii,jj]], rp_idx,
+         #verbose=True,
+         color= sticky_colors_hex[rp_idx]
+         )
+                      for rp_idx, (ii,jj) in enumerate(residue_pairs)]
+
+    # Turn axes into a widget
+    axes_wdg = _linkutils.link_ax_w_pos_2_nglwidget(iax,
+                                                    positions,
+                                                    iwd,
+                                                    crosshairs=False,
+                                                    #directionality='a2w',
+                                                    dot_color='None',
+                                                    #**link_ax2wdg_kwargs
+                                                    )
+
+    iwd._set_size(*['%fin' % inches for inches in iax.get_figure().get_size_inches()])
+    #iax.figure.tight_layout()
+    axes_wdg.canvas.set_window_title("Contact Map")
+
+    outbox = _linkutils.MolPXHBox([iwd, axes_wdg.canvas])
+    _linkutils.auto_append_these_mpx_attrs(outbox, input, iax, _plt.gcf(), iwd, axes_wdg, positions)
+
+    return outbox

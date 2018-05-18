@@ -31,7 +31,8 @@ test:
     - molpx
   commands:
     - pytest -vv --pyargs molpx --cov=molpx --cov-report=xml --current-env --nbval-lax
-    - python -c "import shutil, os; shutil.copy('coverage.xml', '/tmp" || true  # [linux]
+    - cp coverage.xml /tmp #  [linux]
+
 about:
   home: https://github.com/gph82/projection_explorer
   license: GNU Lesser Public License v3+

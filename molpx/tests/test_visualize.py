@@ -240,16 +240,16 @@ class TestFeature(TestWithBPTIData):
     def test_feature(self):
         plt.figure()
         iwd = nglview.show_mdtraj(self.MD_trajectories[0])
-        visualize.feature(self.feat.active_features[0], iwd)
+        visualize.feature(self.feat, iwd)
 
     def test_feature_color_list(self):
         plt.figure()
         iwd = nglview.show_mdtraj(self.MD_trajectories[0])
-        visualize.feature(self.feat.active_features[0], iwd,
+        visualize.feature(self.feat, iwd,
                           idxs=[0,1],
                           color_list=['blue'])
         try:
-            visualize.feature(self.feat.active_features[0], iwd,
+            visualize.feature(self.feat, iwd,
                               idxs=[0,1],
                               color_list='blue')
         except TypeError:

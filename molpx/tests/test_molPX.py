@@ -19,7 +19,7 @@ class MyTestCase(unittest.TestCase):
         self.tempdir = tempfile.mkdtemp('test_molpx')
         self.projected_file = os.path.join(self.tempdir,'Y.npy')
         feat = pyemma.coordinates.featurizer(self.topology)
-        feat.add_all()
+        feat.add_selection(np.arange(3))
         source = pyemma.coordinates.source(self.MD_trajectory, features=feat)
         self.tica = pyemma.coordinates.tica(source,lag=1, dim=2)
         Y = self.tica.get_output()[0]

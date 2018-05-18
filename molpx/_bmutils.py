@@ -308,9 +308,10 @@ def interval_schachtelung(f, interval, target=0, eps=1, verbose=False):
     left, right = interval[0], interval[1]
     def inform(left, fl, right, fr, middle, fm, delta, eps, str0=''):
         print(str0)
-        print('%04.2f: %04.2f' % (left, fl))
-        print('%04.2f: %04.2f %f %f' % (middle, fm, delta, eps), ~(delta >= eps))
-        print('%04.2f: %04.2f' % (right, fr))
+        print('left:   %04.2f, f(left)   = %04.2f' % (left, fl))
+        print('middle: %04.2f, f(middle) = %04.2f' % (middle, fm))
+        print('right:  %04.2f, f(right)  = %04.2f' % (right, fr))
+        print('delta, eps =  %f %f, conv: %s'%(delta, eps, ~(delta >= eps)))
         print()
 
     middle = (left + right) / 2
@@ -319,13 +320,14 @@ def interval_schachtelung(f, interval, target=0, eps=1, verbose=False):
     if verbose:
         inform(left, fl, right, fr, middle, fm, delta, eps, str0='Init:')
 
+    cc = 0
     while delta >= eps:
         middle = (left + right) / 2
         fm = f(middle)
         delta = _np.abs(fm - target)
 
         if verbose:
-            inform(left, fl, right, fr, middle, fm, delta, eps)
+            inform(left, fl, right, fr, middle, fm, delta, eps, str0='Iter %u'%cc)
 
         if fl <= target <= fm or fl >= target >= fm:
             right, fr = middle, fm
@@ -334,6 +336,7 @@ def interval_schachtelung(f, interval, target=0, eps=1, verbose=False):
         else:
             print(fl, target, fm, middle)
             raise Exception("Failed while optimizing")
+        cc += 1
     return middle
 
 
@@ -1176,14 +1179,11 @@ def atom_idxs_from_feature(ifeat):
     else:
         raise NotImplementedError('bmutils.atom_idxs_from_feature cannot interpret the atoms behind %s yet'%ifeat)
 
-def get_repr_atom_for_residue(rr, cands = ['CA','C','C1'], one_atom_residues=True):
+def get_repr_atom_for_residue(rr, cands = ['CA','C','C1']):
     r"""
     Tries to return a representative atom per residue. For AAs, it is the CA,
     then, the next atom-name in cands is looked for
     :param rr: mdtraj-residue object
-    :param one_atom_residues, bool, default is True
-            if the residue has one atom, return that atom directly
-            # TODO consider this not even an optarg and code it hard
     """
 
     if rr.n_atoms==1:

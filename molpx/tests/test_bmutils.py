@@ -260,7 +260,7 @@ class TestClusteringAndCatalogues(unittest.TestCase):
 
 
     def test_catalogues(self):
-        cl = _bmutils.regspace_cluster_to_target(self.data_for_cluster, 3, n_try_max=10, delta=0)
+        cl = _bmutils.regspace_cluster_to_target_kmeans(self.data_for_cluster, 3, max_iter=10, n_tol=0)
         #print(cl.clustercenters)
         cat_idxs, cat_cont = _bmutils.catalogues(cl)
 
@@ -294,7 +294,7 @@ class TestClusteringAndCatalogues(unittest.TestCase):
                                          [13, 2]])
 
     def test_catalogues_with_data(self):
-        cl = _bmutils.regspace_cluster_to_target(self.data_for_cluster, 3, n_try_max=10, delta=0)
+        cl = _bmutils.regspace_cluster_to_target_kmeans(self.data_for_cluster, 3, max_iter=10, n_tol=0)
         #print(cl.clustercenters)
         cat_idxs, cat_cont = _bmutils.catalogues(cl, data=self.data_for_cluster)
 
@@ -329,7 +329,7 @@ class TestClusteringAndCatalogues(unittest.TestCase):
 
 
     def test_catalogues_sort_by_zero(self):
-        cl = _bmutils.regspace_cluster_to_target(self.data_for_cluster, 3, n_try_max=10, delta=0)
+        cl = _bmutils.regspace_cluster_to_target_kmeans(self.data_for_cluster, 3, max_iter=10, n_tol=0)
         cat_idxs, cat_cont = _bmutils.catalogues(cl, sort_by=0)
 
         # This test is extra, since this is a pure pyemma function
@@ -358,7 +358,7 @@ class TestClusteringAndCatalogues(unittest.TestCase):
                                          [13, 2]])
 
     def test_catalogues_sort_by_other_than_zero(self):
-        cl = _bmutils.regspace_cluster_to_target(self.data_for_cluster, 3, n_try_max=10, delta=0)
+        cl = _bmutils.regspace_cluster_to_target_kmeans(self.data_for_cluster, 3, max_iter=10, n_tol=0)
         cat_idxs, cat_cont = _bmutils.catalogues(cl, sort_by=1)
         # This test is extra, since this is a pure pyemma functions
         assert np.allclose(cat_idxs[0], [[1,0]])
@@ -436,7 +436,7 @@ class TestGetGoodStartingPoint(unittest.TestCase):
         z = np.random.permutation(z)
         coords[:, -1, -1] = z
         self.traj = md.Trajectory(coords, traj.top)
-        self.cl = _bmutils.regspace_cluster_to_target(self.traj.xyz[:, -1, -1], 50, n_try_max=10)
+        self.cl = _bmutils.regspace_cluster_to_target_kmeans(self.traj.xyz[:, -1, -1], 50, max_iter=10)
         self.cat_smpl = self.cl.sample_indexes_by_cluster(np.arange(self.cl.n_clusters), n_geom_samples)
         self.geom_smpl = self.traj[np.vstack(self.cat_smpl)[:,1]]
         self.geom_smpl = _bmutils.re_warp(self.geom_smpl, [n_geom_samples] * self.cl.n_clusters)
@@ -523,8 +523,7 @@ class TestVisualPath(TestWithBPTIData):
     def setUpClass(self):
         TestWithBPTIData.setUpClass()
         n_sample = 20
-        self.cl_cont = _bmutils.regspace_cluster_to_target([ixyz[:, :2] for ixyz in self.xyz_flat], n_sample, verbose=True, n_try_max=10,
-                                                           #delta=0
+        self.cl_cont = _bmutils.regspace_cluster_to_target_kmeans([ixyz[:, :2] for ixyz in self.xyz_flat], n_sample, verbose=True, max_iter=10,
                                                            )
         self.cat_idxs, self.cat_data = _bmutils.catalogues(self.cl_cont)
         # Create the MD catalogue with pyemma

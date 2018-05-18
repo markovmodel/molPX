@@ -254,17 +254,22 @@ def regspace_cluster_to_target_kmeans(data, n_clusters_target,
     tested:True
     """
 
-    # The parameter k_centers is just an initialization and has only impact on speed,
-    # not on the deterministic result. We catch some pathological data inputs
-    # Amount of strided frames
+    # Listify if only one array
+    if isinstance(data, _np.ndarray):
+        data = [data]
+
+    # The parameter k_centers=1000 is just an initialization and has only impact on speed.
+    # TODO: consider hard coding it
+    # We try to catch some pathological data inputs with too little data
     n_frames_kmeans = _np.sum([len(idata[::k_stride]) for idata in data])
     if n_frames_kmeans< k_centers:
         k_stride = 1
     n_frames_kmeans = _np.sum([len(idata[::k_stride]) for idata in data])
+    k_centers = _np.min((n_frames_kmeans, k_centers))
 
     # 1. Arrive at an approximate dmin by
     # 1.1 Preliminary clustering
-    pre_cl = _cluster_kmeans(data, k=k_centers, stride=k_stride,init_strategy='uniform' )
+    pre_cl = _cluster_kmeans(data, k=k_centers, stride=k_stride, init_strategy='uniform' )
     # 1.2 Distance matrix
     D = _squareform(_pdist(pre_cl.clustercenters))
     # 1.3 Define the objective function to be optimized for dmin by interval_schachtelung
@@ -1131,7 +1136,7 @@ def atom_idxs_from_general_input(input):
     Provided with anything that has a list of ifet.active_features, return the representative
     atom indices for each feature component
     :param input: can be TICA, PCA, or MDfeaturizer
-    :return:
+    :return: list of input.dimension() with the atoms involved in each feature
     """
 
     if isinstance(input, (_TICA, _PCA)):
@@ -1143,7 +1148,7 @@ def atom_idxs_from_general_input(input):
 
     # Get atom lists for each active feature
     out_idxs = [atom_idxs_from_feature(jfeat) for jfeat in MDfeat.active_features]
-    # Get one singlelist
+    # Get one single list
     return [item for sublist in out_idxs for item in sublist]
 
 

@@ -789,7 +789,7 @@ def feature(feat,
     ----------
 
     featurizer : py:obj:`_MDFeautrizer`
-        A PyEMMA MDFeaturizer object (either a feature or a featurizer, works with both)
+        A PyEMMA MDfeaturizer object with any number of .active_features()
 
     widget : None or nglview widget
         Provide an already existing widget to visualize the correlations on top of. This is only for expert use,
@@ -819,7 +819,7 @@ def feature(feat,
     """
 
     idxs = _bmutils.listify_if_int(idxs)
-    atom_idxs = _bmutils.atom_idxs_from_general_input(feat)[idxs]
+    atom_idxs = _bmutils.atom_idxs_from_general_input(feat)[slice(*idxs)]
 
     if color_list is None:
         color_list = ['blue'] * len(idxs)

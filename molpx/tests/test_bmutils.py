@@ -82,13 +82,12 @@ class TestReadingInput(TestWithBPTIData):
 
     def test_data_from_input_ndarray(self):
         # Just one ndarray
-        assert np.allclose(self.Y, _bmutils.data_from_input(self.Y)[0])
+        assert np.allclose(self.Ys[0], _bmutils.data_from_input(self.Ys[0]))
         # List of one ndarray
-        assert np.allclose(self.Y, _bmutils.data_from_input([self.Y])[0])
-        # List of two ndarray
-        Ys = _bmutils.data_from_input([self.Y,
-                                       self.Y])
-        assert np.all([np.allclose(self.Y, iY) for iY in Ys])
+        assert np.allclose(self.Ys[0], _bmutils.data_from_input([self.Ys[0]])[0])
+        # Lists
+        Ys = _bmutils.data_from_input(self.Ys)
+        assert np.all([np.allclose(jY, iY) for jY,iY in zip(self.Ys, Ys)])
 
     # Not implemented yet
     def _test_data_from_input_ndarray_ascii_npy(self):
@@ -150,7 +149,7 @@ class TestSaveTraj(TestWithBPTIData):
         geoms_molpx = _bmutils.save_traj_wrapper(self.MD_trajectories, samples, None)
         assert np.all([np.allclose(ixyz, jxyz) for ixyz, jxyz in zip(geoms_ref.xyz, geoms_molpx.xyz)])
 
-    def test_works_with_MDTrajectories_with_stride(self):
+    def _test_works_with_MDTrajectories_with_stride(self):
 
         samples = [[0, 10],
                    [1, 20],
@@ -709,7 +708,11 @@ class TestMinRmsdPaths(unittest.TestCase):
         for pp, ff in enumerate(frames_where_actual_geometry_is):
             xyz[pp][ff,:,:] = self.reftraj.xyz
         # Create the path of candidates as mdtraj objects
-        path_of_candidates = [md.Trajectory(ixyz, topology=self.reftraj.top) for ixyz in xyz]
+        path_of_candidates = [md.Trajectory(ixyz, topology=self.reftraj.top,
+                                            time=[self.reftraj.time.squeeze()] * n_cands,
+                                            unitcell_angles=[self.reftraj.unitcell_angles.squeeze()] * n_cands,
+                                            unitcell_lengths=[self.reftraj.unitcell_lengths.squeeze()] * n_cands)
+                              for ixyz in xyz]
 
         # Let mirmsd_path find these frames for you
         inferred_frames = _bmutils.min_rmsd_path(self.reftraj, path_of_candidates)
@@ -750,7 +753,11 @@ class TestMinRmsdPaths(unittest.TestCase):
             xyz[pp][ff,:,:] = ref_w_sel_perturbed[pp]
 
         # Create the path of candidates as mdtraj objects
-        path_of_candidates = [md.Trajectory(ixyz, topology=self.reftraj.top) for ixyz in xyz]
+        path_of_candidates = [md.Trajectory(ixyz, topology=self.reftraj.top,
+                                            time=[self.reftraj.time.squeeze()] * n_cands,
+                                            unitcell_angles=[self.reftraj.unitcell_angles.squeeze()] * n_cands,
+                                            unitcell_lengths=[self.reftraj.unitcell_lengths.squeeze()] * n_cands)
+                              for ixyz in xyz]
 
         # PRE-TEST
         # as long as the perturbation is small,
@@ -775,7 +782,11 @@ class TestMinRmsdPaths(unittest.TestCase):
         # In the random frames, insert the intouched selection
         for pp, ff in enumerate(frames_random_w_sel_untouched):
             xyz[pp][ff,selection,:] = np.copy(self.reftraj.xyz[0,selection, :])
-        path_of_candidates = [md.Trajectory(ixyz, topology=self.reftraj.top) for ixyz in xyz]
+        path_of_candidates = [md.Trajectory(ixyz, topology=self.reftraj.top,
+                                            time=[self.reftraj.time.squeeze()] * n_cands,
+                                            unitcell_angles=[self.reftraj.unitcell_angles.squeeze()] * n_cands,
+                                            unitcell_lengths=[self.reftraj.unitcell_lengths.squeeze()] * n_cands)
+                              for ixyz in xyz]
 
         # This should still be OK, because
         # even if the selected atoms have been perturbed, the comparsion [ref+sel_per] vs [random] is robust
@@ -802,8 +813,12 @@ class TestMinRmsdPaths(unittest.TestCase):
         frames_where_actual_geometry_is = np.random.randint(0, high=n_cands, size=path_length)
         for pp, ff in enumerate(frames_where_actual_geometry_is):
             xyz[pp][ff, :, :] = self.reftraj.xyz
-        # Create the path of candidates as mdtraj objects
-        path_of_candidates = [md.Trajectory(ixyz, topology=self.reftraj.top) for ixyz in xyz]
+        # Create the path of candidates as mdtraj objects (time, unitcell angles and lengths are bogus)
+        path_of_candidates = [md.Trajectory(ixyz, topology=self.reftraj.top,
+                                            time=[self.reftraj.time.squeeze()]*n_cands,
+                                            unitcell_angles=[self.reftraj.unitcell_angles.squeeze()]*n_cands,
+                                            unitcell_lengths=[self.reftraj.unitcell_lengths.squeeze()]*n_cands)
+                              for ixyz in xyz]
 
         # Let mirmsd_path find these frames for you
         inferred_frames = _bmutils.min_rmsd_path(self.reftraj, path_of_candidates, history_aware=True)
@@ -980,6 +995,15 @@ class TestAtomIndices(unittest.TestCase):
         self.feat.add_residue_mindist(self.mindist_input)
         self.mindist_indices = [[_bmutils.get_repr_atom_for_residue(self.feat.topology.residue(ii)).index for ii in rpair] for rpair in self.mindist_input]
 
+        # Now put all indices in one long list:
+        self.ref =  self.cartesian_indices+\
+                    self.distance_indices+\
+                    self.angle_indices+\
+                    self.angle_indices_cossin+\
+                    self.dih_indices+\
+                    self.dih_indices_cossin+\
+                    self.mindist_indices
+
         self.src = pyemma.coordinates.source(glob(molpx._molpxdir(join='notebooks/data/c-alpha*xtc'))[0], features=self.feat)
         self.tica = pyemma.coordinates.tica(self.src )
         self.pca = pyemma.coordinates.pca(self.src)
@@ -1004,17 +1028,6 @@ class TestAtomIndices(unittest.TestCase):
         try:
             _bmutils.get_repr_atom_for_residue(top.residue(0), cands=["CB"])
         except ValueError:
-            pass
-
-
-    # Test the general input
-    def test_input_just_runs(self):
-        _bmutils.atom_idxs_from_general_input(self.feat)
-        _bmutils.atom_idxs_from_general_input(self.tica)
-        _bmutils.atom_idxs_from_general_input(self.pca)
-        try:
-            _bmutils.atom_idxs_from_general_input("aa")
-        except TypeError:
             pass
 
     # Feature by feature
@@ -1053,15 +1066,29 @@ class TestAtomIndices(unittest.TestCase):
 
     def test_all_features_together(self):
         ai = _bmutils.atom_idxs_from_general_input(self.feat)
-        ref = self.cartesian_indices+\
-              self.distance_indices+\
-              self.angle_indices+\
-              self.angle_indices_cossin+\
-              self.dih_indices+\
-              self.dih_indices_cossin+\
-              self.mindist_indices
+
         assert len(ai)==self.feat.dimension()
-        assert all([np.allclose(aa, rr) for aa, rr in zip(ai, ref)])
+        assert all([np.allclose(aa, rr) for aa, rr in zip(ai, self.ref)])
+
+        # Test the general input
+
+    def test_general_input_just_runs(self):
+        _bmutils.atom_idxs_from_general_input(self.feat)
+        _bmutils.atom_idxs_from_general_input(self.tica)
+        _bmutils.atom_idxs_from_general_input(self.pca)
+        try:
+            _bmutils.atom_idxs_from_general_input("aa")
+        except TypeError:
+            pass
+
+    def test_general_input_produces_the_right_indices(self):
+        ai  = _bmutils.atom_idxs_from_general_input(self.feat)
+        assert all([np.allclose(aa, rr) for aa, rr in zip(ai, self.ref)])
+        ai  = _bmutils.atom_idxs_from_general_input(self.tica)
+        assert all([np.allclose(aa, rr) for aa, rr in zip(ai, self.ref)])
+        ai = _bmutils.atom_idxs_from_general_input(self.pca)
+        assert all([np.allclose(aa, rr) for aa, rr in zip(ai, self.ref)])
+
 
 class TestInputManipulationShaping(unittest.TestCase):
 

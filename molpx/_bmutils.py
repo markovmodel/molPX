@@ -4,6 +4,7 @@ import mdtraj as _md
 try:
     from sklearn.mixture import GaussianMixture as _GMM
 except ImportError:
+    # TODO pin sklearn version and get rid of this
     from sklearn.mixture import GMM as _GMM
 
 from scipy.spatial.distance import pdist as _pdist, squareform as _squareform
@@ -737,18 +738,23 @@ def save_traj_wrapper(traj_inp, indexes, outfile, top=None, stride=1, chunksize=
     if isinstance(traj_inp, (_FeatureReader, _FragmentedTrajectoryReader)) or _is_string(traj_inp[0]):
         geom_smpl = _save_traj(traj_inp, indexes, None, top=top, stride=stride,
                                chunksize=chunksize, image_molecules=image_molecules, verbose=verbose)
+
     elif isinstance(traj_inp[0], _md.Trajectory):
-        file_idx, frame_idx = indexes[0]
-        if False:
-            geom_smpl = traj_inp[file_idx][frame_idx]
-            for file_idx, frame_idx in indexes[1:]:
-                geom_smpl = geom_smpl.join(traj_inp[file_idx][frame_idx])
-            # TODO this takes too much time for large topologies, consider copying
-        else:
-            xyz =[]
-            for file_idx, frame_idx in indexes:
-                xyz.append(traj_inp[file_idx].xyz[frame_idx].squeeze())
-            geom_smpl = _md.Trajectory(xyz, traj_inp[0][0].top)
+        top = traj_inp[0].top
+        n_frames = len(indexes)
+        xyz = _np.zeros((n_frames, top.n_atoms, 3))
+        uc_lengths = _np.zeros((n_frames, 3))
+        uc_angles = _np.zeros((n_frames, 3))
+        time = _np.zeros(n_frames)
+        for ii, (file_idx, frame_idx) in enumerate(indexes):
+            xyz[ii, :, :] = traj_inp[file_idx].xyz[frame_idx*stride].squeeze()
+            uc_lengths[ii, :] = traj_inp[file_idx].unitcell_lengths[frame_idx*stride]
+            uc_angles[ii, :]  = traj_inp[file_idx].unitcell_angles[frame_idx*stride]
+            time[ii] = traj_inp[file_idx].time[frame_idx*stride]
+
+        geom_smpl = _md.Trajectory(xyz, top, time=time,
+                                   unitcell_lengths=uc_lengths,
+                                   unitcell_angles=uc_angles)
     else:
         raise TypeError("Cant handle input of type %s now"%(type(traj_inp[0])))
 

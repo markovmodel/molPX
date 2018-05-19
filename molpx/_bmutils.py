@@ -167,52 +167,6 @@ def re_warp(array_in, lengths):
         idxi += ll
     return warped
 
-# TODO deprecate properly
-def _regspace_cluster_to_target(data, n_clusters_target,
-                               n_try_max=5, delta=5.,
-                               verbose=False):
-    r"""
-    Clusters a dataset to a target n_clusters using regspace clustering by iteratively. "
-    Work best with 1D data
-
-    data: ndarray or list thereof
-    n_clusters_target: int, number of clusters.
-    n_try_max: int, default is 5. Maximum number of iterations in the heuristic.
-    delta: float, defalut is 5. Percentage of n_clusters_target to consider converged.
-             Eg. n_clusters_target=100 and delta = 5 will consider any clustering between 95 and 100 clustercenters as
-             valid. Note. Note: An off-by-one in n_target_clusters is sometimes unavoidable
-
-    returns: pyemma clustering object
-
-    tested:True
-    """
-    delta = delta/100
-    ndim = _np.vstack(data).shape[0]
-    assert ndim >= n_clusters_target, "Cannot cluster " \
-                                                      "%u datapoints on %u clustercenters. Reduce the number of target " \
-                                                      "clustercenters."%(_np.vstack(data).shape[0], n_clusters_target)
-    # Works well for connected, 1D-clustering,
-    # otherwise it's bad starting guess for dmin
-    cmax = _np.vstack(data).max()
-    cmin = _np.vstack(data).min()
-    dmin = (cmax-cmin)/(n_clusters_target+1)
-
-    err = _np.ceil(n_clusters_target*delta)
-    cl = _cluster_regspace(data, dmin=dmin, max_centers=5000)
-    for cc in range(n_try_max):
-        n_cl_now = cl.n_clusters
-        delta_cl_now = _np.abs(n_cl_now - n_clusters_target)
-        if not n_clusters_target-err <= cl.n_clusters <= n_clusters_target+err:
-            # Cheap (VERY BAD IN HIGH DIM) heuristic to get relatively close relatively quick
-            dmin = cl.dmin*cl.n_clusters/   n_clusters_target
-            cl = _cluster_regspace(data, dmin=dmin, max_centers=5000)# max_centers is given so that we never reach it (dangerous)
-        else:
-            break
-        if verbose:
-            print('cl iter %u %u -> %u (Delta to target (%u +- %u): %u'%(cc, n_cl_now, cl.n_clusters,
-                                                                         n_clusters_target, err, delta_cl_now))
-    return cl
-
 def regspace_cluster_to_target_kmeans(data, n_clusters_target,
                                       k_centers=1000,
                                       k_stride=50,

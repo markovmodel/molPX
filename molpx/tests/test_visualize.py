@@ -33,8 +33,8 @@ class TestTrajInputs(TestWithBPTIData):
             visualize.traj(self.MD_trajectories, self.MD_topology, self.Ys, max_frames=3)
 
     def test_simplest_inputs_disk(self):
-        visualize.traj(self.MD_trajectory_files, self.MD_topology_file, self.projected_files)
-        visualize.traj(self.MD_trajectory_files, self.MD_topology_file, [ifile.replace('.npy', '.dat') for ifile in self.projected_files])
+        visualize.traj(self.MD_trajectory_files, self.MD_topology_file, self.projected_files_npy)
+        visualize.traj(self.MD_trajectory_files, self.MD_topology_file, [ifile.replace('.npy', '.dat') for ifile in self.projected_files_npy])
 
     def test_simplest_inputs_memory_and_proj(self):
         visualize.traj(self.MD_trajectories, self.MD_topology, self.Ys, projection=self.tica)
@@ -179,7 +179,7 @@ class TestFES(TestWithBPTIData):
     def test_just_works_min_input_disk(self):
         molpx.visualize.FES(self.MD_trajectory_files,
                             self.MD_topology_file,
-                            self.projected_files)
+                            self.projected_files_npy)
 
     def test_just_works_min_input_memory(self):
         molpx.visualize.FES(self.MD_trajectories,

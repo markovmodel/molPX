@@ -282,7 +282,7 @@ def regspace_cluster_to_target_kmeans(data, n_clusters_target,
     ii = 0
     while (_np.abs(cl.n_clusters-n_clusters_target) > n_tol):
         if ii >= max_iter:
-            print("Reaced max_iter %u."%ii)
+            print("Reached max_iter %u."%ii)
             break
         # Distance matrix
         D = _squareform(_pdist(cl.clustercenters))
@@ -845,7 +845,7 @@ def get_ascending_coord_idx(pos, fail_if_empty=False, fail_if_more_than_one=Fals
     idxs = _np.argwhere(_np.all(_np.diff(pos,axis=0)>0, axis=0)).squeeze()
     if isinstance(idxs, _np.ndarray) and idxs.ndim==0:
         idxs = idxs[()]
-    elif idxs == [] and fail_if_empty:
+    elif len(idxs)==0 and fail_if_empty:
             raise ValueError('No column was found in ascending order')
 
     if _np.size(idxs) > 1:

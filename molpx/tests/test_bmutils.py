@@ -943,61 +943,130 @@ class geom_list_2_geom(unittest.TestCase):
 
         assert np.allclose(np.hstack([igeom.xyz for igeom in new_geom]).squeeze(), np.vstack(traj.xyz))
 
-class TestIndexGeneralInput(unittest.TestCase):
+class TestAtomIndices(unittest.TestCase):
 
     def setUp(self):
         self.MD_topology = molpx._molpxdir(join='notebooks/data/bpti-c-alpha_centered.pdb')
         self.feat = pyemma.coordinates.featurizer(self.MD_topology)
 
-        self.ang_idxs = [[ii + jj for jj in range(3)] for ii in range(self.feat.topology.n_atoms - 3)]
-        self.dih_idxs = [[ii + jj for jj in range(4)] for ii in range(self.feat.topology.n_atoms - 4)]
+        self.cartesian_input = np.arange(10)
+        self.distance_input = np.arange(10, 15)
+        self.angle_input = [[ii + jj for jj in range(3)] for ii in range(self.feat.topology.n_atoms - 3)]
+        self.dih_input = [[ii + jj for jj in range(4)] for ii in range(self.feat.topology.n_atoms - 4)]
+        self.mindist_input = [[15, 16], [16, 17], [18, 19]]
 
-        self.feat.add_all()
-        self.feat.add_distances_ca(excluded_neighbors=0)
-        self.feat.add_angles(self.ang_idxs)
-        self.feat.add_angles(self.ang_idxs, cossin=True)
-        self.feat.add_dihedrals(self.dih_idxs)
-        self.feat.add_dihedrals(self.dih_idxs, cossin=True)
+        # Add features to the featurizer and keep track of the atom indices
+        self.feat.add_selection(self.cartesian_input)
+        self.cartesian_indices = list(np.repeat(self.cartesian_input, 3))
+
+        self.feat.add_distances(self.distance_input)
+        self.distance_indices = []
+        for ii, iidx in enumerate(self.distance_input[:-1]):
+            for jidx in self.distance_input[ii + 1:]:
+                self.distance_indices.append((iidx, jidx))
+
+        self.feat.add_angles(self.angle_input)
+        self.angle_indices = self.angle_input
+
+        self.feat.add_angles(self.angle_input, cossin=True)
+        self.angle_indices_cossin = list(np.tile(self.angle_input, 2).reshape(-1, 3))
+
+        self.feat.add_dihedrals(self.dih_input)
+        self.dih_indices = self.dih_input
+
+        self.feat.add_dihedrals(self.dih_input, cossin=True)
+        self.dih_indices_cossin = list(np.tile(self.dih_input, 2).reshape(-1, 4))
+
+        self.feat.add_residue_mindist(self.mindist_input)
+        self.mindist_indices = [[_bmutils.get_repr_atom_for_residue(self.feat.topology.residue(ii)).index for ii in rpair] for rpair in self.mindist_input]
 
         self.src = pyemma.coordinates.source(glob(molpx._molpxdir(join='notebooks/data/c-alpha*xtc'))[0], features=self.feat)
-        self.tica = pyemma.coordinates.tica(self.src, )
+        self.tica = pyemma.coordinates.tica(self.src )
         self.pca = pyemma.coordinates.pca(self.src)
 
     def tearDown(self):
         pass
 
+    def test_repr_atoms_from_residues(self):
+        # Use Di-Ala
+        top = md.load(molpx._molpxdir(join='notebooks/data/ala2.pdb')).top
+        # First res, ACE
+        aa = _bmutils.get_repr_atom_for_residue(top.residue(0))
+        assert aa.name=="C"
+        # Mid res, ala2
+        aa = _bmutils.get_repr_atom_for_residue(top.residue(1))
+        assert aa.name=="CA"
+        # Last res, ACE
+        aa = _bmutils.get_repr_atom_for_residue(top.residue(2))
+        assert aa.name == "C"
+
+        # Force fail
+        try:
+            _bmutils.get_repr_atom_for_residue(top.residue(0), cands=["CB"])
+        except ValueError:
+            pass
+
+
+    # Test the general input
     def test_input_just_runs(self):
         _bmutils.atom_idxs_from_general_input(self.feat)
         _bmutils.atom_idxs_from_general_input(self.tica)
         _bmutils.atom_idxs_from_general_input(self.pca)
+        try:
+            _bmutils.atom_idxs_from_general_input("aa")
+        except TypeError:
+            pass
 
+    # Feature by feature
+    def test_atom_idxs_from_feature_not_recognized(self):
+        try:
+            _bmutils.atom_idxs_from_feature("aa")
+        except NotImplementedError:
+            pass
     def test_atom_idxs_from_feature_xyz(self):
         ai = _bmutils.atom_idxs_from_feature(self.feat.active_features[0])
-        assert np.allclose(np.repeat(np.arange(self.feat.topology.n_atoms),3), ai)
+        assert np.allclose(self.cartesian_indices, ai)
 
-    def test_atom_idxs_from_feature_D_CA(self):
+    def test_atom_idxs_from_feature_D(self):
         ai = _bmutils.atom_idxs_from_feature(self.feat.active_features[1])
-        ref = np.vstack(np.triu_indices(self.feat.topology.n_atoms, k=1)).T
-        assert np.allclose(ref, ai),ai
+        assert np.allclose(self.distance_indices, ai),ai
 
     def test_atom_idxs_from_feature_ang(self):
         ai = _bmutils.atom_idxs_from_feature(self.feat.active_features[2])
-        assert np.allclose(self.ang_idxs, ai)
+        assert np.allclose(self.angle_indices, ai)
 
     def test_atom_idxs_from_feature_ang_cossin(self):
         ai = _bmutils.atom_idxs_from_feature(self.feat.active_features[3])
-        ref = np.tile(self.ang_idxs, 2).reshape(-1,3)
-        assert np.allclose(ai, ref)
+        assert np.allclose(ai, self.angle_indices_cossin)
 
     def test_atom_idxs_from_feature_dih(self):
         ai = _bmutils.atom_idxs_from_feature(self.feat.active_features[4])
-        assert np.allclose(self.dih_idxs, ai)
+        assert np.allclose(self.dih_indices, ai)
+
     def test_atom_idxs_from_feature_dih_cossin(self):
         ai = _bmutils.atom_idxs_from_feature(self.feat.active_features[5])
-        ref = np.tile(self.dih_idxs, 2).reshape(-1,4)
-        assert np.allclose(ref, ai)
+        assert np.allclose(self.dih_indices_cossin, ai)
+
+    def test_atom_idxs_from_feature_res_mindist(self):
+        ai = _bmutils.atom_idxs_from_feature(self.feat.active_features[6])
+        assert np.allclose(self.mindist_indices,ai)
+
+    def test_all_features_together(self):
+        ai = _bmutils.atom_idxs_from_general_input(self.feat)
+        ref = self.cartesian_indices+\
+              self.distance_indices+\
+              self.angle_indices+\
+              self.angle_indices_cossin+\
+              self.dih_indices+\
+              self.dih_indices_cossin+\
+              self.mindist_indices
+        assert len(ai)==self.feat.dimension()
+        assert all([np.allclose(aa, rr) for aa, rr in zip(ai, ref)])
 
 class TestInputManipulationShaping(unittest.TestCase):
+
+    def test_listify_if_int(self):
+        assert isinstance(_bmutils.listify_if_int(0), list)
 
     def test_listify(self):
         input = [1,2,3,4]

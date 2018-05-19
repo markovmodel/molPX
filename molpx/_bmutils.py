@@ -1160,8 +1160,10 @@ def atom_idxs_from_feature(ifeat):
     ----------
 
     ifeat : input featurizer:
-        a :any:`pyemma.coordinates.featurizer` (Distancefeaturizer, AngleFeaturizer etc) or
-
+        a PyEMMA Feature. Accepted are
+            DistanceFeature, AngleFeature, DihedralFeature, ResidueMinDistanceFeature, and
+            SelectionFeature,
+            #TODO include link to PyEMMA objects in docstring
 
     Returns
     -------

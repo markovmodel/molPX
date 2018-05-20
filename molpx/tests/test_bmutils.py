@@ -13,7 +13,6 @@ import molpx
 
 from scipy.spatial.distance import pdist as _pdist, squareform as _squareform
 
-
 class TestWithBPTIData(unittest.TestCase):
     r"""
     A class that contains all the TestCase with the MD info
@@ -242,7 +241,6 @@ class TestCorrelations(TestWithBPTIData):
             _bmutils.most_corr(self.tica, proj_idxs=proj_idxs)
         except(ValueError):
             pass #this should given this type of error
-
 
 class TestClusteringAndCatalogues(unittest.TestCase):
 
@@ -1089,6 +1087,8 @@ class TestAtomIndices(unittest.TestCase):
         ai = _bmutils.atom_idxs_from_general_input(self.pca)
         assert all([np.allclose(aa, rr) for aa, rr in zip(ai, self.ref)])
 
+def test_colors():
+    _bmutils.matplotlib_colors_no_blue()
 
 class TestInputManipulationShaping(unittest.TestCase):
 

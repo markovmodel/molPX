@@ -9,7 +9,8 @@ from molpx import visualize, _bmutils
 import mdtraj as md
 import matplotlib.pyplot as plt
 import nglview
-#plt.switch_backend('Agg') # allow tests
+from pyemma.coordinates import tica
+plt.switch_backend('Agg') # allow tests
 
 from .test_bmutils import TestWithBPTIData
 
@@ -85,6 +86,40 @@ class TestTrajInputs(TestWithBPTIData):
         visualize.FES(self.metad_trajectory_files, self.ala2_topology_file, self.metad_colvar_files,
                       proj_idxs=[1,2], weights=weights)
 
+class TestFES(TestWithBPTIData):
+
+    @classmethod
+    def setUpClass(self):
+        TestWithBPTIData.setUpClass()
+
+    def test_just_works_min_input_disk(self):
+        molpx.visualize.FES(self.MD_trajectory_files,
+                            self.MD_topology_file,
+                            self.projected_files_npy)
+
+    def test_just_works_min_input_memory(self):
+        molpx.visualize.FES(self.MD_trajectories,
+                            self.MD_topology,
+                            self.Ys)
+
+    def test_overlays(self):
+        molpx.visualize.FES(self.MD_trajectories,
+                            self.MD_topology,
+                            self.Ys,
+                            n_overlays=5)
+
+    def test_1D(self):
+        molpx.visualize.FES(self.MD_trajectories,
+                            self.MD_topology,
+                            self.Ys,
+                            proj_idxs=[0])
+
+    def test_with_weigths(self):
+        weights = [np.ones(len(iY)) for iY in self.Ys]
+        molpx.visualize.FES(self.MD_trajectories,
+                            self.MD_topology,
+                            self.Ys, weights=weights)
+
 class TestNGLWidgetWrapper(unittest.TestCase):
 
     def setUp(self):
@@ -103,7 +138,6 @@ class TestNGLWidgetWrapper(unittest.TestCase):
 
 def test_colors():
     _bmutils.matplotlib_colors_no_blue()
-
 class TestSample(TestWithBPTIData):
 
     @classmethod
@@ -114,6 +148,10 @@ class TestSample(TestWithBPTIData):
         self.pos[:,0] = np.linspace(0,1,num=self.n_sample)
         self.pos[:,1] = np.random.rand(self.n_sample)
         self.geom = self.MD_trajectories[0][:self.n_sample]
+
+    @classmethod
+    def tearDownClass(self):
+        TestWithBPTIData.tearDownClass()
 
     def test_sample_not_sticky_just_works(self):
         plt.figure()
@@ -222,6 +260,11 @@ class TestCorrelations(TestWithBPTIData):
     def test_correlations_inputs_verbose(self):
         visualize.correlations(self.tica, verbose=True)
 
+    def test_correlations_inputs_verbose_and_widget(self):
+        visualize.correlations(self.tica,
+                               geoms=self.MD_trajectories[0],
+                               verbose=True)
+
     def test_correlations_inputs_color_list_parsing(self):
         visualize.correlations(self.tica, proj_color_list=['green'])
 
@@ -255,6 +298,41 @@ class TestFeature(TestWithBPTIData):
         except TypeError:
             pass
 
+class TestContacts(TestWithBPTIData):
+    @classmethod
+    def setUpClass(self):
+        TestWithBPTIData.setUpClass()
+        self.geom = self.MD_trajectories[0]
+        ctcs, res_idxs = md.compute_contacts(self.geom)
+        self.ctcs = md.geometry.squareform(ctcs, res_idxs)
+
+    def test_just_runs(self):
+        visualize.contacts(self.ctcs, self.geom)
+
+    def test_one_ctcframe(self):
+        # this should fail
+        try:
+            visualize.contacts(self.ctcs.mean(0), self.geom)
+        except AssertionError:
+            pass
+        # This should pass
+        visualize.contacts(self.ctcs.mean(0), self.geom, average=True)
+
+class TestNGLWidgetWrapper(unittest.TestCase):
+
+    def setUp(self):
+        self.MD_file = molpx._molpxdir(join='notebooks/data/bpti-c-alpha_centered.pdb')
+        self.MD_geom = md.load(self.MD_file)
+
+    def test_widget_wrapper_w_None(self):
+        iwd = molpx.visualize._nglwidget_wrapper(None)
+
+    def test_widget_wrapper_w_file(self):
+        iwd = molpx.visualize._nglwidget_wrapper(self.MD_file)
+
+    def test_widget_wrapper_w_instantiated_wdg(self):
+        iwd = molpx.visualize._nglwidget_wrapper(self.MD_file)
+        molpx.visualize._nglwidget_wrapper(self.MD_geom, ngl_wdg=iwd)
 
 class TestBoxMe(unittest.TestCase):
 

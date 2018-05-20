@@ -243,7 +243,8 @@ def _box_me(tuple_in, auto_resize=True):
 
     :return: obj:IPywdigets.HBox:, if possible
     """
-
+    # TODO THIS IS UNUSED
+    # TODO EITHER USE IT OR REMOVE IT BEFORE RELEASING
     widgets_and_canvas = []
     size_inches = []
     for obj in tuple_in:
@@ -768,7 +769,6 @@ def correlations(correlation_input,
         for ii, line in enumerate(corr_dict["info"]):
             print('%s is most correlated with '%(line["name"] ))
             for line in line["lines"]:
-                # TODO: this is for when tica is there but no featurizer is there
                 if widget is not None and len(corr_dict["atom_idxs"]) != 0:
                     line += ' (in %s in the widget)'%(proj_color_list[ii])
                 print(line)

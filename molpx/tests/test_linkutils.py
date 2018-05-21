@@ -8,7 +8,7 @@ from glob import glob
 from matplotlib.backend_bases import MouseEvent
 import mdtraj as md
 import matplotlib.pyplot as plt
-plt.switch_backend('Agg') # allow tests
+#plt.switch_backend('Agg') # allow tests
 
 
 import nglview

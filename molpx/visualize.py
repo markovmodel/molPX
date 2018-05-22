@@ -14,7 +14,7 @@ from . import generate as _generate
 from . import _bmutils
 from . import _linkutils
 
-from matplotlib import pyplot as _plt, rcParams as _rcParams
+from matplotlib import rcParams as _rcParams
 import nglview as _nglview
 import mdtraj as _md
 from ipywidgets import VBox as _VBox, Layout as _Layout, Button as _Button
@@ -172,6 +172,7 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
             list with all the :obj:`mdtraj.Trajectory`-objects contained in the :obj:`widgetbox`
 
     """
+    from matplotlib import pyplot as _plt
     # Prepare the overlay option
     n_overlays = _np.min([n_overlays,50])
     if n_overlays>1:
@@ -300,7 +301,7 @@ def _plot_ND_FES(data, ax_labels, weights=None, bins=50, figsize=(4,4)):
     edges : tuple containimg the axes along which FES is to be plotted (only in the 1D case so far, else it's None)
 
     """
-
+    from matplotlib import pyplot as _plt
     _plt.figure(figsize=figsize)
     ax = _plt.gca()
     idata = _np.vstack(data)
@@ -439,6 +440,7 @@ def traj(MD_trajectories,
 
 
     """
+    from matplotlib import pyplot as _plt
     smallfontsize = int(_rcParams['font.size'] / 1.5)
     proj_idxs = _bmutils.listify_if_int(proj_idxs)
 

@@ -6,10 +6,8 @@ import numpy as np
 import molpx
 from matplotlib import pyplot as plt
 plt.switch_backend('Agg') # allow tests
-try:
-    from .test_bmutils import TestWithBPTIData
-except:
-    from test_bmutils import TestWithBPTIData
+from .test_bmutils import TestWithBPTIData
+
 class MyVersion(unittest.TestCase):
     import molpx
     molpx.__version__
@@ -32,6 +30,9 @@ class TestSample(TestWithBPTIData):
 
     def test_just_runs_input_objects(self):
         molpx.generate.sample(self.MD_trajectories, self.MD_topology, self.Ys)
+
+    def test_gen_n_samples(self):
+        molpx.generate.sample(self.MD_trajectories, self.MD_topology, self.Ys, n_geom_samples=5)
 
     def test_gen_and_keep_n_samples(self):
         molpx.generate.sample(self.MD_trajectories, self.MD_topology, self.Ys, n_geom_samples=5, keep_all_samples=True)
@@ -76,7 +77,8 @@ class TestProjectionPath(TestWithBPTIData):
 
     def _test_right_geoms_are_returned(self):
         #Each individual method of generate.projection_path has already been tested.
-        # TODO
+        # TODO tomorrow, use ideas from TestMinRmsdPaths
+        pass
 
 if __name__ == '__main__':
     unittest.main()

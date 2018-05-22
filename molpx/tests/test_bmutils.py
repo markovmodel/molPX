@@ -10,6 +10,7 @@ from molpx import _bmutils
 import mdtraj as md
 from glob import glob
 import molpx
+from numpy.testing import assert_raises
 
 from scipy.spatial.distance import pdist as _pdist, squareform as _squareform
 
@@ -49,6 +50,10 @@ class TestReadingInput(TestWithBPTIData):
     def setUpClass(self):
         TestWithBPTIData.setUpClass()
 
+    @classmethod
+    def tearDownClass(self):
+        TestWithBPTIData.tearDownClass()
+
     def test_data_from_input_npy(self):
         # Just one string
         assert np.allclose(self.Ys[0], _bmutils.data_from_input(self.projected_files_npy)[0])
@@ -58,17 +63,8 @@ class TestReadingInput(TestWithBPTIData):
         Ys = _bmutils.data_from_input(self.projected_files_npy)
         assert np.all([np.allclose(jY, iY) for jY, iY in zip(self.Ys, Ys)])
 
-        # Check that it fails properly
-        try:
-            _bmutils.data_from_input(1)
-        except ValueError:
-            pass
-
     def test_data_from_input_throws_exception(self):
-        try:
-            _bmutils.data_from_input(np.random.randn(1000))
-        except ValueError:
-            pass
+        assert_raises(ValueError, _bmutils.data_from_input, 1)
 
     def test_data_from_input_ascii(self):
         # Just one string
@@ -88,14 +84,6 @@ class TestReadingInput(TestWithBPTIData):
         Ys = _bmutils.data_from_input(self.Ys)
         assert np.all([np.allclose(jY, iY) for jY,iY in zip(self.Ys, Ys)])
 
-    # Not implemented yet
-    def _test_data_from_input_ndarray_ascii_npy(self):
-        # List of everything
-        Ys = _bmutils.data_from_input([self.projected_file,
-                                       self.projected_file.replace('.npy','.dat'),
-                                       self.Y])
-        assert np.all([np.allclose(self.Y, iY) for iY in Ys])
-
     def test_moldata_from_input(self):
         # Traj and top strings
         moldata = _bmutils.moldata_from_input(self.MD_trajectory_files, MD_top=self.MD_topology)
@@ -106,10 +94,7 @@ class TestReadingInput(TestWithBPTIData):
         assert isinstance(moldata, _bmutils._FeatureReader)
 
         # Typerror:
-        try:
-            _bmutils.moldata_from_input(11)
-        except TypeError:
-            pass
+        assert_raises(TypeError, _bmutils.moldata_from_input, 11)
 
         # List of trajectories
         moldata = _bmutils.moldata_from_input(self.MD_trajectories)
@@ -120,8 +105,10 @@ class TestReadingInput(TestWithBPTIData):
         _bmutils.assert_moldata_belong_data(self.MD_trajectories, self.Ys)
 
         # src vs data
-        moldata = _bmutils.moldata_from_input(self.MD_trajectories, MD_top=self.MD_topology)
+        moldata = _bmutils.moldata_from_input(self.source, MD_top=self.MD_topology)
+
         _bmutils.assert_moldata_belong_data(moldata, self.Ys)
+        #print(moldata, moldata.number_of_trajectories(), moldata.trajectory_lengths())
 
         # With stride
         _bmutils.assert_moldata_belong_data(self.MD_trajectories, [iY[::5] for iY in self.Ys], data_stride=5)
@@ -131,47 +118,52 @@ class TestSaveTraj(TestWithBPTIData):
     @classmethod
     def setUpClass(self):
         TestWithBPTIData.setUpClass()
+        self.samples = [[0, 10],
+                        [1, 20],
+                        [2, 30]]
+
+    @classmethod
+    def tearDownClass(self):
+        TestWithBPTIData.tearDownClass()
+
 
     def test_just_works(self):
-        samples = [[0, 10],
-                   [1, 20],
-                   [2, 30]]
-        geoms_ref = pyemma.coordinates.save_traj(self.source, samples, None)
-        geoms_molpx = _bmutils.save_traj_wrapper(self.source, samples, None)
+        geoms_ref = pyemma.coordinates.save_traj(self.source, self.samples, None)
+        geoms_molpx = _bmutils.save_traj_wrapper(self.source, self.samples, None)
         assert np.all([np.allclose(ixyz, jxyz) for ixyz, jxyz in zip(geoms_ref.xyz, geoms_molpx.xyz)])
 
     def test_works_with_MDTrajectories(self):
-        samples = [[0, 10],
-                   [1, 20],
-                   [2, 30]]
-        geoms_ref = pyemma.coordinates.save_traj(self.source, samples, None)
-        geoms_molpx = _bmutils.save_traj_wrapper(self.MD_trajectories, samples, None)
+
+        geoms_ref = pyemma.coordinates.save_traj(self.source, self.samples, None)
+        geoms_molpx = _bmutils.save_traj_wrapper(self.MD_trajectories, self.samples, None)
         assert np.all([np.allclose(ixyz, jxyz) for ixyz, jxyz in zip(geoms_ref.xyz, geoms_molpx.xyz)])
 
-    def _test_works_with_MDTrajectories_with_stride(self):
-
-        samples = [[0, 10],
-                   [1, 20],
-                   [2, 30]]
-        geoms_ref = pyemma.coordinates.save_traj(self.source, samples, None, stride=2)
-        geoms_molpx = _bmutils.save_traj_wrapper(self.MD_trajectories, samples, None, stride=2)
+    def test_works_with_MDTrajectories_with_stride(self):
+        geoms_ref = pyemma.coordinates.save_traj(self.source, self.samples, None, stride=2)
+        geoms_molpx = _bmutils.save_traj_wrapper(self.MD_trajectories, self.samples, None, stride=2)
         assert np.all([np.allclose(ixyz, jxyz) for ixyz, jxyz in zip(geoms_ref.xyz, geoms_molpx.xyz)])
+
+    def test_raises(self):
+        assert_raises(TypeError, _bmutils.save_traj_wrapper, 1, self.samples, None)
 
 class TestCorrelations(TestWithBPTIData):
     @classmethod
     def setUpClass(self):
         TestWithBPTIData.setUpClass()
 
+    @classmethod
+    def tearDownClass(self):
+        TestWithBPTIData.tearDownClass()
 
     def test_input_types(self):
         _bmutils.most_corr(self.tica)
         _bmutils.most_corr(self.pca)
         _bmutils.most_corr(self.feat)
         _bmutils.most_corr(self.tica.feature_TIC_correlation)
-        try:
-            _bmutils.most_corr("a")
-        except TypeError:
-            pass
+        _bmutils.most_corr(self.tica.feature_TIC_correlation, feat_name="My CustomFeature")
+
+    def test_fails(self):
+        assert_raises(TypeError, _bmutils.most_corr, "a")
 
     def test_printing(self):
         print(_bmutils.most_corr(self.tica))
@@ -235,12 +227,9 @@ class TestCorrelations(TestWithBPTIData):
         assert np.all(np.allclose(rv, mcv) for rv, mcv in zip(ref_feats, np.squeeze(corr_dict['feats'])))
 
     def test_most_corr_info_wrong_proj_idxs(self):
-
         proj_idxs = [1, 0, 10] # we don't have 10 TICs
-        try:
-            _bmutils.most_corr(self.tica, proj_idxs=proj_idxs)
-        except(ValueError):
-            pass #this should given this type of error
+        assert_raises(ValueError, _bmutils.most_corr, self.tica, proj_idxs=proj_idxs)
+
 
 class TestClusteringAndCatalogues(unittest.TestCase):
 
@@ -305,12 +294,10 @@ class TestClusteringAndCatalogues(unittest.TestCase):
 
         target_y = 0 # Is not contained in [2**2, 500**2]
 
-        try:
-            _bmutils.interval_schachtelung(y, [2, 500], target=target_y, eps=eps,
+
+        assert_raises(Exception, _bmutils.interval_schachtelung, y, [2, 500], target=target_y, eps=eps,
                                                #verbose=True
                                                )
-        except:
-            pass
 
 
     def test_catalogues(self):
@@ -497,10 +484,7 @@ class TestGetGoodStartingPoint(unittest.TestCase):
 
 
     def test_throws_exception(self):
-        try:
-            start_idx = _bmutils.get_good_starting_point(self.cl, self.geom_smpl, strategy="what?")
-        except NotImplementedError:
-            pass
+        assert_raises(NotImplementedError, _bmutils.get_good_starting_point, self.cl, self.geom_smpl, strategy="what?")
 
     # This test doesn't exactly belong here but this is the best class for now
     def test_find_centers_GMM(self):
@@ -595,14 +579,8 @@ class TestVisualPath(TestWithBPTIData):
         _bmutils.visual_path(self.cat_idxs, self.cat_data, start_pos=1)
 
         # Not implemented Errors
-        try:
-            _bmutils.visual_path(self.cat_idxs, self.cat_data, start_pos="other")
-        except NotImplementedError:
-            pass
-        try:
-            _bmutils.visual_path(self.cat_idxs, self.cat_data, path_type="xxxx")
-        except NotImplementedError:
-            pass
+        assert_raises(NotImplementedError, _bmutils.visual_path, self.cat_idxs, self.cat_data, start_pos="other")
+        assert_raises(NotImplementedError, _bmutils.visual_path, self.cat_idxs, self.cat_data, path_type="xxxx")
 
 class TestMinDispPaths(unittest.TestCase):
 
@@ -676,15 +654,11 @@ class TestGetAscendingCoordIdx(unittest.TestCase):
         result = _bmutils.get_ascending_coord_idx(self.data[:,[1,2]], fail_if_empty=False)
         assert len(result)==0
     def test_empty_fail(self):
-        try:
-            _bmutils.get_ascending_coord_idx(self.data[:, [1,2]], fail_if_empty=True)
-        except ValueError:
-            pass
+        assert_raises(ValueError, _bmutils.get_ascending_coord_idx, self.data[:, [1,2]], fail_if_empty=True)
+
     def test_more_than_one_fails(self):
-        try:
-            _bmutils.get_ascending_coord_idx(self.data[:, :], fail_if_more_than_one=True)
-        except:
-            pass
+        assert_raises(Exception, _bmutils.get_ascending_coord_idx, self.data[:, :], fail_if_more_than_one=True)
+
     def test_more_than_one_passes(self):
         _bmutils.get_ascending_coord_idx(self.data[:, :], fail_if_more_than_one=False)
 
@@ -840,7 +814,7 @@ class TestSmoothingFunctions(unittest.TestCase):
         pass
 
     def test_running_avg_idxs_none(self):
-        idxs, windows = _bmutils.running_avg_idxs(10, 0)
+        idxs, windows = _bmutils.running_avg_idxs(10, 0, debug=True)
         # If the running average is with radius zero, it's just a normal average
         assert np.allclose([0,1,2,3,4,5,6,7,8,9], idxs)
         assert np.all(np.allclose(ii,jj) for ii, jj in zip(([0,1,2,3,4,5,6,7,8,9], windows)))
@@ -870,14 +844,12 @@ class TestSmoothingFunctions(unittest.TestCase):
                                                             windows))
 
     def test_running_avg_idxs_too_large_window(self):
-        try:
-            idxs, windows = _bmutils.running_avg_idxs(10, 5)
-        except AssertionError:
-            pass
+        assert_raises(AssertionError, _bmutils.running_avg_idxs, 10, 5)
 
+    def test_raises_if_not_symmetric(self):
+        assert_raises(NotImplementedError, _bmutils.running_avg_idxs, 10, 5, symmetric=False)
 
     def test_smooth_geom_it_just_runs_and_gives_correct_output_type(self):
-
         # No data
         assert isinstance(_bmutils.smooth_geom(self.traj, 0), md.Trajectory)
         assert isinstance(_bmutils.smooth_geom(self.traj, 0, superpose=False), md.Trajectory)
@@ -1009,6 +981,16 @@ class TestAtomIndices(unittest.TestCase):
     def tearDown(self):
         pass
 
+    def test_put_atom_idxs_on_widget(self):
+        import nglview
+        iwd = nglview.show_file(self.MD_topology)
+        #Regular input
+        _bmutils.add_atom_idxs_widget(self.ref, iwd)
+        # Insuficient colors
+        _bmutils.add_atom_idxs_widget(self.ref, iwd, ["red"])
+        # Too many indices raises
+        assert_raises(NotImplementedError, _bmutils.add_atom_idxs_widget, [[1,2,3,4,5]], iwd)
+
     def test_repr_atoms_from_residues(self):
         # Use Di-Ala
         top = md.load(molpx._molpxdir(join='notebooks/data/ala2.pdb')).top
@@ -1023,17 +1005,12 @@ class TestAtomIndices(unittest.TestCase):
         assert aa.name == "C"
 
         # Force fail
-        try:
-            _bmutils.get_repr_atom_for_residue(top.residue(0), cands=["CB"])
-        except ValueError:
-            pass
+        assert_raises(ValueError, _bmutils.get_repr_atom_for_residue, top.residue(0), cands=["CB"])
 
     # Feature by feature
     def test_atom_idxs_from_feature_not_recognized(self):
-        try:
-            _bmutils.atom_idxs_from_feature("aa")
-        except NotImplementedError:
-            pass
+        assert_raises(NotImplementedError, _bmutils.atom_idxs_from_feature, "aa")
+
     def test_atom_idxs_from_feature_xyz(self):
         ai = _bmutils.atom_idxs_from_feature(self.feat.active_features[0])
         assert np.allclose(self.cartesian_indices, ai)
@@ -1068,16 +1045,12 @@ class TestAtomIndices(unittest.TestCase):
         assert len(ai)==self.feat.dimension()
         assert all([np.allclose(aa, rr) for aa, rr in zip(ai, self.ref)])
 
-        # Test the general input
-
+    # Test the general input
     def test_general_input_just_runs(self):
         _bmutils.atom_idxs_from_general_input(self.feat)
         _bmutils.atom_idxs_from_general_input(self.tica)
         _bmutils.atom_idxs_from_general_input(self.pca)
-        try:
-            _bmutils.atom_idxs_from_general_input("aa")
-        except TypeError:
-            pass
+        assert_raises(TypeError, _bmutils.atom_idxs_from_general_input, "aa")
 
     def test_general_input_produces_the_right_indices(self):
         ai  = _bmutils.atom_idxs_from_general_input(self.feat)
@@ -1132,6 +1105,9 @@ class TestInputManipulationShaping(unittest.TestCase):
         labels = _bmutils.labelize(feat, [0,1])
         assert labels[0] == feat.describe()[0]
         assert labels[1] == feat.describe()[1]
+
+        # Raises Error
+        assert_raises(TypeError, _bmutils.labelize,1, [0,1])
 
     def test_superpose_list_of_geoms(self):
         geom = md.load(molpx._molpxdir(join='notebooks/data/bpti-c-alpha_centered.pdb'))

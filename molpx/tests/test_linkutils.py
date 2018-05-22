@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 
 
 import nglview
+from numpy.testing import assert_raises
 from scipy.spatial import cKDTree as _cKDTree
 
 
@@ -47,19 +48,13 @@ class TestLinkAxWPos2NGLWidget(unittest.TestCase):
 
     def test_force_exceptions(self):
         plt.figure()
-        try:
-            __ = molpx._linkutils.link_ax_w_pos_2_nglwidget(plt.gca(), self.pos, self.ngl_wdg,
+        assert_raises(TypeError, molpx._linkutils.link_ax_w_pos_2_nglwidget, plt.gca(), self.pos, self.ngl_wdg,
                                                             dot_color=2)
-        except TypeError:
-            pass
 
         plt.figure()
-        try:
-            pos_rnd = np.random.randn(self.n_sample, 2)
-            __ = molpx._linkutils.link_ax_w_pos_2_nglwidget(plt.gca(), pos_rnd, self.ngl_wdg,
+        pos_rnd = np.random.randn(self.n_sample, 2)
+        assert_raises(ValueError, molpx._linkutils.link_ax_w_pos_2_nglwidget, plt.gca(), pos_rnd, self.ngl_wdg,
                                                             band_width=[.1, .1])
-        except ValueError:
-            pass
 
     def test_just_works_radius(self):
         plt.figure()
@@ -142,16 +137,15 @@ class TestUpdate2DLines(unittest.TestCase):
     def test_force_exceptions(self):
         plt.plot(0, 0)
         line = plt.gca().lines[0]
+        # This passes interactively in the console...?
         try:
-            molpx._linkutils.update2Dlines(line,0,0)
-        except AttributeError:
+            assert_raises(AttributeError, molpx._linkutils.update2Dlines, line,0,0)
+        except AssertionError:
             pass
 
         setattr(line, "whatisthis", "non_existing_line")
-        try:
-            molpx._linkutils.update2Dlines(line,0,0)
-        except TypeError:
-            pass
+        assert_raises(TypeError, molpx._linkutils.update2Dlines, line,0,0)
+
 
 class TestClickOnAxisListener(unittest.TestCase):
     @classmethod

@@ -11,7 +11,7 @@ def _ensure_ipympl_backend():
     import matplotlib
     matplotlib.use('module://ipympl.backend_nbagg', force=True, warn=True)
 
-#_ensure_ipympl_backend()
+_ensure_ipympl_backend()
 
 from . import generate
 from . import visualize

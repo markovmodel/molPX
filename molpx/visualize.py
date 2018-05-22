@@ -1127,7 +1127,7 @@ def contacts(contact_map, input, average=False, panelsize=4):
     :param residue_idxs:
     :return:
     """
-
+    from matplotlib import pyplot as _plt
     # Add one axis to the input if necessary
     if _np.ndim(contact_map)==2:
         contact_map = _np.array(contact_map, ndmin=3)

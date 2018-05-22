@@ -1214,7 +1214,8 @@ def add_atom_idxs_widget(atom_idxs, ngl_wdg, color_list=None, radius=1):
                 elif _np.ndim(iidxs) > 0 and len(iidxs) in [3,4]:
                     ngl_wdg.add_spacefill(selection=iidxs, radius=radius, color=color, component=cc)
                 else:
-                    print("Cannot represent features involving more than 5 atoms per single feature")
+                    raise NotImplementedError("Cannot represent features involving more than 5 atoms per single feature")
+
 
     return ngl_wdg
 

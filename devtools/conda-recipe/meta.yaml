@@ -8,44 +8,32 @@ source:
 
 build:
   number: 0 # remember to change this manually every build until automated
-  script: python setup.py install --single-version-externally-managed --record record.txt
+  noarch: python
+  script: python -m pip install --no-deps --ignore-installed -v .
 
 requirements:
   build:
     - python
-    - setuptools
+    - pip
   run:
-    - python
-    - setuptools
-    - nglview >=1
-    - pyemma
-    - scikit-learn
-    - notebook
     - ipympl
+    - nglview >=1
+    - notebook
+    - pyemma
+    - python
+    - scikit-learn
 
 test:
-  source_files:
-    - .coveragerc
-    - molpx/notebooks/*
   requires:
-    - pip
-    - pytest ==3.2.5
-    - pytest-cov ==2.5.1
-    - coverage ==4.4.2
-#    - nbval ==0.7
+    - pytest-cov
+    - nbval
   imports:
     - molpx
   commands:
-    - pip install git+https://github.com/computationalmodelling/nbval@0.9
-    - pytest -vv --pyargs molpx --cov=molpx --cov-report=xml --cov-branch --current-env --nbval-lax
-    #- pytest -vv --pyargs molpx --cov=molpx --current-env --cov-report=xml
-    #- ls -R
-    #- pwd
-    #- pytest -vv --current-env --nbval-lax
-    - python -c "import shutil, os; shutil.copy('coverage.xml', os.path.expanduser('~'))" || true
+    - pytest -vv --pyargs molpx --cov=molpx --cov-report=xml --current-env --nbval-lax
+    - cp coverage.xml /tmp #  [linux]
+
 about:
   home: https://github.com/gph82/projection_explorer
   license: GNU Lesser Public License v3+
   summary: "molPX: Molecular Projection Explorer"
-
-

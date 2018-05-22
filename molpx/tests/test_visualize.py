@@ -9,7 +9,7 @@ from molpx import visualize, _bmutils
 import mdtraj as md
 import matplotlib.pyplot as plt
 import nglview
-plt.switch_backend('Agg') # allow tests
+#plt.switch_backend('Agg') # allow tests
 
 from .test_bmutils import TestWithBPTIData
 

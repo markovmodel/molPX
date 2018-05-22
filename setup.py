@@ -4,7 +4,7 @@ __author__ = 'gph82'
 from setuptools import setup
 import versioneer
 
-setup(name='molPX',
+meta_data = dict(name='molPX',
       author='Guillermo Perez-Hernandez',
       author_email='guille.perez@fu-berlin.de',
       maintainer='Martin K. Scherer',
@@ -16,18 +16,21 @@ setup(name='molPX',
           'molpx.tests'
       ],
       install_requires=[
-          'nglview>=1',
+          'ipympl',
           'ipywidgets>=7',
+          'matplotlib',
+          'mdtraj',
+          'nglview>=1',
+          'notebook',
           'pyemma',
           'scikit-learn',
-          'notebook',
-          'mdtraj',
-          'ipympl',
       ],
-      package_data = {
-          'molpx': ['notebooks/*', 'notebooks/data/*'],
-      }
+      package_data={
+          'molpx': ['notebooks/*',
+                    'notebooks/data/*'],
+      },
+      include_package_data=True,
 )
 
-
-
+if __name__ == '__main__':
+    setup(**meta_data)

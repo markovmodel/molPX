@@ -8,11 +8,8 @@ import numpy as np
 import shutil
 import molpx
 from matplotlib import pyplot as plt
-plt.switch_backend('Agg') # allow tests
+#plt.switch_backend('Agg') # allow tests
 
-class MyVersion(unittest.TestCase):
-    import molpx
-    molpx.__version__
 
 class MyTestCase(unittest.TestCase):
 

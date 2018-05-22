@@ -14,7 +14,7 @@ from . import generate as _generate
 from . import _bmutils
 from . import _linkutils
 
-from matplotlib import pylab as _plt, rcParams as _rcParams
+from matplotlib import pyplot as _plt, rcParams as _rcParams
 import nglview as _nglview
 import mdtraj as _md
 from ipywidgets import VBox as _VBox, Layout as _Layout, Button as _Button
@@ -154,13 +154,13 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
         information being displayed.
 
         linked_axes :
-            list with all the :obj:`pylab.Axis`-objects contained in the :obj:`widgetbox`
+            list with all the :obj:`pyplot.Axis`-objects contained in the :obj:`widgetbox`
 
         linked_ax_wdgs :
             list with all the :obj:`matplotlib.widgets.AxesWidget`objects contained in the :obj:`widgetbox`
 
         linked_figs :
-            list with all the :obj:`pylab.Figure`-objects contained in the :obj:`widgetbox`
+            list with all the :obj:`pyplot.Figure`-objects contained in the :obj:`widgetbox`
 
         linked_ngl_wdgs :
             list with all the :obj:`nglview.NGLWidget`-objects contained in the :obj:`widgetbox`
@@ -172,7 +172,6 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
             list with all the :obj:`mdtraj.Trajectory`-objects contained in the :obj:`widgetbox`
 
     """
-
     # Prepare the overlay option
     n_overlays = _np.min([n_overlays,50])
     if n_overlays>1:
@@ -294,7 +293,7 @@ def _plot_ND_FES(data, ax_labels, weights=None, bins=50, figsize=(4,4)):
     Returns
     -------
 
-    ax : :obj:`pylab.Axis` object
+    ax : :obj:`pyplot.Axis` object
 
     FES_data : numpy nd.array containing the FES (only for 1D data)
 
@@ -403,7 +402,7 @@ def traj(MD_trajectories,
 
     traj_selection : None, int, iterable of ints, default is None
         Don't plot all trajectories but only few of them. The default None implies that all trajs will be plotted.
-        Note: the data used for the FES will always include all trajectories, regardless of this value
+        Note: the data used for the FES will only include these trajectories
 
     projection : object that generated the projection, default is None
         The projected coordinates may come from a variety of sources. When working with :obj:`pyemma` a number of objects
@@ -430,9 +429,9 @@ def traj(MD_trajectories,
         return _plt.gca(), _plt.gcf(), widget, geoms
 
     ax :
-        :obj:`pylab.Axis` object
+        :obj:`pyplot.Axis` object
     fig :
-        :obj:`pylab.Figure` object
+        :obj:`pyplot.Figure` object
     ngl_wdg :
         :obj:`nglview.NGLWidget`
     geoms:
@@ -493,7 +492,7 @@ def traj(MD_trajectories,
     ylabels = _bmutils.labelize(proj_labels, proj_idxs)
 
     # Do we have usable projection information?
-    corr_dicts = [[]]*n_trajs
+    corr_dicts = [[]]*len(data)
     if projection is not None:
         corr_dicts = [_bmutils.most_corr(projection, geoms=igeom, proj_idxs=proj_idxs, n_args=n_feats)
                       for igeom in geoms]

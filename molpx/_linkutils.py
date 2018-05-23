@@ -47,8 +47,6 @@ def pts_per_axis_unit(mplax, pt_per_inch=72):
     inch_per_unit = span_inch / span_units
     return inch_per_unit * pt_per_inch
 
-
-
 def update2Dlines(iline, x, y):
     """
     provide a common interface to update objects on the plot to a new position (x,y) depending
@@ -80,7 +78,6 @@ def update2Dlines(iline, x, y):
         else:
             # TODO: FIND OUT WNY EXCEPTIONS ARE NOT BEING RAISED
             raise TypeError("what is this type of 2Dline?")
-
 
 class ClickOnAxisListener(object):
     def __init__(self, ngl_wdg, crosshairs, showclick_objs, ax, pos,
@@ -308,7 +305,21 @@ class ContactInNGLWidget(object):
     def __init__(self, ngl_wdg, atom_indices, contact_index,
                  component_to_draw_on=0,
                  verbose=False,
-                 color=None):
+                 color=None,
+                 sequential_residues=True):
+        r"""
+
+        :param ngl_wdg:
+        :param atom_indices: iterable of len(2) with two integers (zero indexed atom indices)
+            The pair of atoms that are representative of this contact
+            When the method .show() of this class is called, a distance representation (=a line joining two atoms)
+            will be added to the :obj:`ngl_widget`.
+        :param contact_index: integer
+            The position of this contact in the contact list
+        :param component_to_draw_on:
+        :param verbose:
+        :param color:
+        """
         assert len(atom_indices)==2, "ContactInNGLWidget takes a list with two elements as input, not len(%u)"%len(atom_indices)
         assert [isinstance(ii, int) for ii in atom_indices], "The atom indices have to be type int"
 
@@ -316,7 +327,7 @@ class ContactInNGLWidget(object):
         self.ngl_wdg = ngl_wdg
         self.contact_index = contact_index
         self.verbose = verbose
-        self.top = self.ngl_wdg._trajlist[component_to_draw_on].trajectory
+        self.top = self.ngl_wdg._trajlist[component_to_draw_on].trajectory.top
         self.comp = component_to_draw_on
         self.shown = False
         self.color = color
@@ -324,7 +335,8 @@ class ContactInNGLWidget(object):
     def show(self):
         if not self.shown:
             if self.verbose:
-                print("Showing %s "%[self.top.atom(ii).residue for ii in self.atom_indices])
+                print("Showing contact %s via atoms  %s"%(' '.join(['%s'%self.top.atom(ii).residue for ii in self.atom_indices]),
+                                                          ' '.join(['%s' % self.top.atom(ii) for ii in self.atom_indices])))
 
             self.shown = True
             add_atom_idxs_widget([self.atom_indices], self.ngl_wdg, color_list=[self.color])
@@ -341,8 +353,12 @@ class ContactInNGLWidget(object):
     def matching_repr_keys(self):
         # Given that the _ngl_repr_dict gets updated elsewhere, this is the most robust way of
         # finding this contact's representations
-        return [key for key, value in self.ngl_wdg._ngl_repr_dict[str(self.comp)].items() if value["type"] == "distance"
+        try:
+            res = [key for key, value in self.ngl_wdg._ngl_repr_dict[str(self.comp)].items() if value["type"] == "distance"
                 and _np.allclose(_np.sort(value["params"]["atomPair"]), _np.sort(self.atom_indices))]
+        except KeyError:
+            res = []
+        return res
 
 class GeometryInNGLWidget(object):
     r"""

@@ -27,6 +27,7 @@ test:
   requires:
     - pytest-cov
     - nbval
+    - nose >= 1
   imports:
     - molpx
   commands:

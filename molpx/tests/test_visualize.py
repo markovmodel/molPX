@@ -10,7 +10,6 @@ import mdtraj as md
 import matplotlib.pyplot as plt
 import nglview
 from pyemma.coordinates import tica
-plt.switch_backend('Agg') # allow tests
 
 from .test_bmutils import TestWithBPTIData
 

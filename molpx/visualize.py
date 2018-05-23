@@ -21,8 +21,6 @@ from ipywidgets import VBox as _VBox, Layout as _Layout, Button as _Button
 
 import warnings as _warnings
 
-from itertools import product as _it_prod
-
 # All calls to nglview call actually this function
 def _nglwidget_wrapper(geom, ngl_wdg=None, n_small=10):
     r""" Wrapper to nlgivew.show_geom's method that allows for some other automatic choice of
@@ -1119,7 +1117,7 @@ def _sample(positions, geoms, ax,
 
     return ngl_wdg, axes_wdg
 
-def contacts(contact_map, input, average=False, panelsize=4):
+def contacts(contact_map, input, residue_indices=None, average=False, panelsize=4):
     r"""
     Provide a contact map and a widget or geometry, return an interactive contact map
 
@@ -1142,9 +1140,11 @@ def contacts(contact_map, input, average=False, panelsize=4):
 
     # Needed arrays
     nres = contact_map[0].shape[0]
-    residue_idxs = _np.arange(nres)
-    residue_pairs = _np.vstack(_it_prod(residue_idxs, residue_idxs))
-    positions = _np.vstack(_it_prod(range(nres), range(nres)))
+    positions = _np.vstack(_np.unravel_index(range(nres**2), (nres,nres))).T
+    if residue_indices is None:
+        residue_pairs = positions
+    else:
+        raise NotImplementedError("This feature is not implemented yet!")
 
     # Create a color list
     cmap = _get_cmap('rainbow')
@@ -1169,9 +1169,10 @@ def contacts(contact_map, input, average=False, panelsize=4):
     _plt.ion()
 
 
-    # Relabel the plot
+    # TODO: if residues is not None,
     # TODO make sure that zooming works even if a sub-set of res_idxs is given
     """
+    # Relabel the plot
     for axtype in ['x', 'y']:
         tic_idxs = [int(tl) for tl in getattr(iax, 'get_%sticks'%axtype)()[1:-1]]
         tic_labels = ['']+['%u'%residue_idxs[ii] for ii in tic_idxs]+['']

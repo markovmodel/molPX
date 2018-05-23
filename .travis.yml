@@ -26,7 +26,7 @@ before_install:
 - conda install -q $common_py_deps
 
 script:
-- conda build -q devtools/conda-recipe
+- conda build -q --no-long-test-prefix devtools/conda-recipe
 
 after_success:
 - bash <(curl -s https://codecov.io/bash) -f /tmp/coverage.xml

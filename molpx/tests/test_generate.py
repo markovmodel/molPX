@@ -5,12 +5,8 @@ import pyemma
 import numpy as np
 import molpx
 from matplotlib import pyplot as plt
-plt.switch_backend('Agg') # allow tests
 from .test_bmutils import TestWithBPTIData
 
-class MyVersion(unittest.TestCase):
-    import molpx
-    molpx.__version__
 
 class TestSample(TestWithBPTIData):
 

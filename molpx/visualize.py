@@ -708,7 +708,8 @@ def correlations(correlation_input,
     corr_dict and ngl_wdg
 
     corr_dict :
-        Dictionary with items:
+        Dictionary containing correlation information. For an overview, just issue `print(corr_dict)`. The
+        values are stored under the following keys.
 
         idxs :
             List of length len(proj_idxs) with lists of length n_feat with the idxs of the most correlated features
@@ -1119,12 +1120,40 @@ def _sample(positions, geoms, ax,
 
 def contacts(contact_map, input, residue_indices=None, average=False, panelsize=4):
     r"""
-    Provide a contact map and a widget or geometry, return an interactive contact map
+    Return a plot of the contact map and a linked :obj:`nglview.NGLWidget`. Clicking on
+    a pixel of interest on the contact map will a) highlight that pixel and b)
+    add lines in the widget ,connecting the corresponding atoms. Also, any updates in
+    the widget's frame, via the sliding bar, will update the shown contact map (in
+     case more than one contact map was provided)
 
-    :param contact_map:
-    :param residue_idxs:
-    :return:
+    Parameters
+    ----------
+    contact_map : square nd.array or iterable thereof.
+        These square arrays contain the contact map(s)
+
+    input : :obj:`mdtraj.Trajectory` object or a list thereof.
+        An :obj:`nglview.NGLWidget` will be instantiated with this input
+
+    residue_indices : boolean or iterable of integers
+        Residue indices corresponding to the :obj:`contact_map`. If None, an array
+        (0,1,...n_residues) will be created.
+        # TODO if not None, a NotImplementedError will be raised, because the relabeling of
+        zoomable plots is not yet implemented by molpx)
+
+    average : boolean, default is False
+        Plot only the average of the contact maps provided in :obj:`contact_map`. If only one
+        such map is given, this keyword has no effect. If average is false but the
+        number of frames in :obj:`input` and :obj:`contact_map` don match, an exception is thrown.
+
+    panelsize : int, default is 4
+        The size of the figure and widget that will be outputted inside the molpxbox
+
+    Returns
+    --------
+
+    mpxbox : An :obj:`nglview.NGLWidget`
     """
+
     from matplotlib import pyplot as _plt
     # Add one axis to the input if necessary
     if _np.ndim(contact_map)==2:

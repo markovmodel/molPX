@@ -20,8 +20,8 @@ The methods offered by this module are:
 .. autosummary::
 
    molpx.visualize.FES
-   molpx.visualize.sample
    molpx.visualize.traj
+   molpx.visualize.sample
    molpx.visualize.correlations
    molpx.visualize.feature
 

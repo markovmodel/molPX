@@ -251,7 +251,7 @@ def regspace_cluster_to_target_kmeans(data, n_clusters_target,
 
     return cl
 
-def interval_schachtelung(f, interval, target=0, eps=1, verbose=False):
+def interval_schachtelung(f, interval, target=0, eps=1, maxiter=1000, verbose=False):
     r"""
     Find the value m s.t. f(m) = target +- eps using interval optimization
 
@@ -281,7 +281,7 @@ def interval_schachtelung(f, interval, target=0, eps=1, verbose=False):
         inform(left, fl, right, fr, middle, fm, delta, eps, str0='Init:')
 
     cc = 0
-    while delta >= eps:
+    while delta >= eps and cc<maxiter:
         middle = (left + right) / 2
         fm = f(middle)
         delta = _np.abs(fm - target)

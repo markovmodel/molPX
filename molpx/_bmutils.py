@@ -300,6 +300,7 @@ def interval_schachtelung(f, interval, target=0, eps=1, maxiter=1000, verbose=Fa
     return middle
 
 
+
 def regspace_from_distance_matrix(D, dmin):
     r""" Return the indices idxs of the rows/columns of the symmetric matrix (D[idxs,idxs] > dmin).all() == True
 

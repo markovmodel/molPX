@@ -1221,7 +1221,6 @@ def contacts(contact_map, input, residue_indices=None, average=False, panelsize=
                                                     positions,
                                                     iwd,
                                                     crosshairs=False,
-                                                    #directionality='a2w',
                                                     dot_color='None',
                                                     #**link_ax2wdg_kwargs
                                                     )
@@ -1229,8 +1228,162 @@ def contacts(contact_map, input, residue_indices=None, average=False, panelsize=
     iwd._set_size(*['%fin' % inches for inches in iax.get_figure().get_size_inches()])
     #iax.figure.tight_layout()
     axes_wdg.canvas.set_window_title("Contact Map")
-
     outbox = _linkutils.MolPXHBox([iwd, axes_wdg.canvas])
     _linkutils.auto_append_these_mpx_attrs(outbox, input, iax, _plt.gcf(), iwd, axes_wdg, positions)
+
+    return outbox
+
+# TODO RETHINK WHERE TO REFACTOR THIS
+def _MSM_and_cl_object_match(iMSM, cl_object, verbose=False):
+    from pyemma.msm.estimators.maximum_likelihood_hmsm import MaximumLikelihoodHMSM as _MLHMSM
+    from pyemma.msm.estimators.maximum_likelihood_msm  import MaximumLikelihoodMSM as _MLMSM
+
+    # Clustercenters
+    if isinstance(iMSM, _MLHMSM):
+        n_states_full = iMSM.nstates_obs
+    elif isinstance(iMSM, _MLMSM):
+        n_states_full = iMSM._nstates_full
+
+    if not n_states_full==cl_object.n_clusters:
+        if verbose:
+            print("n_states does not match")
+        return False
+
+    # Ntrajs
+    if not len(iMSM.discrete_trajectories_full)==len(cl_object.trajectory_lengths()):
+        if verbose:
+            print("n_trajs does not match")
+        return False
+
+    # Shape
+    if not _np.all([len_itraj==len(jtraj) for len_itraj, jtraj
+                    in zip(cl_object.trajectory_lengths(), iMSM.discrete_trajectories_full)]):
+        if verbose:
+            print("traj_length do not match")
+        return False
+
+    return True
+
+
+def MSM(iMSM, traj_inp,
+        object_for_positions=None,
+        n_overlays=1, sharpen=False,
+        top=None, ax=None, sticky=False, panelsize=6,
+        proj_idxs = [0,1],
+        **networkplot_kwargs):
+
+    r"""
+    provided with a PyEMMA :obj:`MSM`-type object, display representatative structures of that MSM
+
+    :param iMSM: MSM-object
+    sharpen : boolean, default is False
+        By default, the method samples from the distribution of microstate of each macrostate.
+        (either from MSM.metastable_distributions or HMM.sample_by_observation probability).
+        If sharpen is True, one the microstate that maximizes that distribution (i.e., its argmax) will
+        be sampled. Produces a more "sharpened" sample, which is less representative of the whole entire metastable
+        set but more representative of the most probable microstate for macrostate
+    input_pos = None, pyemma clustering object or nd.array of ndmin (2, n_states)
+
+    :return:
+    """
+    from pyemma.msm.estimators.maximum_likelihood_hmsm import MaximumLikelihoodHMSM as _MLHMSM
+    from pyemma.msm.estimators.maximum_likelihood_msm  import MaximumLikelihoodMSM as _MLMSM
+    from pyemma.plots import plot_markov_model as _pyemma_plt_msm
+    from pyemma.util.discrete_trajectories import  sample_indexes_by_state as _sample_indexes_by_state
+    from matplotlib import pyplot as _plt
+
+    assert isinstance(iMSM, (_MLHMSM, _MLMSM)), "Allowed input types are %s, not %s"%((_MLHMSM, _MLMSM), type(MSM))
+    assert "pos" not in networkplot_kwargs.keys(),("The optarg 'pos' is not allowed for networkplot_kwargs, "
+                                                   "use 'object_for_positions' instead")
+
+    # Input parsing of the position object
+    # TODO: HEAVY SPAGHETTI THINKING HERE, but try to make more compact
+    if object_for_positions is None:
+        sample_pos = None
+    elif hasattr(object_for_positions, "clustercenters"):
+            # Check that they match
+            assert _MSM_and_cl_object_match(iMSM,
+                                            object_for_positions), "The input HMM/MSM and the input cluster object " \
+                                                                   "do not match"
+            if isinstance(iMSM, _MLMSM): # Typical case
+                sample_pos = object_for_positions.clustercenters[iMSM.active_set]
+            elif isinstance(iMSM, _MLHMSM):
+                # TODO check with Frank that asserting with HMM.nstates_obs
+                # is correct in the _MSM_and_cl... method is OK
+                sample_pos = object_for_positions.clustercenters
+
+    elif isinstance(object_for_positions, _np.ndarray):
+            if isinstance(iMSM, _MLMSM):
+                assert len(object_for_positions)==iMSM.n_states, \
+                    ("Not enough positions in the object_for_positions (%u). The input MSM has %u active states"%(len(object_for_positions), iMSM.nstates))
+                sample_pos = object_for_positions
+            elif isinstance(iMSM, _MLHMSM):
+                if len(object_for_positions)== iMSM.nstates or len(object_for_positions) == iMSM.nstates_obs:
+                    sample_pos = object_for_positions
+                else:
+                    raise ValueError("With HMSMs, you have to supply either input position array with either "
+                                     "%u entries (number of coarse states in the HMSM) or %u entries (number of observed states of the HMSM). "
+                                     "You have provided neither: %u" % (iMSM.nstates, iMSM.nstates_obs,  len(object_for_positions)))
+    else:
+        raise TypeError("The object_for_positions has the wrong type %s"%type(object_for_positions))
+
+    # MSM without coarse-graining
+    if isinstance(iMSM, _MLMSM):
+        sample_frames = iMSM.sample_by_state(n_overlays)
+        # The position are already set aobve
+
+    # HMM
+    else:
+        if sharpen:
+            active_state_indexes = iMSM.observable_state_indexes
+            subset = _np.argmax(iMSM.observation_probabilities, axis=1)
+            sample_frames = _sample_indexes_by_state(active_state_indexes, n_overlays, subset=subset, replace=True)
+            if sample_pos is not None and len(sample_pos)==iMSM.nstates:
+                pass
+            elif sample_pos is not None and len(object_for_positions)==iMSM.nstates_obs:
+                sample_pos = sample_pos[subset]
+            elif sample_pos is not None:
+                raise("This is a bug and should not have happened")
+        else:
+            sample_frames = iMSM.sample_by_observation_probabilities(n_overlays)
+            if sample_pos is not None and len(sample_pos)==iMSM.nstates:
+                sample_pos = object_for_positions
+            elif sample_pos is not None and len(sample_pos)==iMSM.nstates_obs:
+                isample_pos = []
+                for idist in iMSM.observation_probabilities:
+                    isample_pos.append(_np.average(sample_pos, weights=idist, axis=0))
+                sample_pos = _np.vstack(isample_pos)
+            elif sample_pos is not None:
+                raise("This is a bug and should not have happened")
+
+    if sample_pos is None:
+        pos = None
+    else:
+        pos = sample_pos[:, proj_idxs]
+
+    P = iMSM.P
+    sample_geoms = _bmutils.save_traj_wrapper(traj_inp, sample_frames, None, top=top)
+    sample_geoms = _bmutils.re_warp(sample_geoms, n_overlays)
+    sample_geoms = _bmutils.transpose_geom_list(sample_geoms)
+
+    _plt.ioff()
+    ifig, pos = _pyemma_plt_msm(P, pos=pos,
+                                ax=ax,
+                                **networkplot_kwargs,
+                                     )
+    # Conserve the proportion of the circles in the MSM plot
+    figw, figh = ifig.get_size_inches()
+    ifig.set_size_inches((panelsize, panelsize*figh/figw))
+    iax = ifig.gca()
+
+
+    ngl_wdg, axes_wdg = sample(pos, sample_geoms, iax, sticky=sticky,
+                               crosshairs=False,
+                               )#, clear_lines=False, **sample_kwargs)
+    ngl_wdg._set_size(*['%fin' % inches for inches in ifig.get_size_inches()])
+    ifig.tight_layout()
+    outbox = _linkutils.MolPXHBox([ngl_wdg, ifig.canvas])
+    _linkutils.auto_append_these_mpx_attrs(outbox, sample_geoms, ax, ifig, ngl_wdg, axes_wdg, pos)
+    _plt.ion()
 
     return outbox

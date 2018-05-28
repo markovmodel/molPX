@@ -1340,14 +1340,14 @@ def MSM(iMSM, traj_inp,
             sample_frames = _sample_indexes_by_state(active_state_indexes, n_overlays, subset=subset, replace=True)
             if sample_pos is not None and len(sample_pos)==iMSM.nstates:
                 pass
-            elif sample_pos is not None and len(object_for_positions)==iMSM.nstates_obs:
+            elif sample_pos is not None and len(sample_pos)==iMSM.nstates_obs:
                 sample_pos = sample_pos[subset]
             elif sample_pos is not None:
                 raise("This is a bug and should not have happened")
         else:
             sample_frames = iMSM.sample_by_observation_probabilities(n_overlays)
             if sample_pos is not None and len(sample_pos)==iMSM.nstates:
-                sample_pos = object_for_positions
+                pass
             elif sample_pos is not None and len(sample_pos)==iMSM.nstates_obs:
                 isample_pos = []
                 for idist in iMSM.observation_probabilities:

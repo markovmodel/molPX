@@ -23,6 +23,7 @@ The methods offered by this module are:
    molpx.visualize.traj
    molpx.visualize.sample
    molpx.visualize.correlations
+   molpx.visualize.MSM
    molpx.visualize.feature
 
 .. automodule:: molpx.visualize

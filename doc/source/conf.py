@@ -411,7 +411,7 @@ import shutil
 nbfiles = [
     '0.molPX_quick_intro_Ala2.ipynb',
     '1.molPX_and_PyEMMA_Features.ipynb',
-    '2.molPX_TICA_BPTI.ipynb',
+    '2.molPX_TICA_and_MSMs_BPTI.ipynb',
     '3.molPX_TICA_Ala2.ipynb',
     '4.molPX_metadynamics_Di-Ala.ipynb'
 ]

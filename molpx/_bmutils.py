@@ -727,7 +727,10 @@ def save_traj_wrapper(traj_inp, indexes, outfile, top=None, stride=1, chunksize=
     Parameters
     -----------
 
-    traj_inp : :pyemma:`FeatureReader` object or :mdtraj:`Trajectory` object or list of :mdtraj:`Trajectory` objects
+    traj_inp : Can be of many types
+        :pyemma:`FeatureReader` object
+        :mdtraj:`Trajectory` object or list thereof
+        a list of strings pointing to filenames
 
     returns: see the return values of :pyemma:`save_traj`
     """

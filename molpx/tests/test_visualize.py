@@ -9,6 +9,8 @@ from molpx import visualize, _bmutils
 import mdtraj as md
 import matplotlib.pyplot as plt
 import nglview
+from numpy.testing import assert_raises
+import pyemma
 
 from .test_bmutils import TestWithBPTIData
 
@@ -244,11 +246,79 @@ class TestCorrelations(TestWithBPTIData):
         except TypeError:
             pass
 
-class TestFeature(TestWithBPTIData):
-
+class TestMSM(TestWithBPTIData):
     @classmethod
     def setUpClass(self):
         TestWithBPTIData.setUpClass()
+        self.cl = pyemma.coordinates.cluster_kmeans([iY[:, :2] for iY in self.Ys], 5)
+        self.iMSM = pyemma.msm.estimate_markov_model(self.cl.dtrajs, 1)
+        self.iHMM = self.iMSM.coarse_grain(3)
+
+    @classmethod
+    def tearDownClass(self):
+        TestWithBPTIData.tearDownClass()
+
+    def test_just_runs_MSM(self):
+        visualize.MSM(self.iMSM, self.MD_trajectories)
+        # More overlays
+        visualize.MSM(self.iMSM, self.MD_trajectories, n_overlays=10)
+
+    def test_just_runs_HMM(self):
+        visualize.MSM(self.iHMM, self.MD_trajectories)
+        visualize.MSM(self.iHMM, self.MD_trajectories, n_overlays=10)
+        visualize.MSM(self.iHMM, self.MD_trajectories, sharpen=True)
+
+    def test_just_runs_position_input(self):
+        visualize.MSM(self.iMSM, self.MD_trajectories, pos=self.cl.clustercenters)
+        visualize.MSM(self.iHMM, self.MD_trajectories, pos=self.cl.clustercenters)
+
+        visualize.MSM(self.iHMM, self.MD_trajectories, pos=self.cl.clustercenters, sharpen=True)
+        visualize.MSM(self.iHMM, self.MD_trajectories, pos=self.cl.clustercenters[:self.iHMM.nstates])
+        # test assert
+        assert_raises(TypeError, visualize.MSM, self.iMSM, self.MD_trajectories, pos=['a'])
+        assert_raises(AssertionError, visualize.MSM, self.iMSM, self.MD_trajectories, pos=self.cl.clustercenters[:-1])
+
+    def test_source_inputs(self):
+        visualize.MSM(self.iMSM, self.MD_trajectory_files, top=self.MD_topology_file)
+        visualize.MSM(self.iMSM, self.MD_trajectory_files, top=self.MD_topology)
+        visualize.MSM(self.iMSM, self.source)
+
+
+    def test_returns_the_right_things_MSM(self):
+        # Returning the right things should be guaranteed by all the
+        # lower-level methods, which are also unit-tested. Still, here we go
+        mpxbox = visualize.MSM(self.iMSM, self.MD_trajectories, n_overlays=3)
+        # We re-featurize, re-tic-transform, and re-cl-assign the output geoms
+        for igeoms in mpxbox.linked_mdgeoms:
+            out_assign = self.cl.assign(self.tica.transform(self.feat.transform(igeoms))[:,:2])
+            assert np.allclose(out_assign, np.arange(self.cl.n_clusters))
+
+        # Now with sticky
+        mpxbox = visualize.MSM(self.iMSM, self.MD_trajectories, n_overlays=3, sticky=True)
+        # We re-featurize, re-tic-transform, and re-cl-assign the output geoms
+        for igeoms in mpxbox.linked_mdgeoms:
+            out_assign = self.cl.assign(self.tica.transform(self.feat.transform(igeoms))[:, :2])
+            assert np.allclose(out_assign, np.arange(self.cl.n_clusters))
+
+    def test_returns_the_right_things_HMSM_sharpen(self):
+        # Returning the right things should be guaranteed by all the
+        # lower-level methods, which are also unit-tested. Still, here we go
+        mpxbox = visualize.MSM(self.iHMM, self.MD_trajectories, n_overlays=3, sharpen=True)
+        # We re-featurize, re-tic-transform, and re-cl-assign the output geoms
+        out_set = np.argmax(self.iHMM.observation_probabilities, axis=1)
+        for igeoms in mpxbox.linked_mdgeoms:
+            out_assign = self.cl.assign(self.tica.transform(self.feat.transform(igeoms))[:,:2])
+            assert np.allclose(out_assign, out_set)
+
+
+class TestFeature(TestWithBPTIData):
+    @classmethod
+    def setUpClass(self):
+        TestWithBPTIData.setUpClass()
+
+    @classmethod
+    def tearDownClass(self):
+        TestWithBPTIData.tearDownClass()
 
     def test_feature(self):
         plt.figure()
@@ -287,6 +357,9 @@ class Contacts(TestWithBPTIData):
             pass
         # This should pass
         visualize.contacts(self.ctcs.mean(0), self.geom, average=True)
+
+    def test_raises(self):
+        assert_raises(NotImplementedError, visualize.contacts, self.ctcs.mean(0), self.geom, average=True, residue_indices=[1,2,3])
 
 class TestBoxMe(unittest.TestCase):
 

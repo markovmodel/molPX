@@ -227,8 +227,8 @@ class MolPXBox(object):
                     self.__dict__[attrname] += iarg.__dict__[attrname]
 
 def auto_append_these_mpx_attrs(iobj, *attrs):
-    r""" The attribute s name is automatically derived
-    from the attribute s type via a type:name dictionary
+    r""" The attribute's name is automatically derived
+    from the attribute's type via a type:name dictionary
 
     *attrs : any number of unnamed objects of the types in type2attrname.
              If the object type is a list, it will be flattened prior to attempting

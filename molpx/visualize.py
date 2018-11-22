@@ -948,7 +948,10 @@ def sample(positions, geom, ax,
             geom=[geom]
 
         # The method takes care of whatever superpose
-        geom = _bmutils.superpose_to_most_compact_in_list(superpose, geom)
+        try:
+            geom = _bmutils.superpose_to_most_compact_in_list(superpose, geom)
+        except ValueError:
+            pass
 
         if color_list is None:
             sticky_colors_hex = ['Element' for ii in range(len(positions))]
@@ -972,9 +975,14 @@ def sample(positions, geom, ax,
         # Now instantiate the ngl_wdg
         ngl_wdg = _nglwidget_wrapper(None)
         # Prepare Geometry_in_widget_list
+        try:
+            transposed_list = _bmutils.transpose_geom_list(geom)
+        except ValueError:
+            transposed_list = geom
+
         ngl_wdg._GeomsInWid = [_linkutils.GeometryInNGLWidget(igeom, ngl_wdg,
                                                           color_molecule_hex= cc,
-                                                          list_of_repr_dicts=list_of_repr_dicts) for igeom, cc in zip(_bmutils.transpose_geom_list(geom), sticky_colors_hex)]
+                                                          list_of_repr_dicts=list_of_repr_dicts) for igeom, cc in zip(transposed_list, sticky_colors_hex)]
 
         axes_wdg = _linkutils.link_ax_w_pos_2_nglwidget(ax,
                                    positions,

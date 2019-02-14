@@ -586,7 +586,8 @@ def data_from_input(projected_data):
 
     return idata
 
-def save_traj_wrapper(traj_inp, indexes, outfile, top=None, stride=1, chunksize=1000, image_molecules=False, verbose=True):
+def save_traj_wrapper(traj_inp, indexes, outfile, top=None, stride=1, chunksize=1000, image_molecules=False, verbose=True,
+                      copy_not_join=False):
     r"""wrapper for :pyemma:`save_traj` so that it works seamlessly with lists of :mdtraj:`Trajectories`
 
     Parameters
@@ -605,14 +606,89 @@ def save_traj_wrapper(traj_inp, indexes, outfile, top=None, stride=1, chunksize=
         geom_smpl = _save_traj(traj_inp, indexes, None, top=top, stride=stride,
                                chunksize=chunksize, image_molecules=image_molecules, verbose=verbose)
     elif isinstance(traj_inp[0], _md.Trajectory):
-        file_idx, frame_idx = indexes[0]
-        geom_smpl = traj_inp[file_idx][frame_idx]
-        for file_idx, frame_idx in indexes[1:]:
-            geom_smpl = geom_smpl.join(traj_inp[file_idx][frame_idx])
+        geom_smpl = fast_join_geom_list_from_indexes(traj_inp, indexes)
     else:
         raise TypeError("Cant handle input of type %s now"%(type(traj_inp[0])))
 
     return geom_smpl
+
+def join_geom_list(geom_list, fast=False):
+    r"""
+
+    :param geom_list: list of :mdtraj:`Trajectory` objects
+    :param fast boolean, default is True. Opt for a quick-n-dirty way of joining the geometries.
+    Currently only works with lists of one-framed-geometries
+    :return: one single :mdtraj:`Trajectory` object with all the above geometries joined into one
+
+
+    """
+    if fast:
+        if not _np.allclose(1, _np.unique([len(igeom) for igeom in geom_list])):
+            raise NotImplementedError("At the moment, when fast=True, the list can only be composed of " \
+                                      "one-framed mdTrajectories ")
+
+        xyz = []
+        unitcell_lengths = []
+        unitcell_angles = []
+        time = []
+
+        for ii, igeom in enumerate(geom_list):
+            xyz.append(igeom.xyz[0])
+            unitcell_lengths.append(igeom.unitcell_lengths[0])
+            unitcell_angles.append(igeom.unitcell_angles[0])
+            time.append(igeom.time[0])
+
+        return  _md.Trajectory(xyz, geom_list[0].top,
+                               time=time,
+                               unitcell_lengths=unitcell_lengths,
+                               unitcell_angles=unitcell_angles)
+
+    else:
+        igeom = geom_list[0]
+        # TODO: avoid joining via copy_not_join
+        for jgeom in geom_list[1:]:
+            igeom = igeom.join(jgeom)
+
+        return igeom
+
+def fast_join_geom_list_from_indexes(mdTrajectory_list, indexes):
+    r"""
+    Provided a list of trajectories and a list of file-and-frame indexes, return a single trajectory
+    composed of these file-and-frame indexes joined together
+
+    The join method of mdtraj is rather slow for this purpose, because it is not thought of as a sth
+    to be iterated over many times, whereas methods like save_traj of PyEMMA heavily rely on this
+
+    :param mdTrajectory_list: list of :mdtraj:`Trajectory` objects
+    :param indexes: iterable of file-and-frame pairs
+
+    :return: :mdtraj:`Trajectory` object
+    """
+
+    xyz = []
+    unitcell_lengths = []
+    unitcell_angles = []
+    time = []
+
+    #TODO although wrapping around "join_geom_list" with fast=True would result in less code repetition
+    # the following code allows for extracting attributes like geom.time, geom.xyz without
+    # instantiating a new geometry, resulting in significant speedup
+    for ii, (file_idx, frame_idx) in enumerate(indexes):
+        try:
+            xyz.append(mdTrajectory_list[file_idx].xyz[frame_idx])
+        except IndexError:
+            print(ii, file_idx, frame_idx, len(mdTrajectory_list), len(mdTrajectory_list[file_idx]))
+            raise
+        unitcell_lengths.append(mdTrajectory_list[file_idx].unitcell_lengths[frame_idx])
+        unitcell_angles.append(mdTrajectory_list[file_idx].unitcell_angles[frame_idx])
+        time.append(mdTrajectory_list[file_idx].time[frame_idx])
+
+    return  _md.Trajectory(xyz, mdTrajectory_list[0].top,
+                           time=time,
+                           unitcell_lengths=unitcell_lengths,
+                           unitcell_angles=unitcell_angles)
+
+
 
 def slice_list_of_geoms_to_closest_to_ref(geom_list, ref):
     r"""
@@ -1031,7 +1107,7 @@ def add_atom_idxs_widget(atom_idxs, ngl_wdg, color_list=None, radius=1):
 
     return ngl_wdg
 
-def transpose_geom_list(geom_list):
+def transpose_geom_list(geom_list, fast=False):
     r"""
     Transpose a list of md.Trajectory objects, so that an input having the frames input
     geom_list[0] = md.Trajectory with frames f00, f01, f02,..., f0M
@@ -1066,14 +1142,11 @@ def transpose_geom_list(geom_list):
         "All geometries in the list have to have the same length"
 
 
+    # Expand all geometires to a list of lists
     list_out = [[igeom[ii] for igeom in geom_list] for ii in range(n_frames_per_element)]
-    geom_list_T = []
-    for ilist in list_out:
-        igeom = ilist[0]
-        #TODO: avoid joining via copy_not_join
-        for jgeom in ilist[1:]:
-            igeom = igeom.join(jgeom)
-        geom_list_T.append(igeom)
+    print(list_out)
+    # Join them in the column order
+    geom_list_T = [join_geom_list(ilist, fast=fast) for ilist in list_out]
 
     return(geom_list_T)
 

@@ -4,12 +4,13 @@ from matplotlib.widgets import AxesWidget as _AxesWidget
 from matplotlib.colors import is_color_like as _is_color_like
 from matplotlib.axes import Axes as _mplAxes
 from matplotlib.figure import Figure as _mplFigure
+from matplotlib.patches import Rectangle as _Rectangle
 from IPython.display import display as _ipydisplay
 
 from pyemma.util.types import is_int as _is_int
 from scipy.spatial import cKDTree as _cKDTree
 
-from ._bmutils import get_ascending_coord_idx
+from ._bmutils import get_ascending_coord_idx, add_atom_idxs_widget
 
 from mdtraj import Trajectory as _mdTrajectory
 from nglview import NGLWidget as _NGLwdg
@@ -46,8 +47,6 @@ def pts_per_axis_unit(mplax, pt_per_inch=72):
     inch_per_unit = span_inch / span_units
     return inch_per_unit * pt_per_inch
 
-
-
 def update2Dlines(iline, x, y):
     """
     provide a common interface to update objects on the plot to a new position (x,y) depending
@@ -80,7 +79,6 @@ def update2Dlines(iline, x, y):
             # TODO: FIND OUT WNY EXCEPTIONS ARE NOT BEING RAISED
             raise TypeError("what is this type of 2Dline?")
 
-
 class ClickOnAxisListener(object):
     def __init__(self, ngl_wdg, crosshairs, showclick_objs, ax, pos,
                  list_mpl_objects_to_update):
@@ -91,8 +89,10 @@ class ClickOnAxisListener(object):
         self.pos = pos
         self.list_mpl_objects_to_update = list_mpl_objects_to_update
         self.list_of_dots = [None]*self.pos.shape[0]
+        self.list_of_rects = [None] * self.pos.shape[0]
         self.fig_size = self.ax.figure.get_size_inches()
         self.kdtree = None
+        self.axlims = _np.hstack((self.ax.get_xlim(), self.ax.get_ylim()))
 
     def build_tree(self):
         # Use ax.transData to compute distance in pixels
@@ -104,12 +104,35 @@ class ClickOnAxisListener(object):
     def figure_changed_size(self):
         return not _np.allclose(self.fig_size, self.ax.figure.get_size_inches())
 
+    @property
+    def axes_changed(self):
+        current_axlims = _np.hstack((self.ax.get_xlim(), self.ax.get_ylim()))
+        return not _np.allclose(current_axlims, self.axlims)
+
+    def remove_last_contacts(self):
+        try:
+            self.ngl_wdg._CtcsInWid[self.ngl_wdg._CtcsLast].hide()
+            self.list_of_rects[self.ngl_wdg._CtcsLast].remove()
+            self.list_of_rects[self.ngl_wdg._CtcsLast] = None
+        except AttributeError:
+            pass
+
     def __call__(self, event):
         # Wait for the first click or a a figsize change
         # to build the kdtree
         if self.figure_changed_size or self.kdtree is None:
             self.build_tree()
             self.fig_size = self.ax.figure.get_size_inches()
+
+        # Check axes changes (e.g. in zooming)
+        if self.axes_changed:
+            self.build_tree() # rebuild tree
+            # store new limits
+            self.axlims = _np.hstack((self.ax.get_xlim(),
+                                      self.ax.get_ylim()))
+
+            # Remove spurious contacts from the zooming-click
+            self.remove_last_contacts()
 
         # Was the click inside the bounding box?
         if self.ax.get_window_extent().contains(event.x, event.y):
@@ -122,6 +145,8 @@ class ClickOnAxisListener(object):
                 update2Dlines(idot, self.pos[index, 0], self.pos[index, 1])
 
             self.ngl_wdg.isClick = True
+
+            # The sticky cases like _CtcsInWid or _GeomsInWid are update here instead of via the mplobjects to update
             if hasattr(self.ngl_wdg, '_GeomsInWid'):
                 # We're in a sticky situation
                 if event.button == 1:
@@ -138,6 +163,29 @@ class ClickOnAxisListener(object):
                     if not self.ngl_wdg._GeomsInWid[index].is_visible() and self.list_of_dots[index] is not None:
                         self.list_of_dots[index].remove()
                         self.list_of_dots[index] = None
+
+
+            elif hasattr(self.ngl_wdg, '_CtcsInWid'):
+                if event.button == 1:
+                    self.ngl_wdg._CtcsInWid[index].show()
+                    # Plot and store the rectangle in case there wasn't
+                    if self.list_of_rects[index] is None:
+                        rectangle_padding = 0 # TODO future plans to make rectangles catch more than one ctc
+                        x, y = self.pos[index]
+                        self.list_of_rects[index] = self.ax.add_patch(_Rectangle(
+                            (x - .5 - rectangle_padding,
+                             y - .5 - rectangle_padding),  # (x,y)
+                             1 + 2 * rectangle_padding,  # width
+                             1 + 2 * rectangle_padding,  # height,
+                             fill=False,
+                             linewidth=2,
+                             edgecolor=self.ngl_wdg._CtcsInWid[index].color))
+                elif event.button in [2,3]:
+                    # Pressed left
+                    self.ngl_wdg._CtcsInWid[index].hide()
+                    if self.list_of_rects[index] is not None:
+                        self.list_of_rects[index].remove()
+                        self.list_of_rects[index] = None
             else:
                 # We're not sticky, just go to the frame
                 self.ngl_wdg.frame = index
@@ -179,8 +227,8 @@ class MolPXBox(object):
                     self.__dict__[attrname] += iarg.__dict__[attrname]
 
 def auto_append_these_mpx_attrs(iobj, *attrs):
-    r""" The attribute s name is automatically derived
-    from the attribute s type via a type:name dictionary
+    r""" The attribute's name is automatically derived
+    from the attribute's type via a type:name dictionary
 
     *attrs : any number of unnamed objects of the types in type2attrname.
              If the object type is a list, it will be flattened prior to attempting
@@ -237,6 +285,80 @@ class ChangeInNGLWidgetListener(object):
                 update2Dlines(idot, self.pos[0, 0], self.pos[0, 1])
             print("caught index error with index %s (new=%s, old=%s)" % (_idx, change["new"], change["old"]))
         #print("set xy = (%s, %s)" % (x[_idx], y[_idx]))
+
+        if hasattr(self.ngl_wdg, '_MatshowData'):
+            self.ngl_wdg._MatshowData["image"].set_data(self.ngl_wdg._MatshowData["data"][_idx])
+
+
+class ContactInNGLWidget(object):
+    r"""
+    returns an object that is aware about its own atom-indices and
+    its own representation index in the widget. It also has access to the widget itself
+    With that knowlegde, one can use the methods .show() and .hide()
+
+    param : ngl_widget, the widget upon which to superpose the contact
+    param : atom_indices, len(2), atom indices involved in this contact
+    param : contact_index, int, the index corresponding to this contact
+    """
+
+
+    def __init__(self, ngl_wdg, atom_indices, contact_index,
+                 component_to_draw_on=0,
+                 verbose=False,
+                 color=None,
+                 sequential_residues=True):
+        r"""
+
+        :param ngl_wdg:
+        :param atom_indices: iterable of len(2) with two integers (zero indexed atom indices)
+            The pair of atoms that are representative of this contact
+            When the method .show() of this class is called, a distance representation (=a line joining two atoms)
+            will be added to the :obj:`ngl_widget`.
+        :param contact_index: integer
+            The position of this contact in the contact list
+        :param component_to_draw_on:
+        :param verbose:
+        :param color:
+        """
+        assert len(atom_indices)==2, "ContactInNGLWidget takes a list with two elements as input, not len(%u)"%len(atom_indices)
+        assert [isinstance(ii, int) for ii in atom_indices], "The atom indices have to be type int"
+
+        self.atom_indices = atom_indices
+        self.ngl_wdg = ngl_wdg
+        self.contact_index = contact_index
+        self.verbose = verbose
+        self.top = self.ngl_wdg._trajlist[component_to_draw_on].trajectory.top
+        self.comp = component_to_draw_on
+        self.shown = False
+        self.color = color
+
+    def show(self):
+        if not self.shown:
+            if self.verbose:
+                print("Showing contact %s via atoms  %s"%(' '.join(['%s'%self.top.atom(ii).residue for ii in self.atom_indices]),
+                                                          ' '.join(['%s' % self.top.atom(ii) for ii in self.atom_indices])))
+
+            self.shown = True
+            add_atom_idxs_widget([self.atom_indices], self.ngl_wdg, color_list=[self.color])
+            self.ngl_wdg._CtcsLast = self.contact_index
+
+    def hide(self):
+        if self.shown:
+            #print(self.ngl_wdg._ngl_repr_dict[str(self.comp)].keys())
+            for key in self.matching_repr_keys:
+                self.ngl_wdg._remove_representation(self.comp, repr_index=int(key))
+            self.shown = False
+
+    @property
+    def matching_repr_keys(self):
+        # Given that the _ngl_repr_dict gets updated elsewhere, this is the most robust way of
+        # finding this contact's representations
+        try:
+            res = [key for key, value in self.ngl_wdg._ngl_repr_dict[str(self.comp)].items() if value["type"] == "distance"
+                and _np.allclose(_np.sort(value["params"]["atomPair"]), _np.sort(self.atom_indices))]
+        except KeyError:
+            res = []
+        return res
 
 class GeometryInNGLWidget(object):
     r"""
@@ -400,6 +522,8 @@ def link_ax_w_pos_2_nglwidget(ax, pos, ngl_wdg,
     # Are we in a sticky situation?
     if hasattr(ngl_wdg, '_GeomsInWid'):
         sticky = True
+    elif hasattr(ngl_wdg, "_CtcsInWid"):
+        pass
     else:
         assert ngl_wdg.trajectory_0.n_frames == pos.shape[0], \
             ("Mismatching frame numbers %u vs %u" % (ngl_wdg.trajectory_0.n_frames, pos.shape[0]))
@@ -462,6 +586,7 @@ def link_ax_w_pos_2_nglwidget(ax, pos, ngl_wdg,
     # Connect axes to widget
     axes_widget = _AxesWidget(ax)
     if directionality in [None, 'a2w']:
+        # TODO since zooming events also contain button_release events this will be triggered as well
         axes_widget.connect_event('button_release_event', CLA_listener)
 
     # Connect widget to axes

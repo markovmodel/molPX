@@ -10,6 +10,9 @@ from molpx import _bmutils
 import mdtraj as md
 from glob import glob
 import molpx
+from numpy.testing import assert_raises
+
+from scipy.spatial.distance import pdist as _pdist, squareform as _squareform
 
 class TestWithBPTIData(unittest.TestCase):
     r"""
@@ -29,83 +32,61 @@ class TestWithBPTIData(unittest.TestCase):
         self.Fs = self.source.get_output()
 
         self.tica = pyemma.coordinates.tica(self.source, lag=1, dim=2)
-        self.pca = pyemma.coordinates.tica(self.source, dim=2)
+        self.pca = pyemma.coordinates.pca(self.source, dim=2)
         self.Ys = self.tica.get_output()
         self.tempdir = tempfile.mkdtemp('test_molpx')
-        self.projected_files = [os.path.join(self.tempdir, 'Y.%u.npy'%ii) for ii in range(len(self.MD_trajectories))]
-        [np.save(ifile, iY) for ifile, iY in zip(self.projected_files, self.Ys)]
-        [np.savetxt(ifile.replace('.npy', '.dat'), iY) for ifile, iY in zip(self.projected_files, self.Ys)]
+        self.projected_files_npy = [os.path.join(self.tempdir, 'Y.%u.npy' % ii) for ii in range(len(self.MD_trajectories))]
+        self.projected_files_dat = [ifile.replace(".npy",".dat") for ifile in self.projected_files_npy]
+        [np.save(ifile, iY) for ifile, iY in zip(self.projected_files_npy, self.Ys)]
+        [np.savetxt(ifile.replace('.npy', '.dat'), iY) for ifile, iY in zip(self.projected_files_npy, self.Ys)]
 
     @classmethod
     def tearDownClass(self):
         shutil.rmtree(self.tempdir)
 
-class TestReadingInput(unittest.TestCase):
+class TestReadingInput(TestWithBPTIData):
 
-    def setUp(self):
-        self.MD_trajectory = os.path.join(pyemma.__path__[0],'coordinates/tests/data/bpti_mini.xtc')
-        self.MD_topology = os.path.join(pyemma.__path__[0], 'coordinates/tests/data/bpti_ca.pdb')
-        self.tempdir = tempfile.mkdtemp('test_molpx')
-        self.projected_file = os.path.join(self.tempdir,'Y.npy')
-        self.feat = pyemma.coordinates.featurizer(self.MD_topology)
-        self.feat.add_all()
-        source = pyemma.coordinates.source(self.MD_trajectory, features=self.feat)
-        self.tica = pyemma.coordinates.tica(source,lag=1, dim=2)
-        self.Y = self.tica.get_output()[0]
-        self.F = source.get_output()
-        np.save(self.projected_file,self.Y)
-        np.savetxt(self.projected_file.replace('.npy','.dat'),self.Y)
+    @classmethod
+    def setUpClass(self):
+        TestWithBPTIData.setUpClass()
 
-    def tearDown(self):
-        shutil.rmtree(self.tempdir)
+    @classmethod
+    def tearDownClass(self):
+        TestWithBPTIData.tearDownClass()
 
     def test_data_from_input_npy(self):
         # Just one string
-        assert np.allclose(self.Y, _bmutils.data_from_input(self.projected_file)[0])
+        assert np.allclose(self.Ys[0], _bmutils.data_from_input(self.projected_files_npy)[0])
         # List of one string
-        assert np.allclose(self.Y, _bmutils.data_from_input([self.projected_file])[0])
-        # List of two strings
-        Ys = _bmutils.data_from_input([self.projected_file,
-                                       self.projected_file])
-        assert np.all([np.allclose(self.Y, iY) for iY in Ys])
+        assert np.allclose(self.Ys[0], _bmutils.data_from_input([self.projected_files_npy[0]]))
+        # List of strings
+        Ys = _bmutils.data_from_input(self.projected_files_npy)
+        assert np.all([np.allclose(jY, iY) for jY, iY in zip(self.Ys, Ys)])
 
     def test_data_from_input_throws_exception(self):
-        try:
-            _bmutils.data_from_input(np.random.randn(1000))
-        except ValueError:
-            pass
+        assert_raises(ValueError, _bmutils.data_from_input, 1)
 
     def test_data_from_input_ascii(self):
         # Just one string
-        assert np.allclose(self.Y, _bmutils.data_from_input(self.projected_file.replace('.npy', '.dat'))[0])
+        assert np.allclose(self.Ys[0], _bmutils.data_from_input(self.projected_files_dat)[0])
         # List of one string
-        assert np.allclose(self.Y, _bmutils.data_from_input([self.projected_file.replace('.npy', '.dat')])[0])
-        # List of two strings
-        Ys = _bmutils.data_from_input([self.projected_file.replace('.npy', '.dat'),
-                                       self.projected_file.replace('.npy','.dat')])
-        assert np.all([np.allclose(self.Y, iY) for iY in Ys])
+        assert np.allclose(self.Ys[0], _bmutils.data_from_input([self.projected_files_dat[0]]))
+        # List of strings
+        Ys = _bmutils.data_from_input(self.projected_files_dat)
+        assert np.all([np.allclose(jY, iY) for jY, iY in zip(self.Ys, Ys)])
 
     def test_data_from_input_ndarray(self):
         # Just one ndarray
-        assert np.allclose(self.Y, _bmutils.data_from_input(self.Y)[0])
+        assert np.allclose(self.Ys[0], _bmutils.data_from_input(self.Ys[0]))
         # List of one ndarray
-        assert np.allclose(self.Y, _bmutils.data_from_input([self.Y])[0])
-        # List of two ndarray
-        Ys = _bmutils.data_from_input([self.Y,
-                                       self.Y])
-        assert np.all([np.allclose(self.Y, iY) for iY in Ys])
-
-    # Not implemented yet
-    def _test_data_from_input_ndarray_ascii_npy(self):
-        # List of everything
-        Ys = _bmutils.data_from_input([self.projected_file,
-                                       self.projected_file.replace('.npy','.dat'),
-                                       self.Y])
-        assert np.all([np.allclose(self.Y, iY) for iY in Ys])
+        assert np.allclose(self.Ys[0], _bmutils.data_from_input([self.Ys[0]])[0])
+        # Lists
+        Ys = _bmutils.data_from_input(self.Ys)
+        assert np.all([np.allclose(jY, iY) for jY,iY in zip(self.Ys, Ys)])
 
     def test_moldata_from_input(self):
         # Traj and top strings
-        moldata = _bmutils.moldata_from_input(self.MD_trajectory, MD_top=self.MD_topology)
+        moldata = _bmutils.moldata_from_input(self.MD_trajectory_files, MD_top=self.MD_topology)
         assert isinstance(moldata, _bmutils._FeatureReader)
 
         # Source object directly
@@ -113,27 +94,79 @@ class TestReadingInput(unittest.TestCase):
         assert isinstance(moldata, _bmutils._FeatureReader)
 
         # Typerror:
-        try:
-            _bmutils.moldata_from_input(11)
-        except TypeError:
-            pass
+        assert_raises(TypeError, _bmutils.moldata_from_input, 11)
 
         # List of trajectories
-        geom = md.load(self.MD_trajectory, top=self.MD_topology)
-        moldata = _bmutils.moldata_from_input(geom)
+        moldata = _bmutils.moldata_from_input(self.MD_trajectories)
         assert isinstance(moldata[0], md.Trajectory), moldata
 
     def test_assert_moldata_belong_data(self):
         # Traj vs data
-        geom = md.load(self.MD_trajectory, top=self.MD_topology)
-        _bmutils.assert_moldata_belong_data([geom], [self.Y])
+        _bmutils.assert_moldata_belong_data(self.MD_trajectories, self.Ys)
 
         # src vs data
-        moldata = _bmutils.moldata_from_input(self.MD_trajectory, MD_top=self.MD_topology)
-        _bmutils.assert_moldata_belong_data(moldata, [self.Y])
+        moldata = _bmutils.moldata_from_input(self.source, MD_top=self.MD_topology)
+
+        _bmutils.assert_moldata_belong_data(moldata, self.Ys)
+        #print(moldata, moldata.number_of_trajectories(), moldata.trajectory_lengths())
 
         # With stride
-        _bmutils.assert_moldata_belong_data([geom], [iY[::5] for iY in [self.Y]], data_stride=5)
+        _bmutils.assert_moldata_belong_data(self.MD_trajectories, [iY[::5] for iY in self.Ys], data_stride=5)
+
+class TestSaveTraj(TestWithBPTIData):
+
+    @classmethod
+    def setUpClass(self):
+        TestWithBPTIData.setUpClass()
+        self.samples = [[0, 10],
+                        [1, 20],
+                        [2, 30]]
+
+    @classmethod
+    def tearDownClass(self):
+        TestWithBPTIData.tearDownClass()
+
+
+    def test_just_works(self):
+        geoms_ref = pyemma.coordinates.save_traj(self.source, self.samples, None)
+        geoms_molpx = _bmutils.save_traj_wrapper(self.source, self.samples, None)
+        assert np.all([np.allclose(ixyz, jxyz) for ixyz, jxyz in zip(geoms_ref.xyz, geoms_molpx.xyz)])
+
+    def test_works_with_MDTrajectories(self):
+
+        geoms_ref = pyemma.coordinates.save_traj(self.source, self.samples, None)
+        geoms_molpx = _bmutils.save_traj_wrapper(self.MD_trajectories, self.samples, None)
+        assert np.all([np.allclose(ixyz, jxyz) for ixyz, jxyz in zip(geoms_ref.xyz, geoms_molpx.xyz)])
+
+    def test_works_with_MDTrajectories_with_stride(self):
+        geoms_ref = pyemma.coordinates.save_traj(self.source, self.samples, None, stride=2)
+        geoms_molpx = _bmutils.save_traj_wrapper(self.MD_trajectories, self.samples, None, stride=2)
+        assert np.all([np.allclose(ixyz, jxyz) for ixyz, jxyz in zip(geoms_ref.xyz, geoms_molpx.xyz)])
+
+    def test_raises(self):
+        assert_raises(TypeError, _bmutils.save_traj_wrapper, 1, self.samples, None)
+
+class TestCorrelations(TestWithBPTIData):
+    @classmethod
+    def setUpClass(self):
+        TestWithBPTIData.setUpClass()
+
+    @classmethod
+    def tearDownClass(self):
+        TestWithBPTIData.tearDownClass()
+
+    def test_input_types(self):
+        _bmutils.most_corr(self.tica)
+        _bmutils.most_corr(self.pca)
+        _bmutils.most_corr(self.feat)
+        _bmutils.most_corr(self.tica.feature_TIC_correlation)
+        _bmutils.most_corr(self.tica.feature_TIC_correlation, feat_name="My CustomFeature")
+
+    def test_fails(self):
+        assert_raises(TypeError, _bmutils.most_corr, "a")
+
+    def test_printing(self):
+        print(_bmutils.most_corr(self.tica))
 
     def test_most_corr_info_works(self):
         most_corr = _bmutils.most_corr(self.tica)
@@ -156,8 +189,7 @@ class TestReadingInput(unittest.TestCase):
         assert most_corr['feats'] == []
 
     def test_most_corr_info_works_with_options(self):
-        geoms = md.load(self.MD_trajectory, top=self.MD_topology)
-        most_corr = _bmutils.most_corr(self.tica, geoms=geoms)
+        most_corr = _bmutils.most_corr(self.tica, geoms=self.MD_trajectories[0])
 
         # Idxs are okay
         ref_idxs = [np.abs(self.tica.feature_TIC_correlation[:, ii]).argmax() for ii in range(self.tica.dim)]
@@ -168,15 +200,13 @@ class TestReadingInput(unittest.TestCase):
         assert np.all([rv == mcv for rv, mcv in zip(ref_corrs, most_corr['vals'])])
 
         # Check that we got the right most correlated feature trajectory
-        ref_feats = self.feat.transform(geoms)
+        ref_feats = self.feat.transform(self.MD_trajectories[0])
         ref_feats = [ref_feats[:, ii] for ii in ref_idxs]
         assert np.all(np.allclose(rv, mcv) for rv, mcv in zip(ref_feats, np.squeeze(most_corr['feats'])))
 
     def test_most_corr_info_works_with_options_and_proj_idxs(self):
-        geoms = md.load(self.MD_trajectory, top=self.MD_topology)
-
         proj_idxs = [1, 0] # the order shouldn't matter
-        corr_dict = _bmutils.most_corr(self.tica, geoms=geoms, proj_idxs=proj_idxs)
+        corr_dict = _bmutils.most_corr(self.tica, geoms=self.MD_trajectories[0], proj_idxs=proj_idxs)
 
         # Idxs are okay
         ref_idxs = [np.abs(self.tica.feature_TIC_correlation[:, ii]).argmax() for ii in proj_idxs]
@@ -192,17 +222,13 @@ class TestReadingInput(unittest.TestCase):
         assert [isinstance(istr, str) for istr in corr_dict["labels"]]
 
         # Feature values are ok
-        ref_feats = self.feat.transform(geoms)
+        ref_feats = self.feat.transform(self.MD_trajectories[0])
         ref_feats = [ref_feats[:, ii] for ii in ref_idxs]
         assert np.all(np.allclose(rv, mcv) for rv, mcv in zip(ref_feats, np.squeeze(corr_dict['feats'])))
 
     def test_most_corr_info_wrong_proj_idxs(self):
-
         proj_idxs = [1, 0, 10] # we don't have 10 TICs
-        try:
-            _bmutils.most_corr(self.tica, proj_idxs=proj_idxs)
-        except(ValueError):
-            pass #this should given this type of error
+        assert_raises(ValueError, _bmutils.most_corr, self.tica, proj_idxs=proj_idxs)
 
 
 class TestClusteringAndCatalogues(unittest.TestCase):
@@ -225,12 +251,57 @@ class TestClusteringAndCatalogues(unittest.TestCase):
 
     def test_cluster_to_target(self):
         n_target = 15
-        data = [np.random.randn(100, 1), np.random.randn(100,1)+10]
-        cl = _bmutils.regspace_cluster_to_target(data, n_target, n_try_max=10, delta=0, verbose=True)
-        assert n_target - 1 <= cl.n_clusters <= n_target + 1
+        n_tol = 1
+        data = [np.random.randn(5000, 1), np.random.randn(5000,1)+10]
+
+        # Only one iteration, just to force to go into the loop-breaking
+        cl = _bmutils.regspace_cluster_to_target_kmeans(data, n_target, k_centers=100, max_iter=1, n_tol=n_tol)
+
+        # Now the real deal
+        cl = _bmutils.regspace_cluster_to_target_kmeans(data, n_target, k_centers=100, max_iter=100, n_tol=n_tol)
+        assert n_target - n_tol <= cl.n_clusters <= n_target + n_tol, (cl.n_clusters, n_tol)
+
+    def test_regspace_from_distance_matrix(self):
+        data = np.random.rand(100, 2)
+        D = _squareform(_pdist(data))
+
+        centers = _bmutils.regspace_from_distance_matrix(D, D.mean())
+
+        # Re-compute distances, only for the centers
+        Drs = _pdist(data[centers])
+        assert Drs.min()>=D.mean(), (Drs.min(), D.mean())
+
+    def test_interval_schachtelung(self):
+
+        y = lambda x:x**2 # parabolic curve, monotically increasing between [0, +inf]
+
+        interval = [2, 500]
+        eps = .1
+
+        target_y = np.random.randint(np.ceil(y(interval[0])),
+                                    np.floor(y(interval[1])), size=1).squeeze()
+
+        x_sol = _bmutils.interval_schachtelung(y, [2, 500], target=target_y, eps=eps,
+                                               #verbose=True
+                                               )
+        assert y(x_sol)-eps <= target_y < y(x_sol)+eps, (y(x_sol)-target_y, eps)
+
+    def test_interval_schachtelung_fails(self):
+        y = lambda x:x**2 # parabolic curve, monotically increasing between [0, +inf]
+
+        interval = [2, 500]
+        eps = .1
+
+        target_y = 0 # Is not contained in [2**2, 500**2]
+
+
+        assert_raises(Exception, _bmutils.interval_schachtelung, y, [2, 500], target=target_y, eps=eps,
+                                               #verbose=True
+                                               )
+
 
     def test_catalogues(self):
-        cl = _bmutils.regspace_cluster_to_target(self.data_for_cluster, 3, n_try_max=10, delta=0)
+        cl = _bmutils.regspace_cluster_to_target_kmeans(self.data_for_cluster, 3, max_iter=10, n_tol=0)
         #print(cl.clustercenters)
         cat_idxs, cat_cont = _bmutils.catalogues(cl)
 
@@ -264,7 +335,7 @@ class TestClusteringAndCatalogues(unittest.TestCase):
                                          [13, 2]])
 
     def test_catalogues_with_data(self):
-        cl = _bmutils.regspace_cluster_to_target(self.data_for_cluster, 3, n_try_max=10, delta=0)
+        cl = _bmutils.regspace_cluster_to_target_kmeans(self.data_for_cluster, 3, max_iter=10, n_tol=0)
         #print(cl.clustercenters)
         cat_idxs, cat_cont = _bmutils.catalogues(cl, data=self.data_for_cluster)
 
@@ -299,7 +370,7 @@ class TestClusteringAndCatalogues(unittest.TestCase):
 
 
     def test_catalogues_sort_by_zero(self):
-        cl = _bmutils.regspace_cluster_to_target(self.data_for_cluster, 3, n_try_max=10, delta=0)
+        cl = _bmutils.regspace_cluster_to_target_kmeans(self.data_for_cluster, 3, max_iter=10, n_tol=0)
         cat_idxs, cat_cont = _bmutils.catalogues(cl, sort_by=0)
 
         # This test is extra, since this is a pure pyemma function
@@ -328,7 +399,7 @@ class TestClusteringAndCatalogues(unittest.TestCase):
                                          [13, 2]])
 
     def test_catalogues_sort_by_other_than_zero(self):
-        cl = _bmutils.regspace_cluster_to_target(self.data_for_cluster, 3, n_try_max=10, delta=0)
+        cl = _bmutils.regspace_cluster_to_target_kmeans(self.data_for_cluster, 3, max_iter=10, n_tol=0)
         cat_idxs, cat_cont = _bmutils.catalogues(cl, sort_by=1)
         # This test is extra, since this is a pure pyemma functions
         assert np.allclose(cat_idxs[0], [[1,0]])
@@ -390,7 +461,7 @@ class TestGetGoodStartingPoint(unittest.TestCase):
     def setUp(self):
         # The setup creates the typical, "geometries-sampled along cluster-scenario"
         n_geom_samples = 20
-        traj = md.load(os.path.join(pyemma.__path__[0],'coordinates/tests/data/bpti_ca.pdb'))
+        traj = md.load(molpx._molpxdir(join='notebooks/data/bpti-c-alpha_centered.pdb'))
         traj = traj.atom_slice([0,1,3,4]) # create a trajectory with four atoms
         # Create a fake bi-modal trajectory with a compact and an open structure
         ixyz = np.array([[0., 0., 0.],
@@ -406,17 +477,14 @@ class TestGetGoodStartingPoint(unittest.TestCase):
         z = np.random.permutation(z)
         coords[:, -1, -1] = z
         self.traj = md.Trajectory(coords, traj.top)
-        self.cl = _bmutils.regspace_cluster_to_target(self.traj.xyz[:, -1, -1], 50, n_try_max=10)
+        self.cl = _bmutils.regspace_cluster_to_target_kmeans(self.traj.xyz[:, -1, -1], 50, max_iter=10)
         self.cat_smpl = self.cl.sample_indexes_by_cluster(np.arange(self.cl.n_clusters), n_geom_samples)
         self.geom_smpl = self.traj[np.vstack(self.cat_smpl)[:,1]]
         self.geom_smpl = _bmutils.re_warp(self.geom_smpl, [n_geom_samples] * self.cl.n_clusters)
 
 
     def test_throws_exception(self):
-        try:
-            start_idx = _bmutils.get_good_starting_point(self.cl, self.geom_smpl, strategy="what?")
-        except NotImplementedError:
-            pass
+        assert_raises(NotImplementedError, _bmutils.get_good_starting_point, self.cl, self.geom_smpl, strategy="what?")
 
     # This test doesn't exactly belong here but this is the best class for now
     def test_find_centers_GMM(self):
@@ -446,7 +514,7 @@ class TestGetGoodStartingPoint(unittest.TestCase):
                                                               "around the value 15. The found starting point should be" \
                                                               "in this interval (see the setUp)"
 
-    def _test_most_pop_x_rgyr(self):
+    def test_most_pop_x_rgyr(self):
         start_idx = _bmutils.get_good_starting_point(self.cl, self.geom_smpl, strategy="most_pop_x_smallest_Rgyr")
         #print(start_idx, self.cl.clustercenters[start_idx], np.sort(self.cl.clustercenters.squeeze()))
         # TODO: figure out a good way of testing this, at the moment it just chekcs that it runs
@@ -493,8 +561,7 @@ class TestVisualPath(TestWithBPTIData):
     def setUpClass(self):
         TestWithBPTIData.setUpClass()
         n_sample = 20
-        self.cl_cont = _bmutils.regspace_cluster_to_target([ixyz[:, :2] for ixyz in self.xyz_flat], n_sample, verbose=True, n_try_max=10,
-                                                           #delta=0
+        self.cl_cont = _bmutils.regspace_cluster_to_target_kmeans([ixyz[:, :2] for ixyz in self.xyz_flat], n_sample, verbose=True, max_iter=10,
                                                            )
         self.cat_idxs, self.cat_data = _bmutils.catalogues(self.cl_cont)
         # Create the MD catalogue with pyemma
@@ -512,14 +579,8 @@ class TestVisualPath(TestWithBPTIData):
         _bmutils.visual_path(self.cat_idxs, self.cat_data, start_pos=1)
 
         # Not implemented Errors
-        try:
-            _bmutils.visual_path(self.cat_idxs, self.cat_data, start_pos="other")
-        except NotImplementedError:
-            pass
-        try:
-            _bmutils.visual_path(self.cat_idxs, self.cat_data, path_type="xxxx")
-        except NotImplementedError:
-            pass
+        assert_raises(NotImplementedError, _bmutils.visual_path, self.cat_idxs, self.cat_data, start_pos="other")
+        assert_raises(NotImplementedError, _bmutils.visual_path, self.cat_idxs, self.cat_data, path_type="xxxx")
 
 class TestMinDispPaths(unittest.TestCase):
 
@@ -567,11 +628,10 @@ class TestMinDispPaths(unittest.TestCase):
 class TestSliceListOfGeoms(unittest.TestCase):
 
     def setUp(self):
-        self.topology = os.path.join(pyemma.__path__[0],'coordinates/tests/data/bpti_ca.pdb')
+        self.topology = molpx._molpxdir(join='notebooks/data/bpti-c-alpha_centered.pdb')
         self.ref_frame = 4
-        self.MD_trajectory = md.load(os.path.join(pyemma.__path__[0],
-                                                  'coordinates/tests/data/bpti_mini.xtc'),
-                                     top=self.topology)
+        self.MD_trajectory = md.load(glob(molpx._molpxdir(join='notebooks/data/c-alpha_centered.stride.1000*xtc'))[0],
+                                          top=self.topology)
     def test_slice(self):
         geom_list = [self.MD_trajectory,
                      self.MD_trajectory[::-1]]
@@ -591,24 +651,21 @@ class TestGetAscendingCoordIdx(unittest.TestCase):
     def test_it_works(self):
         assert np.allclose([0], _bmutils.get_ascending_coord_idx(self.data[:,:-1]))
     def test_empty_no_fail(self):
-
         result = _bmutils.get_ascending_coord_idx(self.data[:,[1,2]], fail_if_empty=False)
         assert len(result)==0
     def test_empty_fail(self):
-        try:
-            _bmutils.get_ascending_coord_idx(self.data[:, 1:], fail_if_empty=True)
-        except ValueError:
-            pass
+        assert_raises(ValueError, _bmutils.get_ascending_coord_idx, self.data[:, [1,2]], fail_if_empty=True)
+
     def test_more_than_one_fails(self):
-        try:
-            _bmutils.get_ascending_coord_idx(self.data[:, :], fail_if_more_than_one=True)
-        except:
-            pass
+        assert_raises(Exception, _bmutils.get_ascending_coord_idx, self.data[:, :], fail_if_more_than_one=True)
+
+    def test_more_than_one_passes(self):
+        _bmutils.get_ascending_coord_idx(self.data[:, :], fail_if_more_than_one=False)
 
 class TestMinRmsdPaths(unittest.TestCase):
 
     def setUp(self):
-        self.topology = os.path.join(pyemma.__path__[0],'coordinates/tests/data/bpti_ca.pdb')
+        self.topology = molpx._molpxdir(join='notebooks/data/bpti-c-alpha_centered.pdb')
         self.reftraj = md.load(self.topology)
 
     def test_find_buried_best_candidate(self):
@@ -623,7 +680,11 @@ class TestMinRmsdPaths(unittest.TestCase):
         for pp, ff in enumerate(frames_where_actual_geometry_is):
             xyz[pp][ff,:,:] = self.reftraj.xyz
         # Create the path of candidates as mdtraj objects
-        path_of_candidates = [md.Trajectory(ixyz, topology=self.reftraj.top) for ixyz in xyz]
+        path_of_candidates = [md.Trajectory(ixyz, topology=self.reftraj.top,
+                                            time=[self.reftraj.time.squeeze()] * n_cands,
+                                            unitcell_angles=[self.reftraj.unitcell_angles.squeeze()] * n_cands,
+                                            unitcell_lengths=[self.reftraj.unitcell_lengths.squeeze()] * n_cands)
+                              for ixyz in xyz]
 
         # Let mirmsd_path find these frames for you
         inferred_frames = _bmutils.min_rmsd_path(self.reftraj, path_of_candidates)
@@ -664,7 +725,11 @@ class TestMinRmsdPaths(unittest.TestCase):
             xyz[pp][ff,:,:] = ref_w_sel_perturbed[pp]
 
         # Create the path of candidates as mdtraj objects
-        path_of_candidates = [md.Trajectory(ixyz, topology=self.reftraj.top) for ixyz in xyz]
+        path_of_candidates = [md.Trajectory(ixyz, topology=self.reftraj.top,
+                                            time=[self.reftraj.time.squeeze()] * n_cands,
+                                            unitcell_angles=[self.reftraj.unitcell_angles.squeeze()] * n_cands,
+                                            unitcell_lengths=[self.reftraj.unitcell_lengths.squeeze()] * n_cands)
+                              for ixyz in xyz]
 
         # PRE-TEST
         # as long as the perturbation is small,
@@ -689,7 +754,11 @@ class TestMinRmsdPaths(unittest.TestCase):
         # In the random frames, insert the intouched selection
         for pp, ff in enumerate(frames_random_w_sel_untouched):
             xyz[pp][ff,selection,:] = np.copy(self.reftraj.xyz[0,selection, :])
-        path_of_candidates = [md.Trajectory(ixyz, topology=self.reftraj.top) for ixyz in xyz]
+        path_of_candidates = [md.Trajectory(ixyz, topology=self.reftraj.top,
+                                            time=[self.reftraj.time.squeeze()] * n_cands,
+                                            unitcell_angles=[self.reftraj.unitcell_angles.squeeze()] * n_cands,
+                                            unitcell_lengths=[self.reftraj.unitcell_lengths.squeeze()] * n_cands)
+                              for ixyz in xyz]
 
         # This should still be OK, because
         # even if the selected atoms have been perturbed, the comparsion [ref+sel_per] vs [random] is robust
@@ -716,8 +785,12 @@ class TestMinRmsdPaths(unittest.TestCase):
         frames_where_actual_geometry_is = np.random.randint(0, high=n_cands, size=path_length)
         for pp, ff in enumerate(frames_where_actual_geometry_is):
             xyz[pp][ff, :, :] = self.reftraj.xyz
-        # Create the path of candidates as mdtraj objects
-        path_of_candidates = [md.Trajectory(ixyz, topology=self.reftraj.top) for ixyz in xyz]
+        # Create the path of candidates as mdtraj objects (time, unitcell angles and lengths are bogus)
+        path_of_candidates = [md.Trajectory(ixyz, topology=self.reftraj.top,
+                                            time=[self.reftraj.time.squeeze()]*n_cands,
+                                            unitcell_angles=[self.reftraj.unitcell_angles.squeeze()]*n_cands,
+                                            unitcell_lengths=[self.reftraj.unitcell_lengths.squeeze()]*n_cands)
+                              for ixyz in xyz]
 
         # Let mirmsd_path find these frames for you
         inferred_frames = _bmutils.min_rmsd_path(self.reftraj, path_of_candidates, history_aware=True)
@@ -728,7 +801,7 @@ class TestSmoothingFunctions(unittest.TestCase):
 
     def setUp(self):
         # The setup creates the typical, "geometries-sampled along cluster-scenario"
-        traj = md.load(os.path.join(pyemma.__path__[0], 'coordinates/tests/data/bpti_ca.pdb'))
+        traj = md.load(molpx._molpxdir(join='notebooks/data/bpti-c-alpha_centered.pdb'))
         traj = traj.atom_slice([0, 1])  # create a trajectory with two atoms
         # Create a fake bi-modal trajectory with a compact and an open structure
         ixyz = np.array([[10.,  20.,  30.],
@@ -741,7 +814,7 @@ class TestSmoothingFunctions(unittest.TestCase):
         pass
 
     def test_running_avg_idxs_none(self):
-        idxs, windows = _bmutils.running_avg_idxs(10, 0)
+        idxs, windows = _bmutils.running_avg_idxs(10, 0, debug=True)
         # If the running average is with radius zero, it's just a normal average
         assert np.allclose([0,1,2,3,4,5,6,7,8,9], idxs)
         assert np.all(np.allclose(ii,jj) for ii, jj in zip(([0,1,2,3,4,5,6,7,8,9], windows)))
@@ -771,14 +844,12 @@ class TestSmoothingFunctions(unittest.TestCase):
                                                             windows))
 
     def test_running_avg_idxs_too_large_window(self):
-        try:
-            idxs, windows = _bmutils.running_avg_idxs(10, 5)
-        except AssertionError:
-            pass
+        assert_raises(AssertionError, _bmutils.running_avg_idxs, 10, 5)
 
+    def test_raises_if_not_symmetric(self):
+        assert_raises(NotImplementedError, _bmutils.running_avg_idxs, 10, 5, symmetric=False)
 
     def test_smooth_geom_it_just_runs_and_gives_correct_output_type(self):
-
         # No data
         assert isinstance(_bmutils.smooth_geom(self.traj, 0), md.Trajectory)
         assert isinstance(_bmutils.smooth_geom(self.traj, 0, superpose=False), md.Trajectory)
@@ -823,7 +894,7 @@ class TestListTransposeGeomList(unittest.TestCase):
 
     def test_it(self):
         # Create a dummy topology
-        traj = md.load(os.path.join(pyemma.__path__[0], 'coordinates/tests/data/bpti_ca.pdb'))
+        traj = md.load(molpx._molpxdir(join='notebooks/data/bpti-c-alpha_centered.pdb'))
         top = traj.atom_slice([0]).top  # Single atom topology
 
         ixyz_row_0 =  [[0, 0, 0]],    [[0, 1, 0]],    [[0, 2, 0]] # 3 frames of 1 atom
@@ -849,7 +920,7 @@ class geom_list_2_geom(unittest.TestCase):
     def test_it(self):
         # Create a dummy topology
         MD_trajectory = os.path.join(pyemma.__path__[0], 'coordinates/tests/data/bpti_mini.xtc')
-        MD_topology = os.path.join(pyemma.__path__[0], 'coordinates/tests/data/bpti_ca.pdb')
+        MD_topology = molpx._molpxdir(join='notebooks/data/bpti-c-alpha_centered.pdb')
         traj = md.load(MD_trajectory, top=MD_topology)
 
         traj_list = [itraj for itraj in traj]
@@ -857,52 +928,145 @@ class geom_list_2_geom(unittest.TestCase):
 
         assert np.allclose(np.hstack([igeom.xyz for igeom in new_geom]).squeeze(), np.vstack(traj.xyz))
 
-class TestIndexFromFeatures(unittest.TestCase):
+class TestAtomIndices(unittest.TestCase):
 
     def setUp(self):
-        self.MD_topology = os.path.join(pyemma.__path__[0], 'coordinates/tests/data/bpti_ca.pdb')
-        self.feat= pyemma.coordinates.featurizer(self.MD_topology)
+        self.MD_topology = molpx._molpxdir(join='notebooks/data/bpti-c-alpha_centered.pdb')
+        self.feat = pyemma.coordinates.featurizer(self.MD_topology)
 
-        self.ang_idxs = [[ii + jj for jj in range(3)] for ii in range(self.feat.topology.n_atoms - 3)]
-        self.dih_idxs = [[ii + jj for jj in range(4)] for ii in range(self.feat.topology.n_atoms - 4)]
+        self.cartesian_input = np.arange(10)
+        self.distance_input = np.arange(10, 15)
+        self.angle_input = [[ii + jj for jj in range(3)] for ii in range(self.feat.topology.n_atoms - 3)]
+        self.dih_input = [[ii + jj for jj in range(4)] for ii in range(self.feat.topology.n_atoms - 4)]
+        self.mindist_input = [[15, 16], [16, 17], [18, 19]]
 
-        self.feat.add_all()
-        self.feat.add_distances_ca(excluded_neighbors=0)
-        self.feat.add_angles(self.ang_idxs)
-        self.feat.add_angles(self.ang_idxs, cossin=True)
-        self.feat.add_dihedrals(self.dih_idxs)
-        self.feat.add_dihedrals(self.dih_idxs, cossin=True)
+        # Add features to the featurizer and keep track of the atom indices
+        self.feat.add_selection(self.cartesian_input)
+        self.cartesian_indices = list(np.repeat(self.cartesian_input, 3))
+
+        self.feat.add_distances(self.distance_input)
+        self.distance_indices = []
+        for ii, iidx in enumerate(self.distance_input[:-1]):
+            for jidx in self.distance_input[ii + 1:]:
+                self.distance_indices.append((iidx, jidx))
+
+        self.feat.add_angles(self.angle_input)
+        self.angle_indices = self.angle_input
+
+        self.feat.add_angles(self.angle_input, cossin=True)
+        self.angle_indices_cossin = list(np.tile(self.angle_input, 2).reshape(-1, 3))
+
+        self.feat.add_dihedrals(self.dih_input)
+        self.dih_indices = self.dih_input
+
+        self.feat.add_dihedrals(self.dih_input, cossin=True)
+        self.dih_indices_cossin = list(np.tile(self.dih_input, 2).reshape(-1, 4))
+
+        self.feat.add_residue_mindist(self.mindist_input)
+        self.mindist_indices = [[_bmutils.get_repr_atom_for_residue(self.feat.topology.residue(ii)).index for ii in rpair] for rpair in self.mindist_input]
+
+        # Now put all indices in one long list:
+        self.ref =  self.cartesian_indices+\
+                    self.distance_indices+\
+                    self.angle_indices+\
+                    self.angle_indices_cossin+\
+                    self.dih_indices+\
+                    self.dih_indices_cossin+\
+                    self.mindist_indices
+
+        self.src = pyemma.coordinates.source(glob(molpx._molpxdir(join='notebooks/data/c-alpha*xtc'))[0], features=self.feat)
+        self.tica = pyemma.coordinates.tica(self.src )
+        self.pca = pyemma.coordinates.pca(self.src)
 
     def tearDown(self):
         pass
 
+    def test_put_atom_idxs_on_widget(self):
+        import nglview
+        iwd = nglview.show_file(self.MD_topology)
+        #Regular input
+        _bmutils.add_atom_idxs_widget(self.ref, iwd)
+        # Insuficient colors
+        _bmutils.add_atom_idxs_widget(self.ref, iwd, ["red"])
+        # Too many indices raises
+        assert_raises(NotImplementedError, _bmutils.add_atom_idxs_widget, [[1,2,3,4,5]], iwd)
+
+    def test_repr_atoms_from_residues(self):
+        # Use Di-Ala
+        top = md.load(molpx._molpxdir(join='notebooks/data/ala2.pdb')).top
+        # First res, ACE
+        aa = _bmutils.get_repr_atom_for_residue(top.residue(0))
+        assert aa.name=="C"
+        # Mid res, ala2
+        aa = _bmutils.get_repr_atom_for_residue(top.residue(1))
+        assert aa.name=="CA"
+        # Last res, ACE
+        aa = _bmutils.get_repr_atom_for_residue(top.residue(2))
+        assert aa.name == "C"
+
+        # Force fail
+        assert_raises(ValueError, _bmutils.get_repr_atom_for_residue, top.residue(0), cands=["CB"])
+
+    # Feature by feature
+    def test_atom_idxs_from_feature_not_recognized(self):
+        assert_raises(NotImplementedError, _bmutils.atom_idxs_from_feature, "aa")
+
     def test_atom_idxs_from_feature_xyz(self):
         ai = _bmutils.atom_idxs_from_feature(self.feat.active_features[0])
-        assert np.allclose(np.repeat(np.arange(self.feat.topology.n_atoms),3), ai)
+        assert np.allclose(self.cartesian_indices, ai)
 
-    def test_atom_idxs_from_feature_D_CA(self):
+    def test_atom_idxs_from_feature_D(self):
         ai = _bmutils.atom_idxs_from_feature(self.feat.active_features[1])
-        ref = np.vstack(np.triu_indices(self.feat.topology.n_atoms, k=1)).T
-        assert np.allclose(ref, ai),ai
+        assert np.allclose(self.distance_indices, ai),ai
 
     def test_atom_idxs_from_feature_ang(self):
         ai = _bmutils.atom_idxs_from_feature(self.feat.active_features[2])
-        assert np.allclose(self.ang_idxs, ai)
+        assert np.allclose(self.angle_indices, ai)
 
     def test_atom_idxs_from_feature_ang_cossin(self):
         ai = _bmutils.atom_idxs_from_feature(self.feat.active_features[3])
-        ref = np.tile(self.ang_idxs, 2).reshape(-1,3)
-        assert np.allclose(ai, ref)
+        assert np.allclose(ai, self.angle_indices_cossin)
 
     def test_atom_idxs_from_feature_dih(self):
         ai = _bmutils.atom_idxs_from_feature(self.feat.active_features[4])
-        assert np.allclose(self.dih_idxs, ai)
+        assert np.allclose(self.dih_indices, ai)
+
     def test_atom_idxs_from_feature_dih_cossin(self):
         ai = _bmutils.atom_idxs_from_feature(self.feat.active_features[5])
-        ref = np.tile(self.dih_idxs, 2).reshape(-1,4)
-        assert np.allclose(ref, ai)
+        assert np.allclose(self.dih_indices_cossin, ai)
+
+    def test_atom_idxs_from_feature_res_mindist(self):
+        ai = _bmutils.atom_idxs_from_feature(self.feat.active_features[6])
+        assert np.allclose(self.mindist_indices,ai)
+
+    def test_all_features_together(self):
+        ai = _bmutils.atom_idxs_from_general_input(self.feat)
+
+        assert len(ai)==self.feat.dimension()
+        assert all([np.allclose(aa, rr) for aa, rr in zip(ai, self.ref)])
+
+    # Test the general input
+    def test_general_input_just_runs(self):
+        _bmutils.atom_idxs_from_general_input(self.feat)
+        _bmutils.atom_idxs_from_general_input(self.tica)
+        _bmutils.atom_idxs_from_general_input(self.pca)
+        assert_raises(TypeError, _bmutils.atom_idxs_from_general_input, "aa")
+
+    def test_general_input_produces_the_right_indices(self):
+        ai  = _bmutils.atom_idxs_from_general_input(self.feat)
+        assert all([np.allclose(aa, rr) for aa, rr in zip(ai, self.ref)])
+        ai  = _bmutils.atom_idxs_from_general_input(self.tica)
+        assert all([np.allclose(aa, rr) for aa, rr in zip(ai, self.ref)])
+        ai = _bmutils.atom_idxs_from_general_input(self.pca)
+        assert all([np.allclose(aa, rr) for aa, rr in zip(ai, self.ref)])
+
+def test_colors():
+    _bmutils.matplotlib_colors_no_blue()
 
 class TestInputManipulationShaping(unittest.TestCase):
+
+    def test_listify_if_int(self):
+        assert isinstance(_bmutils.listify_if_int(0), list)
 
     def test_listify(self):
         input = [1,2,3,4]
@@ -942,8 +1106,11 @@ class TestInputManipulationShaping(unittest.TestCase):
         assert labels[0] == feat.describe()[0]
         assert labels[1] == feat.describe()[1]
 
+        # Raises Error
+        assert_raises(TypeError, _bmutils.labelize,1, [0,1])
+
     def test_superpose_list_of_geoms(self):
-        geom = md.load(os.path.join(pyemma.__path__[0], 'coordinates/tests/data/bpti_ca.pdb'))
+        geom = md.load(molpx._molpxdir(join='notebooks/data/bpti-c-alpha_centered.pdb'))
 
         # Nothing happens
         _bmutils.superpose_to_most_compact_in_list(False, [geom])

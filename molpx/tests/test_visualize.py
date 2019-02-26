@@ -9,7 +9,8 @@ from molpx import visualize, _bmutils
 import mdtraj as md
 import matplotlib.pyplot as plt
 import nglview
-#plt.switch_backend('Agg') # allow tests
+from numpy.testing import assert_raises
+import pyemma
 
 from .test_bmutils import TestWithBPTIData
 
@@ -33,8 +34,8 @@ class TestTrajInputs(TestWithBPTIData):
             visualize.traj(self.MD_trajectories, self.MD_topology, self.Ys, max_frames=3)
 
     def test_simplest_inputs_disk(self):
-        visualize.traj(self.MD_trajectory_files, self.MD_topology_file, self.projected_files)
-        visualize.traj(self.MD_trajectory_files, self.MD_topology_file, [ifile.replace('.npy', '.dat') for ifile in self.projected_files])
+        visualize.traj(self.MD_trajectory_files, self.MD_topology_file, self.projected_files_npy)
+        visualize.traj(self.MD_trajectory_files, self.MD_topology_file, [ifile.replace('.npy', '.dat') for ifile in self.projected_files_npy])
 
     def test_simplest_inputs_memory_and_proj(self):
         visualize.traj(self.MD_trajectories, self.MD_topology, self.Ys, projection=self.tica)
@@ -85,6 +86,40 @@ class TestTrajInputs(TestWithBPTIData):
         visualize.FES(self.metad_trajectory_files, self.ala2_topology_file, self.metad_colvar_files,
                       proj_idxs=[1,2], weights=weights)
 
+class TestFES(TestWithBPTIData):
+
+    @classmethod
+    def setUpClass(self):
+        TestWithBPTIData.setUpClass()
+
+    def test_just_works_min_input_disk(self):
+        molpx.visualize.FES(self.MD_trajectory_files,
+                            self.MD_topology_file,
+                            self.projected_files_npy)
+
+    def test_just_works_min_input_memory(self):
+        molpx.visualize.FES(self.MD_trajectories,
+                            self.MD_topology,
+                            self.Ys)
+
+    def test_overlays(self):
+        molpx.visualize.FES(self.MD_trajectories,
+                            self.MD_topology,
+                            self.Ys,
+                            n_overlays=5)
+
+    def test_1D(self):
+        molpx.visualize.FES(self.MD_trajectories,
+                            self.MD_topology,
+                            self.Ys,
+                            proj_idxs=[0])
+
+    def test_with_weigths(self):
+        weights = [np.ones(len(iY)) for iY in self.Ys]
+        molpx.visualize.FES(self.MD_trajectories,
+                            self.MD_topology,
+                            self.Ys, weights=weights)
+
 class TestNGLWidgetWrapper(unittest.TestCase):
 
     def setUp(self):
@@ -103,7 +138,6 @@ class TestNGLWidgetWrapper(unittest.TestCase):
 
 def test_colors():
     _bmutils.matplotlib_colors_no_blue()
-
 class TestSample(TestWithBPTIData):
 
     @classmethod
@@ -114,6 +148,10 @@ class TestSample(TestWithBPTIData):
         self.pos[:,0] = np.linspace(0,1,num=self.n_sample)
         self.pos[:,1] = np.random.rand(self.n_sample)
         self.geom = self.MD_trajectories[0][:self.n_sample]
+
+    @classmethod
+    def tearDownClass(self):
+        TestWithBPTIData.tearDownClass()
 
     def test_sample_not_sticky_just_works(self):
         plt.figure()
@@ -170,34 +208,6 @@ class TestSample(TestWithBPTIData):
                                     color_list=['r', 'b', 'g', 'magenta'],
                                     sticky=True)
 
-class TestFES(TestWithBPTIData):
-
-    @classmethod
-    def setUpClass(self):
-        TestWithBPTIData.setUpClass()
-
-    def test_just_works_min_input_disk(self):
-        molpx.visualize.FES(self.MD_trajectory_files,
-                            self.MD_topology_file,
-                            self.projected_files)
-
-    def test_just_works_min_input_memory(self):
-        molpx.visualize.FES(self.MD_trajectories,
-                            self.MD_topology,
-                            self.Ys)
-
-    def test_overlays(self):
-        molpx.visualize.FES(self.MD_trajectories,
-                            self.MD_topology,
-                            self.Ys,
-                            n_overlays=5)
-
-    def test_1D(self):
-        molpx.visualize.FES(self.MD_trajectories,
-                            self.MD_topology,
-                            self.Ys,
-                            proj_idxs=[0])
-
 class TestCorrelations(TestWithBPTIData):
 
     @classmethod
@@ -222,6 +232,11 @@ class TestCorrelations(TestWithBPTIData):
     def test_correlations_inputs_verbose(self):
         visualize.correlations(self.tica, verbose=True)
 
+    def test_correlations_inputs_verbose_and_widget(self):
+        visualize.correlations(self.tica,
+                               geoms=self.MD_trajectories[0],
+                               verbose=True)
+
     def test_correlations_inputs_color_list_parsing(self):
         visualize.correlations(self.tica, proj_color_list=['green'])
 
@@ -231,30 +246,120 @@ class TestCorrelations(TestWithBPTIData):
         except TypeError:
             pass
 
-class TestFeature(TestWithBPTIData):
+class TestMSM(TestWithBPTIData):
+    @classmethod
+    def setUpClass(self):
+        TestWithBPTIData.setUpClass()
+        self.cl = pyemma.coordinates.cluster_kmeans([iY[:, :2] for iY in self.Ys], 5)
+        self.iMSM = pyemma.msm.estimate_markov_model(self.cl.dtrajs, 1)
+        self.iHMM = self.iMSM.coarse_grain(3)
 
+    @classmethod
+    def tearDownClass(self):
+        TestWithBPTIData.tearDownClass()
+
+    def test_just_runs_MSM(self):
+        visualize.MSM(self.iMSM, self.MD_trajectories)
+        # More overlays
+        visualize.MSM(self.iMSM, self.MD_trajectories, n_overlays=10)
+
+    def test_just_runs_HMM(self):
+        visualize.MSM(self.iHMM, self.MD_trajectories)
+        visualize.MSM(self.iHMM, self.MD_trajectories, n_overlays=10)
+        visualize.MSM(self.iHMM, self.MD_trajectories, sharpen=True)
+
+    def test_just_runs_position_input(self):
+        visualize.MSM(self.iMSM, self.MD_trajectories, pos=self.cl.clustercenters)
+        visualize.MSM(self.iHMM, self.MD_trajectories, pos=self.cl.clustercenters)
+
+        visualize.MSM(self.iHMM, self.MD_trajectories, pos=self.cl.clustercenters, sharpen=True)
+        visualize.MSM(self.iHMM, self.MD_trajectories, pos=self.cl.clustercenters[:self.iHMM.nstates])
+        # test assert
+        assert_raises(TypeError, visualize.MSM, self.iMSM, self.MD_trajectories, pos=['a'])
+        assert_raises(AssertionError, visualize.MSM, self.iMSM, self.MD_trajectories, pos=self.cl.clustercenters[:-1])
+
+    def test_source_inputs(self):
+        visualize.MSM(self.iMSM, self.MD_trajectory_files, top=self.MD_topology_file)
+        visualize.MSM(self.iMSM, self.MD_trajectory_files, top=self.MD_topology)
+        visualize.MSM(self.iMSM, self.source)
+
+
+    def test_returns_the_right_things_MSM(self):
+        # Returning the right things should be guaranteed by all the
+        # lower-level methods, which are also unit-tested. Still, here we go
+        mpxbox = visualize.MSM(self.iMSM, self.MD_trajectories, n_overlays=3)
+        # We re-featurize, re-tic-transform, and re-cl-assign the output geoms
+        for igeoms in mpxbox.linked_mdgeoms:
+            out_assign = self.cl.assign(self.tica.transform(self.feat.transform(igeoms))[:,:2])
+            assert np.allclose(out_assign, np.arange(self.cl.n_clusters))
+
+        # Now with sticky
+        mpxbox = visualize.MSM(self.iMSM, self.MD_trajectories, n_overlays=3, sticky=True)
+        # We re-featurize, re-tic-transform, and re-cl-assign the output geoms
+        for igeoms in mpxbox.linked_mdgeoms:
+            out_assign = self.cl.assign(self.tica.transform(self.feat.transform(igeoms))[:, :2])
+            assert np.allclose(out_assign, np.arange(self.cl.n_clusters))
+
+    def test_returns_the_right_things_HMSM_sharpen(self):
+        # Returning the right things should be guaranteed by all the
+        # lower-level methods, which are also unit-tested. Still, here we go
+        mpxbox = visualize.MSM(self.iHMM, self.MD_trajectories, n_overlays=3, sharpen=True)
+        # We re-featurize, re-tic-transform, and re-cl-assign the output geoms
+        out_set = np.argmax(self.iHMM.observation_probabilities, axis=1)
+        for igeoms in mpxbox.linked_mdgeoms:
+            out_assign = self.cl.assign(self.tica.transform(self.feat.transform(igeoms))[:,:2])
+            assert np.allclose(out_assign, out_set)
+
+
+class TestFeature(TestWithBPTIData):
     @classmethod
     def setUpClass(self):
         TestWithBPTIData.setUpClass()
 
+    @classmethod
+    def tearDownClass(self):
+        TestWithBPTIData.tearDownClass()
+
     def test_feature(self):
         plt.figure()
         iwd = nglview.show_mdtraj(self.MD_trajectories[0])
-        visualize.feature(self.feat.active_features[0], iwd)
+        visualize.feature(self.feat, iwd)
 
     def test_feature_color_list(self):
         plt.figure()
         iwd = nglview.show_mdtraj(self.MD_trajectories[0])
-        visualize.feature(self.feat.active_features[0], iwd,
+        visualize.feature(self.feat, iwd,
                           idxs=[0,1],
                           color_list=['blue'])
         try:
-            visualize.feature(self.feat.active_features[0], iwd,
+            visualize.feature(self.feat, iwd,
                               idxs=[0,1],
                               color_list='blue')
         except TypeError:
             pass
 
+class Contacts(TestWithBPTIData):
+    @classmethod
+    def setUpClass(self):
+        TestWithBPTIData.setUpClass()
+        self.geom = self.MD_trajectories[0]
+        ctcs, res_idxs = md.compute_contacts(self.geom)
+        self.ctcs = md.geometry.squareform(ctcs, res_idxs)
+
+    def test_just_runs(self):
+        visualize.contacts(self.ctcs, self.geom)
+
+    def test_one_ctcframe(self):
+        # this should fail
+        try:
+            visualize.contacts(self.ctcs.mean(0), self.geom)
+        except AssertionError:
+            pass
+        # This should pass
+        visualize.contacts(self.ctcs.mean(0), self.geom, average=True)
+
+    def test_raises(self):
+        assert_raises(NotImplementedError, visualize.contacts, self.ctcs.mean(0), self.geom, average=True, residue_indices=[1,2,3])
 
 class TestBoxMe(unittest.TestCase):
 

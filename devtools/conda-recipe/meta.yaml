@@ -27,10 +27,11 @@ test:
   requires:
     - pytest-cov
     - nbval
+    - nose >= 1
   imports:
     - molpx
   commands:
-    - pytest -vv --pyargs molpx --cov=molpx --cov-report=xml --current-env --nbval-lax
+    - pytest -vv --pyargs molpx --cov=molpx --cov-report=xml --current-env --nbval-lax --duration=10
     - cp coverage.xml /tmp #  [linux]
 
 about:

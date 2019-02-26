@@ -4,12 +4,16 @@ import mdtraj as _md
 try:
     from sklearn.mixture import GaussianMixture as _GMM
 except ImportError:
+    # TODO pin sklearn version and get rid of this
     from sklearn.mixture import GMM as _GMM
+
+from scipy.spatial.distance import pdist as _pdist, squareform as _squareform
 
 # From pyemma's coordinates
 from pyemma.coordinates import \
     source as _source, \
     cluster_regspace as _cluster_regspace, \
+    cluster_kmeans as _cluster_kmeans, \
     save_traj as _save_traj
 
 # From coor.data
@@ -164,50 +168,181 @@ def re_warp(array_in, lengths):
         idxi += ll
     return warped
 
-def regspace_cluster_to_target(data, n_clusters_target,
-                               n_try_max=5, delta=5.,
-                               verbose=False):
-    r"""
-    Clusters a dataset to a target n_clusters using regspace clustering by iteratively. "
-    Work best with 1D data
+def regspace_cluster_to_target_kmeans(data, n_clusters_target,
+                                      k_centers=1000,
+                                      k_stride=50,
+                                      n_tol = 5,
+                                      max_iter=5,
+                                      verbose=False):
+    r""" Wrapper of :obj:`pyemma.coordinates.cluster_regspace` but using n_clusters (instead of dmin)
+    as a parameter.
+
+    By using a preliminary :obj:`pyemma.coordinates.cluster_kmeans`-run, a dmin value is optimized to return
+    approximately :obj:`n_clusters` clustercenters.
+
+    Parameters :
+    ------------
 
     data: ndarray or list thereof
-    n_clusters_target: int, number of clusters.
-    n_try_max: int, default is 5. Maximum number of iterations in the heuristic.
-    delta: float, defalut is 5. Percentage of n_clusters_target to consider converged.
-             Eg. n_clusters_target=100 and delta = 5 will consider any clustering between 95 and 100 clustercenters as
-             valid. Note. Note: An off-by-one in n_target_clusters is sometimes unavoidable
+        Data to be used for clustering
 
-    returns: pyemma clustering object
+    n_clusters_target: int,
+        Approximate number of regularly spaced clustercenters wanted
+
+    k_centers : int, default is 1000
+        Number of centers of the preliminary kmeans clustering. Should be between 2 and 10 times
+        larger than n_clusters
+
+    k_stride : int, default is 50
+        Stride for the preliminary kmeans clustering. This clustering is supposed to not be the bottleneck
+
+    n_tol : int, default is 5
+        Consider :obj:`n_clusters_target` \pm :obj:`n_tol` as converged
+
+    max_iter : int, default is 5
+        Will stop after :obj:`max_iter` regspace-clustering attempts regardless
+
+    Returns :
+    --------
+        cl : a :obj:`pyemma.coordinates.cluster_regspace` object with approximately :obj:n_clusters
 
     tested:True
     """
-    delta = delta/100
-    ndim = _np.vstack(data).shape[0]
-    assert ndim >= n_clusters_target, "Cannot cluster " \
-                                                      "%u datapoints on %u clustercenters. Reduce the number of target " \
-                                                      "clustercenters."%(_np.vstack(data).shape[0], n_clusters_target)
-    # Works well for connected, 1D-clustering,
-    # otherwise it's bad starting guess for dmin
-    cmax = _np.vstack(data).max()
-    cmin = _np.vstack(data).min()
-    dmin = (cmax-cmin)/(n_clusters_target+1)
 
-    err = _np.ceil(n_clusters_target*delta)
-    cl = _cluster_regspace(data, dmin=dmin, max_centers=5000)
-    for cc in range(n_try_max):
-        n_cl_now = cl.n_clusters
-        delta_cl_now = _np.abs(n_cl_now - n_clusters_target)
-        if not n_clusters_target-err <= cl.n_clusters <= n_clusters_target+err:
-            # Cheap (VERY BAD IN HIGH DIM) heuristic to get relatively close relatively quick
-            dmin = cl.dmin*cl.n_clusters/   n_clusters_target
-            cl = _cluster_regspace(data, dmin=dmin, max_centers=5000)# max_centers is given so that we never reach it (dangerous)
-        else:
+    # Listify if only one array
+    if isinstance(data, _np.ndarray):
+        data = [data]
+
+    # The parameter k_centers=1000 is just an initialization and has only impact on speed.
+    # TODO: consider hard coding it
+    # We try to catch some pathological data inputs with too little data
+    n_frames_kmeans = _np.sum([len(idata[::k_stride]) for idata in data])
+    if n_frames_kmeans< k_centers:
+        k_stride = 1
+    n_frames_kmeans = _np.sum([len(idata[::k_stride]) for idata in data])
+    k_centers = _np.min((n_frames_kmeans, k_centers))
+
+    # 1. Arrive at an approximate dmin by
+    # 1.1 Preliminary clustering
+    pre_cl = _cluster_kmeans(data, k=k_centers, stride=k_stride, init_strategy='uniform' )
+    # 1.2 Distance matrix
+    D = _squareform(_pdist(pre_cl.clustercenters))
+    # 1.3 Define the objective function to be optimized for dmin by interval_schachtelung
+    J = lambda dmin: len(regspace_from_distance_matrix(D, dmin))
+    # 1.4 Optimize for dmin on the preliminary clustercenters
+    dmin = interval_schachtelung(J, [D.min(), D.max()], target=n_clusters_target, verbose=verbose)
+    # 2. Now that we have an approximate dmin, cluster in regspace iteratively:
+    cl = _cluster_regspace(data, dmin=dmin)
+
+    ii = 0
+    while (_np.abs(cl.n_clusters-n_clusters_target) > n_tol):
+        if ii >= max_iter:
+            print("Reached max_iter %u."%ii)
             break
-        if verbose:
-            print('cl iter %u %u -> %u (Delta to target (%u +- %u): %u'%(cc, n_cl_now, cl.n_clusters,
-                                                                         n_clusters_target, err, delta_cl_now))
+        # Distance matrix
+        D = _squareform(_pdist(cl.clustercenters))
+        # Define the objective function to be optimized for dmin
+        J = lambda dmin: len(regspace_from_distance_matrix(D, dmin))
+        # Optimize, starting at the actual dmin
+        dmin = interval_schachtelung(J, [D.min(), D.max()], target=n_clusters_target, verbose=verbose)
+        cl = _cluster_regspace(data, dmin)
+        #print(ii, dmin, cl.n_clusters)
+        ii +=1
+
     return cl
+
+def interval_schachtelung(f, interval, target=0, eps=1, maxiter=1000, verbose=False):
+    r"""
+    Find the value m s.t. f(m) = target +- eps using interval optimization
+
+    :param function to be optimized
+    :param interval: iterable of len 2 with the left and right limits of input interval
+    :param target: objective
+    :param eps: convergence criterion
+    :param verbose: whether to inform of each iteration or not
+    :return: m
+
+    tested : True
+    """
+
+    left, right = interval[0], interval[1]
+    def inform(left, fl, right, fr, middle, fm, delta, eps, str0=''):
+        print(str0)
+        print('left:   %04.2f, f(left)   = %04.2f' % (left, fl))
+        print('middle: %04.2f, f(middle) = %04.2f' % (middle, fm))
+        print('right:  %04.2f, f(right)  = %04.2f' % (right, fr))
+        print('delta, eps =  %f %f, conv: %s'%(delta, eps, ~(delta >= eps)))
+        print()
+
+    middle = (left + right) / 2
+    fl, fr, fm = f(left), f(right), f(middle)
+    delta = _np.abs(fm - target)
+    if verbose:
+        inform(left, fl, right, fr, middle, fm, delta, eps, str0='Init:')
+
+    cc = 0
+    while delta >= eps and cc<maxiter:
+        middle = (left + right) / 2
+        fm = f(middle)
+        delta = _np.abs(fm - target)
+
+        if verbose:
+            inform(left, fl, right, fr, middle, fm, delta, eps, str0='Iter %u'%cc)
+
+        if fl <= target <= fm or fl >= target >= fm:
+            right, fr = middle, fm
+        elif fm <= target <= fr or fm >= target >= fr:
+            left, fl = middle, fm
+        else:
+            print(fl, target, fm, middle)
+            raise Exception("Failed while optimizing")
+        cc += 1
+    return middle
+
+
+
+def regspace_from_distance_matrix(D, dmin):
+    r""" Return the indices idxs of the rows/columns of the symmetric matrix (D[idxs,idxs] > dmin).all() == True
+
+    Can be used as an analogue to :obj:pyemma.coordinates.cluster_regpsace if all pairwise distances have been
+    recomputed
+
+
+    Parameters :
+    ------------
+
+        D: 2D np.ndarray of shape (m,m)
+            Symmetric matrix containing pairwise distances
+
+        dmin : float or int, must be > 0
+            Cutoff
+
+    Returns :
+    ---------
+
+        centers : list
+            Integers of the the rows/columns that contain distances > dmin
+
+    """
+
+    assert _np.allclose(D, D.T), "Input matrix is not symmetric"
+    assert dmin >= 0, ("dmin has to be > 0, not", dmin)
+
+    Dprime = _np.copy(D)
+    _np.fill_diagonal(Dprime, _np.inf)
+    assigned = []
+    for ii, irow in enumerate(Dprime):
+        if ii not in assigned:
+            assigned.extend(_np.argwhere(irow < dmin).flatten())
+    assigned = _np.unique(assigned)
+    centers = [ii for ii in range(Dprime.shape[0]) if ii not in assigned]
+    Dprime = Dprime[centers, :]
+    Dprime = Dprime[:, centers]
+
+    # This is the method testing itself
+    #assert Dprime.min() > dmin, (Dprime.min(), dmin)
+
+    return centers
 
 def min_disp_path(start, path_of_candidates,
                   exclude_coords=None, history_aware=False):
@@ -592,7 +727,10 @@ def save_traj_wrapper(traj_inp, indexes, outfile, top=None, stride=1, chunksize=
     Parameters
     -----------
 
-    traj_inp : :pyemma:`FeatureReader` object or :mdtraj:`Trajectory` object or list of :mdtraj:`Trajectory` objects
+    traj_inp : Can be of many types
+        :pyemma:`FeatureReader` object
+        :mdtraj:`Trajectory` object or list thereof
+        a list of strings pointing to filenames
 
     returns: see the return values of :pyemma:`save_traj`
     """
@@ -604,11 +742,23 @@ def save_traj_wrapper(traj_inp, indexes, outfile, top=None, stride=1, chunksize=
     if isinstance(traj_inp, (_FeatureReader, _FragmentedTrajectoryReader)) or _is_string(traj_inp[0]):
         geom_smpl = _save_traj(traj_inp, indexes, None, top=top, stride=stride,
                                chunksize=chunksize, image_molecules=image_molecules, verbose=verbose)
+
     elif isinstance(traj_inp[0], _md.Trajectory):
-        file_idx, frame_idx = indexes[0]
-        geom_smpl = traj_inp[file_idx][frame_idx]
-        for file_idx, frame_idx in indexes[1:]:
-            geom_smpl = geom_smpl.join(traj_inp[file_idx][frame_idx])
+        top = traj_inp[0].top
+        n_frames = len(indexes)
+        xyz = _np.zeros((n_frames, top.n_atoms, 3))
+        uc_lengths = _np.zeros((n_frames, 3))
+        uc_angles = _np.zeros((n_frames, 3))
+        time = _np.zeros(n_frames)
+        for ii, (file_idx, frame_idx) in enumerate(indexes):
+            xyz[ii, :, :] = traj_inp[file_idx].xyz[frame_idx*stride].squeeze()
+            uc_lengths[ii, :] = traj_inp[file_idx].unitcell_lengths[frame_idx*stride]
+            uc_angles[ii, :]  = traj_inp[file_idx].unitcell_angles[frame_idx*stride]
+            time[ii] = traj_inp[file_idx].time[frame_idx*stride]
+
+        geom_smpl = _md.Trajectory(xyz, top, time=time,
+                                   unitcell_lengths=uc_lengths,
+                                   unitcell_angles=uc_angles)
     else:
         raise TypeError("Cant handle input of type %s now"%(type(traj_inp[0])))
 
@@ -659,7 +809,7 @@ def get_ascending_coord_idx(pos, fail_if_empty=False, fail_if_more_than_one=Fals
     idxs = _np.argwhere(_np.all(_np.diff(pos,axis=0)>0, axis=0)).squeeze()
     if isinstance(idxs, _np.ndarray) and idxs.ndim==0:
         idxs = idxs[()]
-    elif idxs == [] and fail_if_empty:
+    elif len(idxs)==0 and fail_if_empty:
             raise ValueError('No column was found in ascending order')
 
     if _np.size(idxs) > 1:
@@ -749,10 +899,6 @@ def smooth_geom(geom, n, geom_data=None, superpose=True, symmetric=True):
         Note: you might need to re-orient this averaged geometry again
     """
 
-    # Input checking here, otherwise we're seriously in trouble
-
-
-
     # Get the indices necessary for the running average
     frame_idxs, frame_windows = running_avg_idxs(geom.n_frames, n, symmetric=symmetric)
 
@@ -769,6 +915,7 @@ def smooth_geom(geom, n, geom_data=None, superpose=True, symmetric=True):
     xyz = _np.zeros((len(frame_idxs), geom.n_atoms, 3))
     for ii, idx in enumerate(frame_idxs):
         #print(ii, idx, frame_windows[ii][n])
+        # TODO avoid casting an entire geometry (which triggers deepcopys which are time consuming) 
         if superpose:
             xyz[ii,:,:] = geom[frame_windows[ii]].superpose(geom, frame=frame_windows[ii][n]).xyz.mean(0)
         else:
@@ -899,6 +1046,8 @@ def most_corr(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_a
 
     for ii in proj_idxs:
         icorr = corr[:, ii]
+        # NaN's will screw up this argsort, so
+        icorr[_np.isnan(icorr)] = 0
         most_corr_idxs.append(_np.abs(icorr).argsort()[::-1][:n_args])
         most_corr_vals.append([icorr[jj] for jj in most_corr_idxs[-1]])
         if geoms is not None and avail_FT:
@@ -910,32 +1059,62 @@ def most_corr(correlation_input, geoms=None, proj_idxs=None, feat_name=None, n_a
             most_corr_labels.append([featurizer.describe()[jj] for jj in most_corr_idxs[-1]])
 
         if avail_FT:
-            if len(featurizer.active_features) > 1:
-                pass
-                # TODO write a warning
-            else:
-                ifeat = featurizer.active_features[0]
-                most_corr_atom_idxs.append(atom_idxs_from_feature(ifeat)[most_corr_idxs[-1]])
+            most_corr_atom_idxs.append([atom_idxs_from_general_input(featurizer)[ii] for ii in most_corr_idxs[-1]])
 
     for ii, iproj in enumerate(proj_names):
         info.append({"lines":[], "name":iproj})
         for jj, jidx in enumerate(most_corr_idxs[ii]):
             if avail_FT:
-                istr = 'Corr[%s|feat] = %2.1f for %-30s (feat nr. %u, atom idxs %s' % \
+                istr = 'Corr[%s|feat] = %2.1f || %-30s || feat nr. %u, atom idxs %s' % \
                        (iproj, most_corr_vals[ii][jj], most_corr_labels[ii][jj], jidx, most_corr_atom_idxs[ii][jj])
             else:
-                istr = 'Corr[%s|feat] = %2.1f (feat nr. %u)' % \
+                istr = 'Corr[%s|feat] = %2.1f || nfeat nr. %u' % \
                        (iproj, most_corr_vals[ii][jj],jidx)
 
             info[-1]["lines"].append(istr)
 
-    corr_dict = {'idxs': most_corr_idxs,
+    corr_dict = CorrelationDict({'idxs': most_corr_idxs,
                  'vals': most_corr_vals,
                  'labels': most_corr_labels,
                  'feats':  most_corr_feats,
                  'atom_idxs': most_corr_atom_idxs,
-                 'info':info}
+                 'info':info})
     return corr_dict
+
+class CorrelationDict(dict):
+    r""" This is just a dictionary
+    with the print method
+    rewritten to a pretty-print"""
+    def __str__(self):
+        nfeats = len(self["idxs"])
+        output = 'Correlation dictionary for %u projections\n'%nfeats
+        for ii in range(nfeats):
+            for iline in self["info"][ii]["lines"]:
+                output += ' '+iline.replace(' || ','\n  ')+'\n'
+            output+='\n'
+
+        return output
+
+def atom_idxs_from_general_input(input):
+    r"""
+    Provided with anything that has a list of ifet.active_features, return the representative
+    atom indices for each feature component
+    :param input: can be TICA, PCA, or MDfeaturizer
+    :return: list of input.dimension() with the atoms involved in each feature
+    """
+
+    if isinstance(input, (_TICA, _PCA)):
+        MDfeat = input.data_producer.featurizer
+    elif isinstance(input, _MDFeaturizer):
+        MDfeat = input
+    else:
+        raise TypeError("Sorry, input has to be of type %s, not %s" % ([_MDFeaturizer, _TICA, _PCA], type(input)))
+
+    # Get atom lists for each active feature
+    out_idxs = [atom_idxs_from_feature(jfeat) for jfeat in MDfeat.active_features]
+    # Get one single list
+    return [item for sublist in out_idxs for item in sublist]
+
 
 def atom_idxs_from_feature(ifeat):
     r"""
@@ -944,10 +1123,11 @@ def atom_idxs_from_feature(ifeat):
     Parameters
     ----------
 
-    ifeat : input feature, can be of two types:
-        a :any:`pyemma.coordinates.featurizer` (Distancefeaturizer, AngleFeaturizer etc) or
-        a :any:`pyemma.coordinates.data.featurization.featurizer.MDFeaturizer` itself, in which case the first of the
-        obj:`ifeat.active_features` will be used
+    ifeat : input featurizer:
+        a PyEMMA Feature. Accepted are
+            DistanceFeature, AngleFeature, DihedralFeature, ResidueMinDistanceFeature, and
+            SelectionFeature,
+            #TODO include link to PyEMMA objects in docstring
 
     Returns
     -------
@@ -955,18 +1135,13 @@ def atom_idxs_from_feature(ifeat):
     atom_indices : list with the atoms indices representative of this feature, whatever the feature
     """
 
-    try:
-        ifeat = ifeat.active_features[0]
-    except AttributeError:
-        pass
-
     if isinstance(ifeat, _DF) and not isinstance(ifeat, _ResMinDF):
         return ifeat.distance_indexes
     elif isinstance(ifeat, _SF):
         return _np.repeat(ifeat.indexes, 3)
     elif isinstance(ifeat, _ResMinDF):
         # Comprehend all the lists!!!!
-        return _np.vstack([[list(ifeat.top.residue(pj).atoms_by_name('CA'))[0].index for pj in pair] for pair in ifeat.contacts])
+        return _np.vstack([[get_repr_atom_for_residue(ifeat.top.residue(pj)).index for pj in pair] for pair in ifeat.contacts])
     if isinstance(ifeat, (_DihF, _AF)):
         ai = ifeat.angle_indexes
         if ifeat.cossin:
@@ -974,6 +1149,23 @@ def atom_idxs_from_feature(ifeat):
         return ai
     else:
         raise NotImplementedError('bmutils.atom_idxs_from_feature cannot interpret the atoms behind %s yet'%ifeat)
+
+def get_repr_atom_for_residue(rr, cands = ['CA','C','C1']):
+    r"""
+    Tries to return a representative atom per residue. For AAs, it is the CA,
+    then, the next atom-name in cands is looked for
+    :param rr: mdtraj-residue object
+    """
+
+    if rr.n_atoms==1:
+        return list(rr.atoms)[0]
+
+    for cc in cands:
+        out = list(rr.atoms_by_name(cc))
+        if len(out)>0:
+            return out[0]
+    if len(out)==0:
+        raise ValueError("Could not find any atoms named %s in the residue %s"%(cands, rr))
 
 def add_atom_idxs_widget(atom_idxs, ngl_wdg, color_list=None, radius=1):
     r"""
@@ -1019,15 +1211,15 @@ def add_atom_idxs_widget(atom_idxs, ngl_wdg, color_list=None, radius=1):
                     ngl_wdg.add_spacefill(selection=[iidxs], radius=radius, color=color, component=cc)
                 elif _np.ndim(iidxs)>0 and len(iidxs)==2:
                     ngl_wdg.add_distance(atom_pair=[[ii for ii in iidxs]],  # yes it has to be this way for now
-                     color=color,
-                                         #label_color='black',
-                     label_size=0,
+                                         color=color,
+                                         label_size=0,
                                          component=cc)
-                    # TODO add line thickness as **kwarg
+                    # TODO add line thickness as **kwarg, see nglview usage questions for answer
                 elif _np.ndim(iidxs) > 0 and len(iidxs) in [3,4]:
                     ngl_wdg.add_spacefill(selection=iidxs, radius=radius, color=color, component=cc)
                 else:
-                    print("Cannot represent features involving more than 5 atoms per single feature")
+                    raise NotImplementedError("Cannot represent features involving more than 5 atoms per single feature")
+
 
     return ngl_wdg
 

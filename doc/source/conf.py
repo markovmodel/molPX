@@ -49,14 +49,17 @@ MOCK_MODULES = ['mdtraj',
                 'pyemma.coordinates.data.featurization.distances',
                 'nglview',
                 'matplotlib',
+                'matplotlib.pyplot',
                 'matplotlib.widgets',
                 'matplotlib.figure',
                 'matplotlib.axes',
                 'matplotlib.cm',
+                'matplotlib.patches',
                 'matplotlib.colors',
                 'IPython.display',
                 'sklearn.mixture',
                 'scipy.spatial',
+                'scipy.spatial.distance',
                 'six.moves.urllib.request',
                 'numpy',
  # fixme: can not mock ipywidgets because of multi-inheritance within molpx
@@ -392,7 +395,7 @@ texinfo_documents = [
 intersphinx_mapping = {'pyemma': ('http://www.emma-project.org/latest/', None),
                        'matplotlib': ('http://matplotlib.org/', None),
                        'mdtraj': ('http://mdtraj.org/latest/', None),
-                       #'pylab' : ('http://matplotlib.org/api/', None),
+                       'pyplot' : ('http://matplotlib.org/api/', None),
                        'nglview' : ('http://arose.github.io/nglview/latest/', None)
 }
 
@@ -408,7 +411,7 @@ import shutil
 nbfiles = [
     '0.molPX_quick_intro_Ala2.ipynb',
     '1.molPX_and_PyEMMA_Features.ipynb',
-    '2.molPX_TICA_BPTI.ipynb',
+    '2.molPX_TICA_and_MSMs_BPTI.ipynb',
     '3.molPX_TICA_Ala2.ipynb',
     '4.molPX_metadynamics_Di-Ala.ipynb'
 ]

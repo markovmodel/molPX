@@ -77,6 +77,7 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
         proj_labels='proj',
         n_overlays=1,
         atom_selection=None,
+        verbose=False,
         **sample_kwargs):
     r"""
     Return a molecular visualization widget connected with a free energy plot.
@@ -132,9 +133,12 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
         If :obj:`MD_trajectories` is already a (list of) :obj:`mdtraj.Trajectory` objects, the atom-slicing can be
         done by the user place before calling this method.
 
+    verbose : bool, default is False
+        Be verbose while computing the FES
+
     sample_kwargs : dictionary of named arguments, optional
-        named arguments for the function :obj:`molpx.visualize.sample`. Non-expert users can safely ignore this option. Examples
-        are :obj:`superpose` or :obj:`proj_idxs`
+        named arguments for the function :obj:`molpx.visualize.sample`. Non-expert users can safely ignore this option.
+        Examples are :obj:`superpose` or :obj:`proj_idxs`
 
     Returns
     -------
@@ -148,13 +152,13 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
         information being displayed.
 
         linked_axes :
-            list with all the :obj:`pylab.Axis`-objects contained in the :obj:`widgetbox`
+            list with all the :obj:`pyplot.Axis`-objects contained in the :obj:`widgetbox`
 
         linked_ax_wdgs :
             list with all the :obj:`matplotlib.widgets.AxesWidget`objects contained in the :obj:`widgetbox`
 
         linked_figs :
-            list with all the :obj:`pylab.Figure`-objects contained in the :obj:`widgetbox`
+            list with all the :obj:`pyplot.Figure`-objects contained in the :obj:`widgetbox`
 
         linked_ngl_wdgs :
             list with all the :obj:`nglview.NGLWidget`-objects contained in the :obj:`widgetbox`
@@ -166,7 +170,7 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
             list with all the :obj:`mdtraj.Trajectory`-objects contained in the :obj:`widgetbox`
 
     """
-    from matplotlib import pylab as _plt
+    from matplotlib import pyplot as _plt
     # Prepare the overlay option
     n_overlays = _np.min([n_overlays,50])
     if n_overlays>1:
@@ -184,7 +188,8 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
                                                return_data=True,
                                                n_geom_samples=n_overlays,
                                                keep_all_samples=keep_all_samples,
-                                               proj_stride=proj_stride
+                                               proj_stride=proj_stride,
+                                               verbose=verbose
                                                )
 
     data = _np.vstack(data)
@@ -220,8 +225,6 @@ def FES(MD_trajectories, MD_top, projected_trajectories,
     _linkutils.auto_append_these_mpx_attrs(outbox, geoms, ax, _plt.gcf(), ngl_wdg, axes_wdg, data_sample)
 
     return outbox
-
-
 def _box_me(tuple_in, auto_resize=True):
     r"""
     A wrapper that tries to put in an HBox whatever it s in
@@ -238,7 +241,8 @@ def _box_me(tuple_in, auto_resize=True):
 
     :return: obj:IPywdigets.HBox:, if possible
     """
-
+    # TODO THIS IS UNUSED
+    # TODO EITHER USE IT OR REMOVE IT BEFORE RELEASING
     widgets_and_canvas = []
     size_inches = []
     for obj in tuple_in:
@@ -275,7 +279,6 @@ def _box_me(tuple_in, auto_resize=True):
 
     return _linkutils._HBox(tuple_out)
 
-
 def _plot_ND_FES(data, ax_labels, weights=None, bins=50, figsize=(4,4)):
     r""" A wrapper for pyemmas FESs plotting function that can also plot 1D
 
@@ -289,14 +292,14 @@ def _plot_ND_FES(data, ax_labels, weights=None, bins=50, figsize=(4,4)):
     Returns
     -------
 
-    ax : :obj:`pylab.Axis` object
+    ax : :obj:`pyplot.Axis` object
 
     FES_data : numpy nd.array containing the FES (only for 1D data)
 
     edges : tuple containimg the axes along which FES is to be plotted (only in the 1D case so far, else it's None)
 
     """
-    from matplotlib import pylab as _plt
+    from matplotlib import pyplot as _plt
     _plt.figure(figsize=figsize)
     ax = _plt.gca()
     idata = _np.vstack(data)
@@ -336,6 +339,7 @@ def traj(MD_trajectories,
          tunits = 'frames',
          traj_selection = None,
          projection = None,
+         input_feature_traj = None,
          n_feats = 1,
          ):
     r"""Link one or many :obj:`projected trajectories`, [Y_0(t), Y_1(t)...], with the :obj:`MD_trajectories` that
@@ -346,7 +350,6 @@ def traj(MD_trajectories,
 
     MD_trajectories : str, or list of strings with the filename(s) the the molecular dynamics (MD) trajectories.
         Any file extension that :py:obj:`mdtraj` (.xtc, .dcd etc) can read is accepted.
-
         Alternatively, a single :obj:`mdtraj.Trajectory` object or a list of them can be given as input.
 
     MD_top : str to topology filename or directly :obj:`mdtraj.Topology` object
@@ -398,16 +401,20 @@ def traj(MD_trajectories,
 
     traj_selection : None, int, iterable of ints, default is None
         Don't plot all trajectories but only few of them. The default None implies that all trajs will be plotted.
-        Note: the data used for the FES will always include all trajectories, regardless of this value
+        Note: the data used for the FES will only include these trajectories
 
     projection : object that generated the projection, default is None
         The projected coordinates may come from a variety of sources. When working with :obj:`pyemma` a number of objects
         might have generated this projection, like a
             :obj:`pyemma.coordinates.transform.TICA` or a
             :obj:`pyemma.coordinates.transform.PCA`
-        Pass this object along and observe and the features that are most correlated with the projections
+        Pass this object along and observe the features that are most correlated with the projections
         will be plotted for the active trajectory, allowing the user to establish a visual connection between the
         projected coordinate and the original features (distances, angles, contacts etc)
+        These trajectories will be re-computed by applyiing
+        :obj:`projection.transform(MD_trajectories)', unless :obj:`input_feature_traj` is parsed
+
+    input_feature_traj : TODO
 
     n_feats : int, default is 1
         If a :obj:`projection` is passed along, the first n_feats features that most correlate the
@@ -421,9 +428,9 @@ def traj(MD_trajectories,
         return _plt.gca(), _plt.gcf(), widget, geoms
 
     ax :
-        :obj:`pylab.Axis` object
+        :obj:`pyplot.Axis` object
     fig :
-        :obj:`pylab.Figure` object
+        :obj:`pyplot.Figure` object
     ngl_wdg :
         :obj:`nglview.NGLWidget`
     geoms:
@@ -431,7 +438,7 @@ def traj(MD_trajectories,
 
 
     """
-    from matplotlib import pylab as _plt
+    from matplotlib import pyplot as _plt
     smallfontsize = int(_rcParams['font.size'] / 1.5)
     proj_idxs = _bmutils.listify_if_int(proj_idxs)
 
@@ -481,17 +488,18 @@ def traj(MD_trajectories,
     for proj_counter, __ in enumerate(proj_idxs):
         ylims[0, proj_counter] = _np.min([idata[:,proj_counter].min() for idata in data])
         ylims[1, proj_counter] = _np.max([idata[:,proj_counter].max() for idata in data])
-
+    
     ylabels = _bmutils.labelize(proj_labels, proj_idxs)
 
     # Do we have usable projection information?
-    corr_dicts = [[]]*n_trajs
+    corr_dicts = [[]]*len(data)
     if projection is not None:
         corr_dicts = [_bmutils.most_corr(projection, geoms=igeom, proj_idxs=proj_idxs, n_args=n_feats)
                       for igeom in geoms]
         if corr_dicts[0]["feats"] != []:
-            colors = _bmutils.matplotlib_colors_no_blue(ncycles=int(_np.ceil(_np.max(proj_idxs)/6.))) # Hack
+            colors = _bmutils.matplotlib_colors_no_blue(ncycles=int(_np.ceil((_np.max(proj_idxs)+1)/6.))) # Hack
             colors = [colors[ii] for ii in proj_idxs]
+            #colors = ['red']*10 # for the paper, to be deleted later
         else:
             n_feats=0
     else:
@@ -626,7 +634,6 @@ def traj(MD_trajectories,
 
     return mpx_wdg_box
 
-
 def correlations(correlation_input,
                  geoms=None,
                  proj_idxs=None,
@@ -643,7 +650,7 @@ def correlations(correlation_input,
 
     correlation_input : numpy ndarray or some PyEMMA objects
 
-        if array :
+        if array : 
             (m,m) correlation matrix, with a row for each feature and a column for each projection
 
         if PyEMMA-object :
@@ -701,7 +708,8 @@ def correlations(correlation_input,
     corr_dict and ngl_wdg
 
     corr_dict :
-        Dictionary with items:
+        Dictionary containing correlation information. For an overview, just issue `print(corr_dict)`. The
+        values are stored under the following keys.
 
         idxs :
             List of length len(proj_idxs) with lists of length n_feat with the idxs of the most correlated features
@@ -761,13 +769,11 @@ def correlations(correlation_input,
         for ii, line in enumerate(corr_dict["info"]):
             print('%s is most correlated with '%(line["name"] ))
             for line in line["lines"]:
-                # TODO: this is for when tica is there but no featurizer is there
                 if widget is not None and len(corr_dict["atom_idxs"]) != 0:
                     line += ' (in %s in the widget)'%(proj_color_list[ii])
                 print(line)
 
     return corr_dict, widget
-
 
 def feature(feat,
             widget,
@@ -783,7 +789,7 @@ def feature(feat,
     ----------
 
     featurizer : py:obj:`_MDFeautrizer`
-        A PyEMMA MDFeaturizer object (either a feature or a featurizer, works with both)
+        A PyEMMA MDfeaturizer object with any number of .active_features()
 
     widget : None or nglview widget
         Provide an already existing widget to visualize the correlations on top of. This is only for expert use,
@@ -813,7 +819,7 @@ def feature(feat,
     """
 
     idxs = _bmutils.listify_if_int(idxs)
-    atom_idxs = _bmutils.atom_idxs_from_feature(feat)[idxs]
+    atom_idxs = _bmutils.atom_idxs_from_general_input(feat)[slice(*idxs)]
 
     if color_list is None:
         color_list = ['blue'] * len(idxs)
@@ -828,7 +834,6 @@ def feature(feat,
     _bmutils.add_atom_idxs_widget(atom_idxs, widget, color_list=color_list, **kwargs)
 
     return widget
-
 
 def sample(positions, geom, ax,
            plot_path=False,
@@ -931,9 +936,14 @@ def sample(positions, geom, ax,
     axes_wdg: :obj:`~matplotlib.Axes.AxesWidget`
 
     """
+    # Make a copy of the geometry, otherwise the input gets destroyed
+    if isinstance(geom, list):
+        copy_geom = [gg[:] for gg in geom]
+    elif isinstance(geom, _md.Trajectory):
+        copy_geom = geom[:]
 
     if not sticky:
-        return _sample(positions, geom, ax,
+        return _sample(positions, copy_geom, ax,
                        plot_path = plot_path,
                        clear_lines = clear_lines,
                        n_smooth = n_smooth,
@@ -944,11 +954,11 @@ def sample(positions, geom, ax,
                        **link_ax2wdg_kwargs)
     else:
 
-        if isinstance(geom, _md.Trajectory):
-            geom=[geom]
+        if isinstance(copy_geom, _md.Trajectory):
+            copy_geom=[copy_geom]
 
         # The method takes care of whatever superpose
-        geom = _bmutils.superpose_to_most_compact_in_list(superpose, geom)
+        copy_geom = _bmutils.superpose_to_most_compact_in_list(superpose, copy_geom)
 
         if color_list is None:
             sticky_colors_hex = ['Element' for ii in range(len(positions))]
@@ -964,7 +974,7 @@ def sample(positions, geom, ax,
             raise TypeError('argument color_list should be either None, "random", or a list of len(pos)=%u, '
                             'instead of type %s and len %u' % (len(positions), type(color_list), len(color_list)))
         sticky_rep = 'cartoon'
-        if geom[0].top.n_residues < 10:
+        if copy_geom[0].top.n_residues < 10:
             sticky_rep = 'ball+stick'
         if list_of_repr_dicts is None:
             list_of_repr_dicts = [{'repr_type': sticky_rep, 'selection': 'all'}]
@@ -974,7 +984,7 @@ def sample(positions, geom, ax,
         # Prepare Geometry_in_widget_list
         ngl_wdg._GeomsInWid = [_linkutils.GeometryInNGLWidget(igeom, ngl_wdg,
                                                           color_molecule_hex= cc,
-                                                          list_of_repr_dicts=list_of_repr_dicts) for igeom, cc in zip(_bmutils.transpose_geom_list(geom), sticky_colors_hex)]
+                                                          list_of_repr_dicts=list_of_repr_dicts) for igeom, cc in zip(_bmutils.transpose_geom_list(copy_geom), sticky_colors_hex)]
 
         axes_wdg = _linkutils.link_ax_w_pos_2_nglwidget(ax,
                                    positions,
@@ -985,7 +995,6 @@ def sample(positions, geom, ax,
                                    )
 
         return ngl_wdg, axes_wdg
-
 
 def _sample(positions, geoms, ax,
             plot_path=False,
@@ -1061,7 +1070,7 @@ def _sample(positions, geoms, ax,
 
     """
 
-    assert isinstance(geoms, (list, _md.Trajectory))
+    assert isinstance(geoms, (list, _md.Trajectory)), type(geoms)
 
     # Dow I need to smooth things out?
     if n_smooth > 0:
@@ -1090,7 +1099,7 @@ def _sample(positions, geoms, ax,
         [ax.lines.pop() for ii in range(len(ax.lines))]
     # Plot the path on top of it
     if plot_path:
-        ax.plot(positions[:,0], positions[:,1], '-g', lw=3)
+        ax.plot(positions[:,0], positions[:,1], '-k', lw=3)
 
     # Link the axes ngl_wdg with the ngl ngl_wdg
     axes_wdg = _linkutils.link_ax_w_pos_2_nglwidget(ax,
@@ -1114,3 +1123,269 @@ def _sample(positions, geoms, ax,
 
     return ngl_wdg, axes_wdg
 
+def contacts(contact_map, input, residue_indices=None, average=False, panelsize=4):
+    r"""
+    Return a plot of the contact map and a linked :obj:`nglview.NGLWidget`. Clicking on
+    a pixel of interest on the contact map will a) highlight that pixel and b)
+    add lines in the widget ,connecting the corresponding atoms. Also, any updates in
+    the widget's frame, via the sliding bar, will update the shown contact map (in
+     case more than one contact map was provided)
+
+    Parameters
+    ----------
+    contact_map : square nd.array or iterable thereof.
+        These square arrays contain the contact map(s)
+
+    input : :obj:`mdtraj.Trajectory` object or a list thereof.
+        An :obj:`nglview.NGLWidget` will be instantiated with this input
+
+    residue_indices : boolean or iterable of integers
+        Residue indices corresponding to the :obj:`contact_map`. If None, an array
+        (0,1,...n_residues) will be created.
+        # TODO if not None, a NotImplementedError will be raised, because the relabeling of
+        zoomable plots is not yet implemented by molpx)
+
+    average : boolean, default is False
+        Plot only the average of the contact maps provided in :obj:`contact_map`. If only one
+        such map is given, this keyword has no effect. If average is false but the
+        number of frames in :obj:`input` and :obj:`contact_map` don match, an exception is thrown.
+
+    panelsize : int, default is 4
+        The size of the figure and widget that will be outputted inside the molpxbox
+
+    Returns
+    --------
+
+    mpxbox : An :obj:`nglview.NGLWidget`
+    """
+
+    from matplotlib import pyplot as _plt
+    # Add one axis to the input if necessary
+    if _np.ndim(contact_map)==2:
+        contact_map = _np.array(contact_map, ndmin=3)
+
+    # Check that the number of frames match if no average is requested
+    if _np.ndim(contact_map)==3 and not average:
+        assert len(contact_map) == input.n_frames, "If average is False, the number of contact maps (%u) must " \
+                                                   "match the number of frames in input (%u)" % (
+                                                   len(contact_map), input.n_frames)
+    # Assert squaredness
+    assert all([ict.shape[0] == ict.shape[1] for ict in contact_map]), "The input has to be a square matrix"
+
+    # Needed arrays
+    nres = contact_map[0].shape[0]
+    positions = _np.vstack(_np.unravel_index(range(nres**2), (nres,nres))).T
+    if residue_indices is None:
+        residue_pairs = positions
+    else:
+        raise NotImplementedError("This feature is not implemented yet!")
+
+    # Create a color list
+    cmap = _get_cmap('rainbow')
+    cmap_table = _np.linspace(0, 1, len(positions))
+    sticky_colors_hex = [_rgb2hex(cmap(ii)) for ii in _np.random.permutation(cmap_table)]
+
+    # Instantiate widget
+    iwd = _nglwidget_wrapper(input)
+
+    # Do the plot
+    _plt.ioff()
+    _plt.figure(figsize=(panelsize, panelsize))
+    iax = _plt.gca()
+    # _plt.plot(positions[:,0], positions[:,1], ' ok')
+    # Make the average if wanted
+    if average:
+        iax.matshow(_np.average(contact_map, axis=0))
+    else:
+        # Monkey-Patch the matshow_data into the object
+        iwd._MatshowData = {"image" : iax.matshow(contact_map[0]),
+                            "data"  : contact_map}
+    _plt.ion()
+
+
+    # TODO: if residues is not None,
+    # TODO make sure that zooming works even if a sub-set of res_idxs is given
+    """
+    # Relabel the plot
+    for axtype in ['x', 'y']:
+        tic_idxs = [int(tl) for tl in getattr(iax, 'get_%sticks'%axtype)()[1:-1]]
+        tic_labels = ['']+['%u'%residue_idxs[ii] for ii in tic_idxs]+['']
+        getattr(iax,'set_%sticklabels'%axtype)(tic_labels)
+    """
+
+    # Monkey-Patch the ContactInNGLWidgets into the widget
+    iwd._CtcsInWid = [_linkutils.ContactInNGLWidget
+        (iwd, [_bmutils.get_repr_atom_for_residue(input.top.residue(aa)).index for aa in [ii,jj]], rp_idx,
+         #verbose=True,
+         color= sticky_colors_hex[rp_idx]
+         )
+                      for rp_idx, (ii,jj) in enumerate(residue_pairs)]
+
+    # Turn axes into a widget
+    axes_wdg = _linkutils.link_ax_w_pos_2_nglwidget(iax,
+                                                    positions,
+                                                    iwd,
+                                                    crosshairs=False,
+                                                    dot_color='None',
+                                                    #**link_ax2wdg_kwargs
+                                                    )
+
+    iwd._set_size(*['%fin' % inches for inches in iax.get_figure().get_size_inches()])
+    #iax.figure.tight_layout()
+    axes_wdg.canvas.set_window_title("Contact Map")
+    outbox = _linkutils.MolPXHBox([iwd, axes_wdg.canvas])
+    _linkutils.auto_append_these_mpx_attrs(outbox, input, iax, _plt.gcf(), iwd, axes_wdg, positions)
+
+    return outbox
+
+
+def MSM(msm_obj, traj_inp,
+        pos=None,
+        sharpen=False,
+        n_overlays=1,
+        top=None,
+        sticky=False,
+        panelsize=6,
+        **networkplot_kwargs):
+
+    r"""
+    Visualize an MSM or an HMM as a network of nodes and egdes, together with an :obj:~`nglview.NGLWidget`
+    containing representative structures of node/state. Clicking on the node will update the widget.
+
+    Parameters
+    ----------
+    msm_obj: input MSM-object
+        One of PyEMMA's MSM-objects, either a "normal" MSM (:obj:`~pyemma.msm.MaximumLikelihoodMSM`) or a hidden MSM (:obj:`~pyemma.msm.MaximumLikelihoodHMSM`)
+
+    traj_inp : trajectory input
+        Where to get the geometries from. It must be the same input with which the :obj:`msm_obj` was built.
+        No checks are done by the method as to whether this is true, i.e. *rubbish-in->rubbish-out*.
+        It can be of three different types (and lists thereof):
+
+           * filenames (for which a :obj:`top` is needed, see below)
+           * :obj:`mdtraj.Trajectory` objects
+           * a PyEMMA's :obj:`~pyemma.coordinates.data.feature_reader.FeatureReader`
+
+    pos : node positions, either None or a numpy ndarray of ndim=2
+        By default, node positions are optimized to represent connectivity
+        (see PyEMMA's :obj:`~pyemma.plots.plot_markov_model`). However, the user can override with
+        custom node-positions by passing an array as :obj:`pos`. In many cases, it is useful for that array to be
+        the clustercenter-positions with which the MSM/HMM was constructed: :obj:`pos=cl.clustercenters`.
+        The input in :obj:`pos` has to be compatible with the provided :obj:`msm_obj`, i.e. have the necessary
+        number entries. The error messages will inform about what's wrong.
+
+    sharpen : boolean, default is False,
+        This keyword only has effect for an HMM as an :obj:`input_msm`.
+        By default, the method samples from the distribution of microstate inside each macrostate, using the object's
+        :obj:`~pyemma.msm.MaximumLikelihoodHMSM.sample_by_observation_probabilities`- method. This can lead
+        to fuzzy samples where the overlay of molecular structures is not very informative.
+
+        If :obj:`sharpen` is True, only the microstate that maximizes each macrostate's probabilites
+        (i.e., its argmax) will be sampled. Produces a more *sharpened* sample,
+        which is less representative of the whole set but very representative of the most probable
+        microstate within that set.
+
+    n_overlays : int, default is 1
+        Number of structures to represent simultaneously for each node of the network
+
+    top : str or :obj:`mdtraj.Topology`, default is None
+        If the filenames in :obj:`traj_inp` need a topology, here's where you pass it along
+
+    sticky : bool, default is False
+        Behaviour of the mouseclick when clicking a node in the network.
+        If True, left click adds-structures, right-click deletes them
+
+    panelsize : int, default is 6
+        Size of the network figure, in inches. If  :obj:`pos` is provided, the panelsize will be adapted
+        slightly to match the proportions of :obj:`pos`
+
+    networkplot_kwargs : named keyword arguments for :obj:`~pyemma.plots.plot_markov_model`
+
+    Returns :
+    ---------
+
+    mpxbox : A :obj:`~molpx.linkutils.MolPXHBox`-object. It contains the :obj:`nglview.NGLWidget` and the network
+    plot. Check the :obj:`mpxbox_linked*` attributes to see what the object contains
+
+    """
+    from pyemma.msm.estimators.maximum_likelihood_hmsm import MaximumLikelihoodHMSM as _MLHMSM
+    from pyemma.msm.estimators.maximum_likelihood_msm  import MaximumLikelihoodMSM as _MLMSM
+    from pyemma.plots import plot_markov_model as _pyemma_plt_msm
+    from pyemma.util.discrete_trajectories import  sample_indexes_by_state as _sample_indexes_by_state
+    from matplotlib import pyplot as _plt
+
+    assert isinstance(msm_obj, (_MLHMSM, _MLMSM)), "Allowed input types are %s, not %s" % ((_MLHMSM, _MLMSM), type(MSM))
+
+    # Input parsing of the position object (#TODO reduce code?)
+    if pos is None:
+       pass
+    elif isinstance(pos, _np.ndarray):
+            if isinstance(msm_obj, _MLMSM):
+                assert len(pos) == msm_obj.nstates, \
+                    ("Number of input positions (%u) "
+                     "does not match number %u active states of the MSM. Try slicing the input positions with "
+                     "MSM.active_set" % (len(pos), msm_obj.nstates))
+            elif isinstance(msm_obj, _MLHMSM):
+                assert len(pos) == msm_obj.nstates or len(pos) == msm_obj.nstates_obs, \
+                    ("With the input HMSM, the input positions have to have either "
+                               "%u entries (number of coarse states in the HMSM) or %u entries (number of observed states of the HMSM). "
+                               "You have provided neither: %u" % (msm_obj.nstates, msm_obj.nstates_obs, len(pos)))
+    else:
+        raise TypeError("The object_for_positions has the wrong type %s" % type(pos))
+
+    # MSM without coarse-graining
+    if isinstance(msm_obj, _MLMSM):
+        sample_frames = _np.vstack(msm_obj.sample_by_state(n_overlays))
+
+    # HMM
+    else:
+        if sharpen:
+            active_state_indexes = msm_obj.observable_state_indexes
+            subset = _np.argmax(msm_obj.observation_probabilities, axis=1)
+            sample_frames = _np.vstack(_sample_indexes_by_state(active_state_indexes, n_overlays,
+                                                                subset=subset, replace=True))
+            # The user gave one position entry per metastable set
+            if pos is not None and len(pos)==msm_obj.nstates:
+                pass # im leaving this case for clarity, in theory it could be removed
+            # The user gave a full array of positions that matches the total number of microstates
+            # and wants the method to choose automagically the positions that match the argmax(PDF)
+            elif pos is not None and len(pos)==msm_obj.nstates_obs:
+                pos = pos[subset]
+            # Any other case has ben caught before by the above ValueErrors
+        else:
+            sample_frames = _np.vstack(msm_obj.sample_by_observation_probabilities(n_overlays))
+            # The user gave one position entry per metastable set
+            if pos is not None and len(pos)==msm_obj.nstates:
+                pass  # im leaving this case for clarity, in theory it could be removed
+            # The user gave a full array of positions that matches the total number of microstates
+            # and wants the method to wheight them using the observation probabilities
+            elif pos is not None and len(pos)==msm_obj.nstates_obs:
+                isample_pos = []
+                for idist in msm_obj.observation_probabilities:
+                    isample_pos.append(_np.average(pos, weights=idist, axis=0))
+                pos = _np.vstack(isample_pos)
+
+    sample_geoms = _bmutils.save_traj_wrapper(traj_inp, sample_frames, None, top=top)
+    sample_geoms = _bmutils.re_warp(sample_geoms, n_overlays)
+    sample_geoms = _bmutils.transpose_geom_list(sample_geoms)
+
+    _plt.ioff()
+    ifig, pos = _pyemma_plt_msm(msm_obj.P, pos=pos,
+                                **networkplot_kwargs,
+                                )
+    # Conserve the proportion of the circles in the MSM plot
+    figw, figh = ifig.get_size_inches()
+    ifig.set_size_inches((panelsize, panelsize * figh / figw))
+    iax = ifig.gca()
+
+    ngl_wdg, axes_wdg = sample(pos, sample_geoms, iax,
+                               sticky=sticky,
+                               crosshairs=False,
+                               )#, clear_lines=False, **sample_kwargs)
+    ngl_wdg._set_size(*['%fin' % inches for inches in ifig.get_size_inches()])
+    ifig.tight_layout()
+    outbox = _linkutils.MolPXHBox([ngl_wdg, ifig.canvas])
+    _linkutils.auto_append_these_mpx_attrs(outbox, sample_geoms, _plt.gca(), ifig, ngl_wdg, axes_wdg, pos)
+    _plt.ion()
+
+    return outbox
